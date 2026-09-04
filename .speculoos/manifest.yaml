@@ -1,0 +1,100 @@
+schema_version: 0.1
+project: Aloeil
+workflow: speculoos-v1
+canonical_task: p1-accessible-manual-capture
+repository:
+  upstream: null
+  fork: fr-meyer/aloeil
+  base_branch: dev
+  working_branch: null
+  default_branch: main
+status:
+  phase: planning
+  pret_a_coder: pending
+  blocker_summary:
+    - Android implementation stack must be selected before code-bearing P2 work
+publication_policy:
+  repository_visibility: public
+  license: Apache-2.0
+  data_policy: source-and-synthetic-fixtures-only
+health_data_policy:
+  real_readings_in_repository: forbidden
+  production_replica_on_openclaw_host: forbidden
+  development_data: synthetic-only
+  clinical_decision_support: forbidden
+review_policy:
+  mergeguez_review:
+    policy: primary
+    evidence_source: exact-head broker review
+  required_pr_review:
+    policy: required
+    primary:
+      - mergeguez_review
+actor_policy:
+  commit_actor: human_approved_agent_assisted
+  push_actor: franck_user_pr_author
+  pr_actor: franck_user_pr_author
+  review_actor: mergeguez_review
+  default_merge_actor: user_api
+  native_review_requires_distinct_author: true
+  exact_pr_base_head_sha_required: true
+commit_identity:
+  default_mode: human_approved_agent_assisted
+  public_email_policy: github_noreply_only
+  scan_commits: branch_since_base
+  human_author:
+    name: Franck MEYER
+    email: 26621962+fr-meyer@users.noreply.github.com
+  co_authored_by:
+    required: false
+surfaces:
+  manifest:
+    enabled: true
+    authority: canonical
+  github_issue:
+    enabled: planned
+    status: not-created
+    file: .speculoos/surfaces/github.yaml
+  github_project:
+    enabled: planned
+    status: not-created
+    file: .speculoos/surfaces/github.yaml
+  github_pull_request:
+    enabled: true
+    status: none-active
+    base_branch: dev
+    head_branch: null
+    default_branch: main
+    pull_request: null
+    head_sha: null
+  vibe_kanban:
+    enabled: planned
+    status: not-mapped
+    file: .speculoos/surfaces/vibe-kanban.yaml
+lanes:
+  codex:
+    enabled: true
+    role: bounded implementation in isolated worktrees
+  mergeguez_review:
+    enabled: true
+    role: exact-head independent review
+  user_api_merge:
+    enabled: true
+    role: merge execution after approval and review gates
+gates:
+  before_code:
+    - implementation-stack-selected
+    - synthetic-data-only-test-plan
+  before_publish:
+    - tests-pass
+    - private-data-scan-pass
+    - exact-head-review-pass
+  before_pilot:
+    - explicit-user-consent
+    - backup-and-restore-acceptance-pass
+    - accessibility-validation-pass
+current_task: p1-accessible-manual-capture
+next_tasks:
+  - p1-accessible-manual-capture
+  - p2-local-first-data-recovery
+surfaces_local_only: false

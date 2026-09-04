@@ -1,0 +1,17 @@
+surface: vibe-kanban
+status: not-mapped
+runtime:
+  mode: local-self-hosted
+  authority: workspace-managed
+  details_policy: do-not-commit-host-ports-paths-credentials-or-health-data
+project:
+  status: planned
+task:
+  status: planned
+  id: p1-accessible-manual-capture
+  speculoos_task: p1-accessible-manual-capture
+  command: null
+notes:
+  - Vibe is an optional local cockpit mirror, not canonical task truth.
+  - Repository-local Speculoos metadata remains canonical.
+  - No Vibe cloud account or credential is authorized.

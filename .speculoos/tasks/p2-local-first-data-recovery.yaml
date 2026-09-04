@@ -1,0 +1,35 @@
+id: p2-local-first-data-recovery
+title: Build local-first readings data and recovery
+summary: Implement durable on-phone storage, migrations, an outbox, honest save and backup states, and loss-resistant recovery using synthetic fixtures only.
+status: blocked
+branch: aloeil/p2-local-first-data-recovery
+base_branch: dev
+dependencies:
+  - p0-product-privacy-brief
+blockers:
+  - Select Kotlin with Jetpack Compose or Flutter before choosing framework-specific storage and test tooling.
+scope:
+  - local encrypted database and schema migrations
+  - immutable reading identifiers and sitting identifiers
+  - offline-first save and retryable outbox
+  - explicit export and restore verification
+  - conflict handling that never deletes a local row because a replica is empty or unavailable
+non_goals:
+  - production hosting, real readings, diagnosis, treatment advice, analytics, public signup, or caregiver sharing
+acceptance:
+  - Saving never waits for the network and survives process restart.
+  - Migration and restore tests prove that synthetic history is preserved.
+  - UI state distinguishes saved on phone from backup copy confirmed.
+  - An unavailable or empty replica cannot erase local records.
+write_paths:
+  - app/
+  - docs/architecture/
+  - .speculoos/tasks/p2-local-first-data-recovery.yaml
+  - .speculoos/manifest.yaml
+  - .speculoos/surfaces/github.yaml
+validation:
+  - git diff --check
+executor: codex-only
+branch_plan: create an isolated worktree from exact dev after the implementation-stack gate is resolved
+private_data_scan: required before publication
+publish_authority: operator-approved implementation go; external writes remain exact-head review gated

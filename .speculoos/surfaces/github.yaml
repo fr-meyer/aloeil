@@ -1,0 +1,23 @@
+surface: github
+status: bootstrap-planned
+repository: fr-meyer/aloeil
+url: https://github.com/fr-meyer/aloeil
+default_branch: main
+integration_branch: dev
+write_path: mergeguez-broker
+project:
+  status: not-created
+  number: null
+  url: null
+current_task:
+  id: p1-accessible-manual-capture
+  issue: null
+  pull_request: null
+  project_item: null
+  branch: aloeil/p1-accessible-manual-capture
+  status: planned
+  project_status: Todo
+notes:
+  - Repository source and synthetic fixtures are public; real readings are forbidden.
+  - Initial repository bootstrap uses the constrained Mergeguez broker.
+  - Future feature work targets dev through reviewed pull requests.

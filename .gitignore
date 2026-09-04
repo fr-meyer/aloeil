@@ -1,0 +1,25 @@
+.gradle/
+build/
+captures/
+.idea/
+*.iml
+local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+.DS_Store
+*.keystore
+google-services.json
+*.log
+.cxx/
+.externalNativeBuild/
+
+# Private or generated health-data artifacts must never be committed.
+*.csv
+*.sqlite
+*.sqlite3
+*.db
+exports/
+backups/
+private/
