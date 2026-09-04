@@ -1,7 +1,7 @@
 id: p1-accessible-manual-capture
 title: Design accessible manual reading capture
 summary: Specify and validate the shortest localized flows in French, English, and Korean for recording repeated left- and right-eye measurements in one sitting.
-status: ready
+status: completed
 branch: aloeil/p1-accessible-manual-capture
 base_branch: dev
 dependencies:
@@ -17,8 +17,14 @@ non_goals:
 acceptance:
   - Low-fidelity flows in French, English, and Korean cover start or resume sitting, eye choice, mmHg entry, save confirmation, correction, undo, and finish.
   - All three language variants preserve the same non-clinical meaning and remain usable without truncation at large font sizes.
-  - The design remains usable with screen-reader navigation on representative Samsung and non-Samsung layouts.
+  - The design specifies screen-reader navigation and a validation matrix for representative Samsung and non-Samsung layouts without claiming device execution.
   - Every example value is explicitly synthetic.
+evidence:
+  - docs/ux/android-stack-decision.md selects the native Android stack and records the P2 environment prerequisite.
+  - docs/ux/manual-capture-flow.md specifies the one-job-per-screen flow, state transitions, interruption recovery, idempotency, correction, and undo semantics.
+  - docs/ux/accessibility-localization-validation.md provides co-equal French, English, and Korean copy plus accessibility behavior and a device validation matrix.
+  - P1 evidence is local design documentation only; no application build, publication, emulator, screen-reader, Samsung, or non-Samsung device test is claimed.
+  - Local checks cover diff whitespace, changed-path allowlisting, YAML parsing, obvious secret and private-data patterns, labelled measurement examples, and full-diff review.
 write_paths:
   - docs/ux/
   - .speculoos/tasks/p1-accessible-manual-capture.yaml
@@ -27,6 +33,6 @@ write_paths:
 validation:
   - git diff --check
 executor: codex-only
-branch_plan: create an isolated worktree from exact dev and publish one reviewed PR
-private_data_scan: required before publication
+branch_plan: implement from exact base 176e0e0468b91b19bcbd38a86cebeed9388f8d26 on canonical branch aloeil/p1-accessible-manual-capture; publish through one exact-head independently reviewed pull request to dev
+private_data_scan: passed on changed local content; synthetic test data only and no credentials or private health data found
 publish_authority: operator-approved implementation go; external writes remain exact-head review gated

@@ -12,7 +12,7 @@ status:
   phase: implementation-ready
   pret_a_coder: ready
   blocker_summary:
-    - Android implementation stack must be selected before code-bearing P2 work
+    - Code-bearing P2 requires a reproducible Android SDK, JDK, and Gradle environment
 publication_policy:
   repository_visibility: public
   license: Apache-2.0
@@ -83,7 +83,6 @@ lanes:
     role: merge execution after approval and review gates
 gates:
   before_code:
-    - implementation-stack-selected
     - synthetic-data-only-test-plan
   before_publish:
     - tests-pass
@@ -93,8 +92,7 @@ gates:
     - explicit-user-consent
     - backup-and-restore-acceptance-pass
     - accessibility-validation-pass
-current_task: p1-accessible-manual-capture
+current_task: p2-local-first-data-recovery
 next_tasks:
-  - p1-accessible-manual-capture
   - p2-local-first-data-recovery
 surfaces_local_only: false
