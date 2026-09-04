@@ -4,7 +4,7 @@ Status: approved baseline in the initialized public repository. No app binary, h
 
 ## Product
 
-Aloeil is an installed Android journal for manually entered home eye-pressure readings. It is French-first and targets mainstream Android phones without vendor-specific APIs.
+Aloeil is an installed Android journal for manually entered home eye-pressure readings. French, English, and Korean are its initial supported languages. It targets mainstream Android phones without vendor-specific APIs.
 
 A sitting may contain any number of measurements for either eye. Every measurement remains its own recorded fact. History and graphs always distinguish left and right eyes and never add diagnostic zones, risk scores, or treatment guidance.
 

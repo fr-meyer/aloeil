@@ -1,6 +1,6 @@
 id: p1-accessible-manual-capture
 title: Design accessible manual reading capture
-summary: Specify and validate the shortest French-first flow for recording repeated left- and right-eye measurements in one sitting.
+summary: Specify and validate the shortest localized flows in French, English, and Korean for recording repeated left- and right-eye measurements in one sitting.
 status: ready
 branch: aloeil/p1-accessible-manual-capture
 base_branch: dev
@@ -10,12 +10,14 @@ scope:
   - one-job-per-screen entry flow
   - large touch targets and system font scaling
   - TalkBack labels, contrast, focus order, and error recovery
+  - French, English, and Korean copy with the same task order and safety meaning
   - repeated per-eye readings grouped by sitting without collapsing facts
 non_goals:
   - diagnosis, thresholds, treatment advice, device USB integration, cloud backup, or real health data
 acceptance:
-  - A French low-fidelity flow covers start or resume sitting, eye choice, mmHg entry, save confirmation, correction, undo, and finish.
-  - The design remains usable with large fonts and screen-reader navigation on representative Samsung and non-Samsung layouts.
+  - Low-fidelity flows in French, English, and Korean cover start or resume sitting, eye choice, mmHg entry, save confirmation, correction, undo, and finish.
+  - All three language variants preserve the same non-clinical meaning and remain usable without truncation at large font sizes.
+  - The design remains usable with screen-reader navigation on representative Samsung and non-Samsung layouts.
   - Every example value is explicitly synthetic.
 write_paths:
   - docs/ux/

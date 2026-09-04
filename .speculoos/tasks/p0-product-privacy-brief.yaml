@@ -10,7 +10,7 @@ scope:
   - accessible manual-entry journey
   - local-first recovery model
 acceptance:
-  - Installed Android, French-first, and mainstream-device compatibility are approved.
+  - Installed Android, French, English, and Korean as the initial supported languages, and mainstream-device compatibility are approved.
   - The phone is the working copy and offline saving never depends on a server.
   - Graphs are in MVP and remain descriptive rather than diagnostic.
   - Real readings, unsupported device scraping, diagnosis, treatment advice, and OpenClaw-hosted health data are excluded.

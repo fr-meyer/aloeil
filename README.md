@@ -6,7 +6,7 @@ It is **not** a medical device, diagnosis tool, or treatment system. It does not
 
 ## Product direction
 
-- Installed Android app, French-first, with very large touch targets
+- Installed Android app with French, English, and Korean as the initial languages, with very large touch targets
 - Several measurements per eye in one sitting
 - History and graphs that show recorded facts without diagnostic colouring or thresholds
 - The phone is the live copy; an optional encrypted replica must never be required to save
