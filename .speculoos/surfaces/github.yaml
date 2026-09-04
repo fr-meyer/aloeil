@@ -1,5 +1,5 @@
 surface: github
-status: bootstrap-planned
+status: repo-created
 repository: fr-meyer/aloeil
 url: https://github.com/fr-meyer/aloeil
 default_branch: main
@@ -15,7 +15,7 @@ current_task:
   pull_request: null
   project_item: null
   branch: aloeil/p1-accessible-manual-capture
-  status: planned
+  status: ready
   project_status: Todo
 notes:
   - Repository source and synthetic fixtures are public; real readings are forbidden.
