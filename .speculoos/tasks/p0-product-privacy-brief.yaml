@@ -18,4 +18,5 @@ evidence:
   - Product package approved before repository creation.
   - Apache-2.0 and the Aloeil name approved.
   - Implementation go approved with repository and Speculoos transition.
+  - Public repository created at https://github.com/fr-meyer/aloeil with protected main and dev branches.
 private_data_scan: passed; this metadata contains no readings or personal health data

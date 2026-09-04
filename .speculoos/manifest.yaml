@@ -9,8 +9,8 @@ repository:
   working_branch: null
   default_branch: main
 status:
-  phase: planning
-  pret_a_coder: pending
+  phase: implementation-ready
+  pret_a_coder: ready
   blocker_summary:
     - Android implementation stack must be selected before code-bearing P2 work
 publication_policy:

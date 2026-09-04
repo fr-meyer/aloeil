@@ -1,7 +1,7 @@
 id: p1-accessible-manual-capture
 title: Design accessible manual reading capture
 summary: Specify and validate the shortest French-first flow for recording repeated left- and right-eye measurements in one sitting.
-status: planned
+status: ready
 branch: aloeil/p1-accessible-manual-capture
 base_branch: dev
 dependencies:

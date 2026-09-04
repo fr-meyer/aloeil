@@ -21,7 +21,7 @@ See [the approved product and privacy baseline](docs/product-privacy-baseline.md
 
 ## Project status
 
-Repository and Speculoos baseline scaffolding. No app binary, cloud service, account, or health-data collection exists yet.
+The public repository and Speculoos baseline are initialized. P1 accessible capture design is ready; no app binary, cloud service, account, or health-data collection exists yet.
 
 ## License
 

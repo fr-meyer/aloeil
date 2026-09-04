@@ -1,6 +1,6 @@
 # Product and privacy baseline
 
-Status: approved planning baseline. No app binary, hosted service, account, or health-data collection exists yet.
+Status: approved baseline in the initialized public repository. No app binary, hosted service, account, or health-data collection exists yet.
 
 ## Product
 
