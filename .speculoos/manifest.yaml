@@ -1,18 +1,24 @@
 schema_version: 0.1
 project: Aloeil
 workflow: speculoos-v1
-canonical_task: p1-accessible-manual-capture
+canonical_task: p2-local-first-data-recovery
 repository:
   upstream: null
   fork: fr-meyer/aloeil
   base_branch: dev
-  working_branch: null
+  working_branch: aloeil/p2-github-actions-ci
   default_branch: main
 status:
-  phase: implementation-ready
+  phase: implementation-in-progress
   pret_a_coder: ready
   blocker_summary:
-    - Code-bearing P2 requires a reproducible Android SDK, JDK, and Gradle environment
+    - GitHub Actions builder approved; full Room/backup still remaining
+builder:
+  provider: github-actions
+  workflow: .github/workflows/ci.yml
+  jdk: eclipse-temurin-17-lts
+  gradle_wrapper: 8.11.1
+  emulator: forbidden-in-unit-test-workflow
 publication_policy:
   repository_visibility: public
   license: Apache-2.0

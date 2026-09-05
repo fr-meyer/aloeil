@@ -7,7 +7,7 @@ base_branch: dev
 dependencies:
   - p0-product-privacy-brief
 blockers:
-  - Select Kotlin with Jetpack Compose or Flutter before choosing framework-specific storage and test tooling.
+  - GitHub Actions builder approved; full Room/backup still remaining.
 scope:
   - local encrypted database and schema migrations
   - immutable reading identifiers and sitting identifiers
@@ -24,12 +24,22 @@ acceptance:
 write_paths:
   - app/
   - docs/architecture/
+  - .github/workflows/
+  - gradle/
+  - gradlew
+  - gradlew.bat
+  - gradle.properties
+  - settings.gradle.kts
+  - build.gradle.kts
+  - .gitignore
+  - README.md
   - .speculoos/tasks/p2-local-first-data-recovery.yaml
   - .speculoos/manifest.yaml
   - .speculoos/surfaces/github.yaml
 validation:
+  - ./gradlew --no-daemon :app:testSyntheticDebugUnitTest
   - git diff --check
 executor: codex-only
-branch_plan: create an isolated worktree from exact dev after the implementation-stack gate is resolved
+branch_plan: bootstrap the approved GitHub Actions builder from exact merged dev; full Room and backup work remains in P2
 private_data_scan: required before publication
 publish_authority: operator-approved implementation go; external writes remain exact-head review gated
