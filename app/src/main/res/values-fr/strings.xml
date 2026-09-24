@@ -57,7 +57,7 @@
     <string name="backup_confirmed">Copie de sauvegarde confirmée</string>
     <string name="error_storage">Impossible de mettre à jour la séance de saisie. Réessayez.</string>
     <string name="archive_title">Sauvegarder ou restaurer</string>
-    <string name="archive_intro">Vos mesures sont enregistrées sur ce téléphone. Vous choisissez où placer le fichier chiffré. Aucun envoi automatique.</string>
+    <string name="archive_intro">Vos mesures restent sur ce téléphone. Aloeil ne les envoie pas automatiquement. Le fournisseur de fichiers choisi peut synchroniser votre sauvegarde chiffrée.</string>
     <string name="archive_create">Créer une sauvegarde chiffrée</string>
     <string name="archive_restore">Restaurer une sauvegarde</string>
     <string name="archive_export_explain">Choisissez un mot de passe de 12 caractères ou plus. Conservez-le séparément : sans lui, le fichier ne peut pas être restauré.</string>

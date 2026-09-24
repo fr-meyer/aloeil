@@ -295,4 +295,3 @@ private fun readArchive(input: InputStream): ByteArray {
     }
     return output.toByteArray()
 }
-EOF'

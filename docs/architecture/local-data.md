@@ -21,7 +21,12 @@ contains sittings, the latest reading revisions, prior versions needed for undo,
 correction operation IDs. Version 1 archives are accepted as readings-only migration
 inputs; their missing history cannot be reconstructed. No database version has been
 released yet. The Keystore key is never exported. A user must retain the archive
-passphrase to restore it.
+passphrase to restore it. The app uses the Android document picker to let the user
+choose a file destination. It creates the encrypted archive before opening the picker,
+limits imported file size, authenticates the file, and shows reading and sitting counts
+before the user confirms an additive restore. A selected document provider may sync the
+file itself; Aloeil does not upload it in the background. Writing a file does not mark
+any reading as replica-confirmed, because a file can later be moved or deleted.
 
 Protected draft checkpoints and sitting state are stored locally; the draft payload is
 encrypted with the same Keystore key. On resume, a pending reading ID can be checked
