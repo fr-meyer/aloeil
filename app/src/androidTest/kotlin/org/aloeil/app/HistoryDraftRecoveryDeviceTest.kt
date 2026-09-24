@@ -52,8 +52,15 @@ class HistoryDraftRecoveryDeviceTest {
             fun tap(id: Int) {
                 val label = context.getString(id)
                 val target = hasText(label) and hasClickAction()
-                compose.waitUntil(timeoutMillis = 10_000) {
-                    compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
+                try {
+                    compose.waitUntil(timeoutMillis = 10_000) {
+                        compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
+                    }
+                } catch (error: Exception) {
+                    throw AssertionError(
+                        "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
+                        error,
+                    )
                 }
                 compose.onNode(target).performClick()
             }
@@ -72,9 +79,16 @@ class HistoryDraftRecoveryDeviceTest {
             tap(R.string.continue_action)
             tap(R.string.continue_action)
             tap(R.string.save_reading)
-            compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.saved_on_phone)))
-                    .fetchSemanticsNodes().isNotEmpty()
+            try {
+                compose.waitUntil(timeoutMillis = 10_000) {
+                    compose.onAllNodes(hasText(context.getString(R.string.saved_on_phone)))
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
+            } catch (error: Exception) {
+                throw AssertionError(
+                    "Expected result missing: saved_on_phone\n" + compose.onRoot().printToString().take(4000),
+                    error,
+                )
             }
             runBlocking { check(repo.all().size == 2) }
         } finally {

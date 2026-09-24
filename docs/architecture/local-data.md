@@ -20,7 +20,12 @@ Reading, sitting, and draft payloads use AES-256-GCM with an Android
 Keystore-held key. Random IDs, row counts, revision numbers, tombstone IDs,
 and retry timing remain visible as SQLite metadata. The file is not wholly
 encrypted. The app does not contain analytics, a crash reporter, or its own
-network permission.
+network permission. Android Auto Backup is disabled. Explicit backup and
+data-extraction rules exclude app files from cloud and device-to-device
+transfer, including Android 12 and later. The Android Keystore key cannot
+be exported to a new phone; a transferred database without it would be
+unreadable. Recovery on a new phone uses the user-chosen encrypted archive
+and passphrase instead.
 
 A confirmed delete transaction erases the reading, previous encrypted
 versions, correction operations, and pending outbox entries. It retains
