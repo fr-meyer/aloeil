@@ -42,10 +42,10 @@ class ArchiveBackDuringTransferDeviceTest {
                 source.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
             }
             val heldCipher = object : ReadingCipher {
-                override fun seal(plaintext: ByteArray): SealedPayload =
-                    baseCipher.seal(plaintext)
+                override fun seal(plaintext: ByteArray, aad: ByteArray): SealedPayload =
+                    baseCipher.seal(plaintext, aad)
 
-                override fun open(payload: SealedPayload): ByteArray {
+                override fun open(payload: SealedPayload, aad: ByteArray): ByteArray {
                     enteredRead.countDown()
                     check(releaseRead.await(30, TimeUnit.SECONDS))
                     error("Synthetic archive read failure")
