@@ -75,6 +75,7 @@
     <string name="archive_confirm_restore">Restaurer les mesures</string>
     <string name="archive_restore_done">Restauration terminée</string>
     <string name="archive_added">%1$d nouvelles mesures ajoutées. Les mesures existantes ont été conservées.</string>
+    <string name="archive_passphrase_long">Utilisez au maximum 1 024 caractères pour le mot de passe de sauvegarde.</string>
     <string name="archive_passphrase_short">Utilisez au moins 12 caractères pour le mot de passe de sauvegarde.</string>
     <string name="archive_reenter_passphrase">Saisissez de nouveau votre mot de passe pour continuer avec le fichier sélectionné. Aucune mesure n’a été transférée.</string>
     <string name="archive_write_selected_file">Enregistrer dans le fichier choisi</string>

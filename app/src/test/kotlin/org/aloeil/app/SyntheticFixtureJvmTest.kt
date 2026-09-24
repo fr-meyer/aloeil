@@ -67,6 +67,12 @@ object SyntheticFixtureJvmTest {
             versions = listOf(ArchivedVersion(corrected.id, 1, priorPayload)),
             operations = listOf(ArchivedOperation("synthetic-operation-1", corrected.id, 2)),
         )
+        check(runCatching {
+            ArchiveCodec.encode(bundle, "short".toCharArray())
+        }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(bundle, "x".repeat(ArchiveCodec.MAX_PASSPHRASE_LENGTH + 1).toCharArray())
+        }.isFailure)
         val archive = ArchiveCodec.encode(bundle, passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == bundle)
         // Fixed synthetic v2 archive preserves the prior revision and operation ID.

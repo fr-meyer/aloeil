@@ -76,6 +76,7 @@
     <string name="archive_confirm_restore">Restore readings</string>
     <string name="archive_restore_done">Restore complete</string>
     <string name="archive_added">%1$d new readings added. Existing readings were kept.</string>
+    <string name="archive_passphrase_long">Use no more than 1,024 characters for the backup passphrase.</string>
     <string name="archive_passphrase_short">Use at least 12 characters for the backup passphrase.</string>
     <string name="archive_reenter_passphrase">Enter your passphrase again to continue with the selected file. No readings were transferred.</string>
     <string name="archive_write_selected_file">Write selected backup file</string>
