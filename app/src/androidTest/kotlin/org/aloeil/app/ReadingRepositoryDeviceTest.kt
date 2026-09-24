@@ -53,7 +53,7 @@ class ReadingRepositoryDeviceTest {
     }
 
     private fun repository(database: ReadingDatabase = db): ReadingRepository =
-        ReadingRepository(database.readings(), cipher) { time }
+        ReadingRepository(database.readings(), cipher, { "UTC" }, { time })
 
     @Test
     fun saveAndRetryKeepOneReadingAndOneOutboxRow() = runBlocking {
@@ -293,6 +293,59 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun olderCompatibleArchiveAddsMissingReadingWithoutRollingBackLocalCorrection() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = repository(sourceDb)
+            source.startSitting("shared-sitting")
+            source.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+            source.record("missing-reading", "shared-sitting", Eye.RIGHT, "15.4")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("shared-sitting")
+        val original = local.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+        val corrected = local.correct(
+            "local-correction", original.id, original.revision, Eye.RIGHT, "14.2",
+        )!!
+        check(local.finishSitting("shared-sitting"))
+
+        check(local.importArchive(archive, passphrase) == 1)
+        check(local.importArchive(archive, passphrase) == 0)
+        val readings = local.all().associateBy { it.id }
+        check(readings["shared-reading"] == corrected)
+        check(readings["missing-reading"]?.value == "15.4")
+        check(local.openSitting() == null)
+        check(db.readings().operationsForReading(original.id).single().id == "local-correction")
+    }
+
+    @Test
+    fun newerCompatibleArchiveAddsMissingReadingWithoutOverwritingPhone() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = repository(sourceDb)
+            source.startSitting("shared-sitting")
+            val original = source.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+            source.record("missing-reading", "shared-sitting", Eye.RIGHT, "15.4")
+            source.correct("archived-correction", original.id, 1, Eye.RIGHT, "14.2")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("shared-sitting")
+        val retained = local.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+
+        check(local.importArchive(archive, passphrase) == 1)
+        val readings = local.all().associateBy { it.id }
+        check(readings["shared-reading"] == retained)
+        check(readings["missing-reading"]?.value == "15.4")
+        check(db.readings().operationsForReading(retained.id).isEmpty())
+    }
+
+    @Test
     fun deletionErasesContentAndOlderBackupCannotResurrectIt() = runBlocking {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
@@ -383,7 +436,7 @@ class ReadingRepositoryDeviceTest {
             legacy.close()
         }
         val migrated = Room.databaseBuilder(context, ReadingDatabase::class.java, name)
-            .addMigrations(ReadingDatabase.MIGRATION_1_2).build()
+            .addMigrations(ReadingDatabase.MIGRATION_1_2, ReadingDatabase.MIGRATION_2_3).build()
         try {
             val reading = migrated.readings().allReadings().single()
             check(reading.id == "synthetic-reading" && reading.revision == 2L)
@@ -398,9 +451,49 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun versionTwoMigrationRemovesPlaintextDeletionTime() = runBlocking {
+        val name = "synthetic-tombstone-migration-" + UUID.randomUUID() + ".db"
+        val file = context.getDatabasePath(name)
+        file.parentFile?.mkdirs()
+        val legacy = SQLiteDatabase.openOrCreateDatabase(file, null)
+        try {
+            legacy.execSQL("CREATE TABLE `readings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, `revision` INTEGER NOT NULL, `replicaConfirmedRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `outbox` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `attemptCount` INTEGER NOT NULL, `nextAttemptAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE INDEX `index_outbox_readingId` ON `outbox` (`readingId`)")
+            legacy.execSQL("CREATE TABLE `sittings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `draft_checkpoint` (`id` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `reading_versions` (`readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`readingId`, `revision`))")
+            legacy.execSQL("CREATE TABLE `correction_operations` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `resultingRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `deleted_readings` (`id` TEXT NOT NULL, `deletedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL(
+                "INSERT INTO `deleted_readings` VALUES (?, ?)",
+                arrayOf("synthetic-deleted", time),
+            )
+            legacy.version = 2
+        } finally {
+            legacy.close()
+        }
+        val migrated = Room.databaseBuilder(context, ReadingDatabase::class.java, name)
+            .addMigrations(ReadingDatabase.MIGRATION_2_3).build()
+        try {
+            check(migrated.readings().allDeletedReadings().single().id == "synthetic-deleted")
+            val columns = migrated.openHelper.readableDatabase
+                .query("PRAGMA table_info(`deleted_readings`)").use { cursor ->
+                    buildList {
+                        while (cursor.moveToNext()) add(cursor.getString(1))
+                    }
+                }
+            check(columns == listOf("id"))
+        } finally {
+            migrated.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
     fun backwardClockCannotMakeLocalSittingUnexportable() = runBlocking {
         var clock = time
-        val repo = ReadingRepository(db.readings(), cipher) { clock }
+        val repo = ReadingRepository(db.readings(), cipher, { "UTC" }, { clock })
         repo.startSitting("synthetic-sitting")
         repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
         clock = time - 60_000

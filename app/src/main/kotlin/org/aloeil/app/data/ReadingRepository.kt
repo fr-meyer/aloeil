@@ -329,7 +329,7 @@ class ReadingRepository(
     /** Erase encrypted content and correction history; retain only an ID tombstone. */
     suspend fun deleteReading(id: String, expectedRevision: Long): Boolean {
         require(id.isNotBlank() && expectedRevision > 0)
-        return dao.deleteReading(id, expectedRevision, now())
+        return dao.deleteReading(id, expectedRevision)
     }
 
     suspend fun dueForReplica(): List<OutboxRow> = dao.dueOutbox(now())

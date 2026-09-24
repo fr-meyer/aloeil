@@ -60,7 +60,6 @@ data class ReadingVersionRow(
 @Entity(tableName = "deleted_readings")
 data class DeletedReadingRow(
     @PrimaryKey val id: String,
-    val deletedAtMillis: Long,
 )
 
 @Entity(tableName = "correction_operations")
@@ -172,10 +171,10 @@ interface ReadingDao {
     suspend fun removeOperations(id: String)
 
     @Transaction
-    suspend fun deleteReading(id: String, expectedRevision: Long, deletedAtMillis: Long): Boolean {
+    suspend fun deleteReading(id: String, expectedRevision: Long): Boolean {
         val current = reading(id) ?: return deletedReading(id) != null
         if (current.revision != expectedRevision) return false
-        insertDeleted(DeletedReadingRow(id, deletedAtMillis))
+        insertDeleted(DeletedReadingRow(id))
         removeStaleOutbox(id)
         removeVersions(id)
         removeOperations(id)
@@ -285,7 +284,13 @@ interface ReadingDao {
                     existing.id,
                     cipher.open(SealedPayload(existing.nonce, existing.ciphertext)),
                 )
-                require(decoded == expected) { "Conflicting sitting ID in archive" }
+                // A sitting may have been finished after the backup was made (or vice versa).
+                // Preserve this phone's state when the shared start is identical.
+                require(decoded.id == expected.id &&
+                    decoded.startedAtMillis == expected.startedAtMillis &&
+                    (decoded.finishedAtMillis == expected.finishedAtMillis ||
+                        decoded.finishedAtMillis == null || expected.finishedAtMillis == null)
+                ) { "Conflicting sitting ID in archive" }
             }
         }
         val versionsByReading = versions.groupBy { it.readingId }
@@ -297,9 +302,6 @@ interface ReadingDao {
             val currentPayload = ReadingPayloadCodec.decode(
                 cipher.open(SealedPayload(existing.nonce, existing.ciphertext)),
             )
-            require(existing.revision == expected.revision && currentPayload == expected.asPayload()) {
-                "Conflicting reading ID in archive"
-            }
             val currentVersions = versionsForReading(incoming.id).map { row ->
                 row.revision to ReadingPayloadCodec.decode(
                     cipher.open(SealedPayload(row.nonce, row.ciphertext)),
@@ -307,18 +309,30 @@ interface ReadingDao {
             }
             val incomingVersions = versionsByReading[incoming.id].orEmpty()
                 .sortedBy { it.revision }.map { row ->
-                row.revision to ReadingPayloadCodec.decode(
-                    cipher.open(SealedPayload(row.nonce, row.ciphertext)),
-                )
-            }
-            require(currentVersions == incomingVersions) {
-                "Conflicting reading history in archive"
-            }
+                    row.revision to ReadingPayloadCodec.decode(
+                        cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+                    )
+                }
+            val sharedRevision = minOf(existing.revision, expected.revision)
+            val localSharedHistory =
+                (currentVersions + (existing.revision to currentPayload))
+                    .filter { it.first <= sharedRevision }
+            val archivedSharedHistory =
+                (incomingVersions + (expected.revision to expected.asPayload()))
+                    .filter { it.first <= sharedRevision }
+            require(localSharedHistory == archivedSharedHistory &&
+                localSharedHistory.size.toLong() == sharedRevision
+            ) { "Conflicting reading history in archive" }
             val incomingOperations = operationsByReading[incoming.id].orEmpty()
                 .sortedWith(compareBy<CorrectionOperationRow> { it.resultingRevision }.thenBy { it.id })
-            require(operationsForReading(incoming.id) == incomingOperations) {
-                "Conflicting correction history in archive"
-            }
+            require(
+                operationsForReading(incoming.id).filter {
+                    it.resultingRevision <= sharedRevision
+                } == incomingOperations.filter {
+                    it.resultingRevision <= sharedRevision
+                },
+            ) { "Conflicting correction history in archive" }
+            // Compatible revisions already have this phone's ID; keep its current state.
         }
         var added = 0
         for ((incoming, outbox) in rows) {
@@ -358,7 +372,7 @@ interface ReadingDao {
         ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class,
         ReadingVersionRow::class, CorrectionOperationRow::class, DeletedReadingRow::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -374,6 +388,21 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `deleted_readings_new` (" +
+                        "`id` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO `deleted_readings_new` (`id`) " +
+                        "SELECT `id` FROM `deleted_readings`",
+                )
+                db.execSQL("DROP TABLE `deleted_readings`")
+                db.execSQL("ALTER TABLE `deleted_readings_new` RENAME TO `deleted_readings`")
+            }
+        }
+
         private const val DATABASE_NAME = "aloeil-readings.db"
         @Volatile private var applicationInstance: ReadingDatabase? = null
 
@@ -381,7 +410,7 @@ abstract class ReadingDatabase : RoomDatabase() {
             applicationInstance ?: synchronized(this) {
                 applicationInstance ?: Room.databaseBuilder(
                     context.applicationContext, ReadingDatabase::class.java, DATABASE_NAME,
-                ).addMigrations(MIGRATION_1_2).build().also { applicationInstance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { applicationInstance = it }
             }
 
         /** The caller must obtain explicit confirmation before invoking this destructive reset. */
