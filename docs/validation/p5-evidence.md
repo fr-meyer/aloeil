@@ -15,6 +15,12 @@ Status: in progress. All automated fixtures are synthetic. A passing emulator ru
 
 The automated suite cannot prove that a particular phone, screen reader, file provider, or caregiver workflow works. Record every failed check with reproduction steps and the corrected exact-head build. Do not store screenshots, logs, archives, or CSV files containing real readings in GitHub or CI.
 
+## Synthetic device build handoff
+
+For the representative-device checks, download `aloeil-synthetic-validation-debug` from the successful GitHub Actions CI run for the exact PR head under test. The artifact contains the debug APK and its SHA-256 checksum and expires after 14 days. Compare the APK checksum before installing it on the test device, and record the run URL, commit SHA, device model, Android version and locale in the acceptance notes. The debug APK is a test build, not a release build.
+
+Use labelled synthetic readings throughout the checklist. Keep pass/fail notes and reproduction steps, without reading values or personal health data. A new commit requires a new run and a new device acceptance record.
+
 ## Representative-device acceptance checklist
 
 Use labelled synthetic readings on the intended Android phone and at least one non-Samsung configuration. Record the model, Android version, app commit, locale, and whether TalkBack was on. Store only pass/fail notes, without reading values or identifying health data.
