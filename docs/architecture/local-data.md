@@ -60,8 +60,10 @@ revision/operation history, and deletion markers. Earlier version 3, 2,
 and 1 archives remain readable. Version 1 has no recoverable correction
 history, so its last recorded value becomes the restored baseline at
 revision 1. Restore adds missing readings and deletion markers. Existing
-readings are never replaced. An existing phone tombstone prevents an old
-backup from restoring that ID. Conflicting reading, sitting, or correction
+readings are never replaced. An incoming deletion marker for an active phone
+reading is ignored, while unrelated missing records can still be restored.
+An existing phone tombstone prevents an old backup from restoring that ID.
+Conflicting reading, sitting, or correction
 history aborts the entire restore without changing phone rows. An archive that
 would add another open sitting also fails atomically, so an imported sitting
 cannot replace the phone's current capture session. A sitting whose archive

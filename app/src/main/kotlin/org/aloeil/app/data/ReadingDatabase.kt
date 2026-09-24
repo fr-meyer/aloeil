@@ -247,7 +247,8 @@ interface ReadingDao {
     ): Int {
         require(rows.size == expectedReadings.size)
         tombstones.forEach { incoming ->
-            require(reading(incoming.id) == null) { "Deleted archive ID conflicts with phone reading" }
+            // Additive restore never deletes an active reading already on this phone.
+            if (reading(incoming.id) != null) return@forEach
             val existing = deletedReading(incoming.id)
             if (existing == null) insertDeleted(incoming)
             else require(existing == incoming) { "Conflicting deleted reading ID" }

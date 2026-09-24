@@ -174,6 +174,34 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun incomingTombstonePreservesActiveReadingAndRestoresUnrelatedReading() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = ReadingRepository(sourceDb.readings(), cipher, { "UTC" }) { time + 1000 }
+            source.startSitting("archive-sitting")
+            val removed = source.record("shared-reading", "archive-sitting", Eye.LEFT, "12.3")
+            check(source.deleteReading(removed.id, removed.revision))
+            source.record("unrelated-reading", "archive-sitting", Eye.RIGHT, "15.4")
+            check(source.finishSitting("archive-sitting"))
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("local-sitting")
+        val retained = local.record("shared-reading", "local-sitting", Eye.RIGHT, "14.2")
+        check(local.finishSitting("local-sitting"))
+
+        check(local.importArchive(archive, passphrase) == 1)
+        check(local.importArchive(archive, passphrase) == 0)
+        val restored = local.all().associateBy { it.id }
+        check(restored["shared-reading"] == retained)
+        check(restored["unrelated-reading"]?.value == "15.4")
+        check(db.readings().deletedReading("shared-reading") == null)
+        check(local.allSittings().map { it.id }.toSet() == setOf("local-sitting", "archive-sitting"))
+    }
+
+    @Test
     fun importedOpenSittingWithSurvivingReadingCannotDisplaceLocalCapture() = runBlocking {
         val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
         val archive = try {
