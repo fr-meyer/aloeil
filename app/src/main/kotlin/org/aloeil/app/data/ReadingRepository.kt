@@ -71,13 +71,35 @@ class ReadingRepository(
     suspend fun all(): List<Reading> = dao.allReadings().map(::decode)
         .sortedWith(compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id })
 
-    suspend fun exportArchive(passphrase: CharArray): ByteArray =
-        ArchiveCodec.encode(all(), passphrase)
+    suspend fun exportArchive(passphrase: CharArray): ByteArray {
+        val snapshot = dao.archiveSnapshot()
+        val bundle = ArchiveBundle(
+            readings = snapshot.readings.map(::decode),
+            sittings = snapshot.sittings.map(::decodeSitting),
+            versions = snapshot.versions.map { row ->
+                ArchivedVersion(
+                    row.readingId,
+                    row.revision,
+                    ReadingPayloadCodec.decode(
+                        cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+                    ),
+                )
+            },
+            operations = snapshot.operations.map {
+                ArchivedOperation(it.id, it.readingId, it.resultingRevision)
+            },
+        )
+        return ArchiveCodec.encode(bundle, passphrase)
+    }
 
     suspend fun importArchive(archive: ByteArray, passphrase: CharArray): Int {
-        // Parse and authenticate the entire archive before beginning the database transaction.
-        val readings = ArchiveCodec.decode(archive, passphrase)
-        val rows = readings.map { reading ->
+        // Authenticate and validate every item before the database transaction.
+        val bundle = ArchiveCodec.decode(archive, passphrase)
+        val sittings = bundle.sittings.map { sitting ->
+            val sealed = cipher.seal(SittingPayloadCodec.encode(sitting))
+            SittingRow(sitting.id, sealed.nonce, sealed.ciphertext)
+        }
+        val rows = bundle.readings.map { reading ->
             val sealed = cipher.seal(
                 ReadingPayloadCodec.encode(
                     ReadingPayload(
@@ -88,9 +110,18 @@ class ReadingRepository(
             )
             ReadingRow(
                 reading.id, sealed.nonce, sealed.ciphertext, reading.revision, 0,
-            ) to OutboxRow(reading.id, reading.id, reading.revision, 0, now())
+            ) to OutboxRow(
+                reading.id + ":" + reading.revision, reading.id, reading.revision, 0, now(),
+            )
         }
-        return dao.restoreMissing(rows)
+        val versions = bundle.versions.map { item ->
+            val sealed = cipher.seal(ReadingPayloadCodec.encode(item.payload))
+            ReadingVersionRow(item.readingId, item.revision, sealed.nonce, sealed.ciphertext)
+        }
+        val operations = bundle.operations.map { item ->
+            CorrectionOperationRow(item.id, item.readingId, item.resultingRevision)
+        }
+        return dao.restoreArchive(sittings, rows, versions, operations)
     }
 
     /** A correction keeps the reading ID and records the old encrypted version for undo. */

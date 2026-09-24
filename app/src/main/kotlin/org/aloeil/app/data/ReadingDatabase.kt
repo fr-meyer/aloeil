@@ -61,6 +61,13 @@ data class CorrectionOperationRow(
     val resultingRevision: Long,
 )
 
+data class ArchiveSnapshotRows(
+    val readings: List<ReadingRow>,
+    val sittings: List<SittingRow>,
+    val versions: List<ReadingVersionRow>,
+    val operations: List<CorrectionOperationRow>,
+)
+
 @Dao
 interface ReadingDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -98,6 +105,11 @@ interface ReadingDao {
         return reading
     }
 
+    @Transaction
+    suspend fun archiveSnapshot(): ArchiveSnapshotRows = ArchiveSnapshotRows(
+        allReadings(), allSittings(), allVersions(), allCorrectionOperations(),
+    )
+
     @Query("SELECT * FROM readings ORDER BY id DESC")
     suspend fun allReadings(): List<ReadingRow>
 
@@ -109,6 +121,12 @@ interface ReadingDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertCorrectionOperation(row: CorrectionOperationRow)
+
+    @Query("SELECT * FROM reading_versions")
+    suspend fun allVersions(): List<ReadingVersionRow>
+
+    @Query("SELECT * FROM correction_operations")
+    suspend fun allCorrectionOperations(): List<CorrectionOperationRow>
 
     @Query("SELECT * FROM reading_versions WHERE readingId = :id AND revision = :revision LIMIT 1")
     suspend fun version(id: String, revision: Long): ReadingVersionRow?
@@ -144,14 +162,26 @@ interface ReadingDao {
         return true
     }
 
-    /** Restore is additive and atomic: an absent or empty replica never removes phone rows. */
+    /** Authenticate and prepare off-DB first; this transaction never overwrites a phone row. */
     @Transaction
-    suspend fun restoreMissing(rows: List<Pair<ReadingRow, OutboxRow>>): Int {
+    suspend fun restoreArchive(
+        sittings: List<SittingRow>,
+        rows: List<Pair<ReadingRow, OutboxRow>>,
+        versions: List<ReadingVersionRow>,
+        operations: List<CorrectionOperationRow>,
+    ): Int {
+        sittings.forEach { incoming ->
+            if (sitting(incoming.id) == null) insertSitting(incoming)
+        }
+        val versionsByReading = versions.groupBy { it.readingId }
+        val operationsByReading = operations.groupBy { it.readingId }
         var added = 0
         for ((incoming, outbox) in rows) {
             if (reading(incoming.id) == null) {
                 insertReading(incoming)
                 insertOutbox(outbox)
+                versionsByReading[incoming.id].orEmpty().forEach { insertVersion(it) }
+                operationsByReading[incoming.id].orEmpty().forEach { insertCorrectionOperation(it) }
                 added++
             }
         }

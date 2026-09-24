@@ -6,7 +6,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 
 /** All fields that describe the health event are inside the encrypted payload. */
-internal data class ReadingPayload(
+data class ReadingPayload(
     val sittingId: String,
     val recordedAtMillis: Long,
     val eye: Eye,

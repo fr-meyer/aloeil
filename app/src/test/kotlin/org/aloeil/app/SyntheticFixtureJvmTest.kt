@@ -1,6 +1,9 @@
 package org.aloeil.app
 
+import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
+import org.aloeil.app.data.ArchivedOperation
+import org.aloeil.app.data.ArchivedVersion
 import org.aloeil.app.data.DraftCheckpoint
 import org.aloeil.app.data.DraftCodec
 import org.aloeil.app.data.BackupState
@@ -17,7 +20,7 @@ import org.aloeil.app.data.Reason
 /**
  * JVM-only verification with an explicitly synthetic fixture.
  *
- * The fixture contains build labels only: no health data, units, or sample readings.
+ * All example values below are synthetic test data and carry no clinical meaning.
  */
 object SyntheticFixtureJvmTest {
     @JvmStatic
@@ -43,12 +46,31 @@ object SyntheticFixtureJvmTest {
         check(synthetic.copy(revision = 2, replicaConfirmedRevision = 1).backupState == BackupState.PENDING)
         check(synthetic.copy(replicaConfirmedRevision = 1).backupState == BackupState.CONFIRMED)
         val passphrase = "synthetic-test-only".toCharArray()
-        val archive = ArchiveCodec.encode(listOf(synthetic), passphrase)
-        check(ArchiveCodec.decode(archive, passphrase) == listOf(synthetic))
+        val sitting = Sitting("synthetic-sitting-1", 1_700_000_000_000L, 1_700_000_001_000L)
+        val corrected = synthetic.copy(eye = Eye.RIGHT, value = "12.34", revision = 2)
+        val priorPayload = ReadingPayload(
+            synthetic.sittingId, synthetic.recordedAtMillis, synthetic.eye, synthetic.value,
+        )
+        val bundle = ArchiveBundle(
+            readings = listOf(corrected),
+            sittings = listOf(sitting),
+            versions = listOf(ArchivedVersion(corrected.id, 1, priorPayload)),
+            operations = listOf(ArchivedOperation("synthetic-operation-1", corrected.id, 2)),
+        )
+        val archive = ArchiveCodec.encode(bundle, passphrase)
+        check(ArchiveCodec.decode(archive, passphrase) == bundle)
         val tampered = archive.clone().also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         check(runCatching { ArchiveCodec.decode(tampered, passphrase) }.isFailure)
         check(runCatching { ArchiveCodec.decode(archive, "wrong-passphrase".toCharArray()) }.isFailure)
-        check(runCatching { ArchiveCodec.encode(listOf(synthetic, synthetic), passphrase) }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(bundle.copy(readings = listOf(corrected, corrected)), passphrase)
+        }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(
+                bundle.copy(versions = listOf(ArchivedVersion("missing", 1, priorPayload))),
+                passphrase,
+            )
+        }.isFailure)
 
         val draft = DraftCheckpoint(
             sittingId = "synthetic-sitting-1",
@@ -68,7 +90,6 @@ object SyntheticFixtureJvmTest {
             synthetic.sittingId, synthetic.recordedAtMillis, synthetic.eye, synthetic.value,
         )
         check(ReadingPayloadCodec.decode(ReadingPayloadCodec.encode(payload)) == payload)
-        val sitting = Sitting("synthetic-sitting-1", 1_700_000_000_000L, null)
         check(SittingPayloadCodec.decode(sitting.id, SittingPayloadCodec.encode(sitting)) == sitting)
     }
 }
