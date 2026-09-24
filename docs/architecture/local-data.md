@@ -44,7 +44,8 @@ export, so a concurrent correction cannot produce a mixed archive snapshot.
 This is an implementation slice. A fixed synthetic version-1 archive fixture
 checks historical restore compatibility. Device tests cover Room transactions,
 restore rollback, correction/undo, and database reopening after a saved reading.
-They compile in CI but still need execution on an Android device or emulator.
+CI runs them on an API 30 Android emulator; a representative user-device
+accessibility and recovery drill is still required.
 Room schema migration tests, the remaining metadata privacy decision, device
 accessibility validation, and any optional replica client are still required to
 complete P2. Development uses synthetic fixtures only.

@@ -76,6 +76,7 @@ class ReadingRepositoryDeviceTest {
         check(repo.correct("synthetic-stale", original.id, 1, Eye.RIGHT, "15.0") == null)
         val undone = repo.undoCorrection("synthetic-undo", original.id, 2)!!
         check(undone.revision == 3L && undone.eye == Eye.LEFT && undone.value == "12.3")
+        check(repo.correct("synthetic-correction-1", original.id, 1, Eye.RIGHT, "13.1") == null)
         check(db.readings().versionsForReading(original.id).map { it.revision } == listOf(1L, 2L))
         check(db.readings().operationsForReading(original.id).size == 2)
         check(repo.dueForReplica().single().revision == 3L)

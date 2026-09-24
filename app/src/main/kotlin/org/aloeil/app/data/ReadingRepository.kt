@@ -151,7 +151,9 @@ class ReadingRepository(
             if (applied.readingId != readingId || applied.resultingRevision != expectedRevision + 1) {
                 return null
             }
-            return dao.reading(readingId)?.let(::decode)
+            return dao.reading(readingId)?.takeIf {
+                it.revision == applied.resultingRevision
+            }?.let(::decode)
         }
         val old = dao.reading(readingId) ?: return null
         if (old.revision != expectedRevision) return null
