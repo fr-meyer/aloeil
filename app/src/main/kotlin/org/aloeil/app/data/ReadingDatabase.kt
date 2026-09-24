@@ -60,7 +60,6 @@ data class ReadingVersionRow(
 @Entity(tableName = "deleted_readings")
 data class DeletedReadingRow(
     @PrimaryKey val id: String,
-    val deletedAtMillis: Long,
 )
 
 @Entity(tableName = "correction_operations")
@@ -172,10 +171,10 @@ interface ReadingDao {
     suspend fun removeOperations(id: String)
 
     @Transaction
-    suspend fun deleteReading(id: String, expectedRevision: Long, deletedAtMillis: Long): Boolean {
+    suspend fun deleteReading(id: String, expectedRevision: Long): Boolean {
         val current = reading(id) ?: return deletedReading(id) != null
         if (current.revision != expectedRevision) return false
-        insertDeleted(DeletedReadingRow(id, deletedAtMillis))
+        insertDeleted(DeletedReadingRow(id))
         removeStaleOutbox(id)
         removeVersions(id)
         removeOperations(id)
@@ -373,7 +372,7 @@ interface ReadingDao {
         ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class,
         ReadingVersionRow::class, CorrectionOperationRow::class, DeletedReadingRow::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class ReadingDatabase : RoomDatabase() {
@@ -389,6 +388,21 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `deleted_readings_new` (" +
+                        "`id` TEXT NOT NULL, PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO `deleted_readings_new` (`id`) " +
+                        "SELECT `id` FROM `deleted_readings`",
+                )
+                db.execSQL("DROP TABLE `deleted_readings`")
+                db.execSQL("ALTER TABLE `deleted_readings_new` RENAME TO `deleted_readings`")
+            }
+        }
+
         private const val DATABASE_NAME = "aloeil-readings.db"
         @Volatile private var applicationInstance: ReadingDatabase? = null
 
@@ -396,7 +410,7 @@ abstract class ReadingDatabase : RoomDatabase() {
             applicationInstance ?: synchronized(this) {
                 applicationInstance ?: Room.databaseBuilder(
                     context.applicationContext, ReadingDatabase::class.java, DATABASE_NAME,
-                ).addMigrations(MIGRATION_1_2).build().also { applicationInstance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { applicationInstance = it }
             }
 
         /** The caller must obtain explicit confirmation before invoking this destructive reset. */

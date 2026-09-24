@@ -43,15 +43,17 @@ warns that data without a portable backup may not be recoverable.
 
 A confirmed delete transaction erases the reading, previous encrypted
 versions, correction operations, and pending outbox entries. It retains
-only a random reading ID and deletion time. The marker stops an older archive
+only a random reading ID. The marker stops an older archive
 from silently restoring the reading on that phone. It does not erase copies
 in backup files the user previously saved. Import never deletes an existing
 phone reading. An incoming deletion marker for an active phone reading is
 ignored; unrelated missing records in the same archive can still be restored.
 
-Room schema version 2 adds deletion markers to version 1 with an explicit
-migration. A synthetic device test opens a version 1 database, migrates it,
-and checks that encrypted rows and correction history survive.
+Room schema version 2 added deletion markers to version 1; version 3 removes
+the plaintext deletion timestamp while keeping every marker ID. A synthetic
+device test checks both migrations and preserves encrypted rows and correction
+history. Portable v4 archives retain their original wire format but write a
+zero in the former timestamp slot and discard timestamps from older v4 files.
 
 ## Portable backups
 

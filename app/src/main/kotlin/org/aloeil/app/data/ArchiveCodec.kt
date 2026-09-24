@@ -73,7 +73,7 @@ object ArchiveCodec {
                 out.writeInt(bundle.deleted.size)
                 bundle.deleted.forEach { item ->
                     out.writeUTF(item.id)
-                    out.writeLong(item.deletedAtMillis)
+                    out.writeLong(0L) // Reserved v4 field; deletion time is never retained.
                 }
             }
         }.toByteArray()
@@ -83,7 +83,11 @@ object ArchiveCodec {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
         cipher.updateAAD(magicV4)
-        val encrypted = cipher.doFinal(plain)
+        val encrypted = try {
+            cipher.doFinal(plain)
+        } finally {
+            plain.fill(0)
+        }
         return ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->
                 out.write(magicV4)
@@ -117,14 +121,22 @@ object ArchiveCodec {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
         cipher.updateAAD(magic)
-        val plain = cipher.doFinal(encrypted)
-        val result = when (archiveVersion) {
-            1 -> decodeLegacy(plain)
-            2, 3, 4 -> decodeStructured(plain, archiveVersion)
-            else -> error("Unsupported archive version")
+        val plain = try {
+            cipher.doFinal(encrypted)
+        } finally {
+            encrypted.fill(0)
         }
-        validate(result, requireCompleteHistory = archiveVersion != 1)
-        return result
+        return try {
+            val result = when (archiveVersion) {
+                1 -> decodeLegacy(plain)
+                2, 3, 4 -> decodeStructured(plain, archiveVersion)
+                else -> error("Unsupported archive version")
+            }
+            validate(result, requireCompleteHistory = archiveVersion != 1)
+            result
+        } finally {
+            plain.fill(0)
+        }
     }
 
     private fun decodeStructured(plain: ByteArray, archiveVersion: Int): ArchiveBundle {
@@ -148,7 +160,9 @@ object ArchiveCodec {
             ArchivedOperation(input.readUTF(), input.readUTF(), input.readLong())
         }
         val deleted = if (archiveVersion >= 4) List(input.readCount()) {
-            DeletedReadingRow(input.readUTF(), input.readLong())
+            val id = input.readUTF()
+            input.readLong() // Discard the legacy v4 deletion timestamp.
+            DeletedReadingRow(id)
         } else emptyList()
         require(input.available() == 0) { "Unexpected archive data" }
         return ArchiveBundle(readings, sittings, versions, operations, deleted)

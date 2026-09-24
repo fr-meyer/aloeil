@@ -98,6 +98,9 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                         val secret = passphrase.toCharArray()
                         try {
                             bytes to repository.previewArchive(bytes, secret)
+                        } catch (error: Exception) {
+                            bytes.fill(0)
+                            throw error
                         } finally {
                             secret.fill('\u0000')
                         }
@@ -110,10 +113,13 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     preview = counts
                     step = TransferStep.IMPORT_PREVIEW
                 }.onFailure {
+                    passphrase = ""
                     error = R.string.archive_read_error
                     step = TransferStep.IMPORT
                 }
             }
+        } else {
+            passphrase = ""
         }
     }
 
@@ -231,6 +237,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     archiveBytes?.fill(0)
                     archiveBytes = null
                     preview = null
+                    passphrase = ""
                     step = TransferStep.IMPORT
                 }
             }

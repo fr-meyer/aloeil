@@ -436,7 +436,7 @@ class ReadingRepositoryDeviceTest {
             legacy.close()
         }
         val migrated = Room.databaseBuilder(context, ReadingDatabase::class.java, name)
-            .addMigrations(ReadingDatabase.MIGRATION_1_2).build()
+            .addMigrations(ReadingDatabase.MIGRATION_1_2, ReadingDatabase.MIGRATION_2_3).build()
         try {
             val reading = migrated.readings().allReadings().single()
             check(reading.id == "synthetic-reading" && reading.revision == 2L)
@@ -444,6 +444,46 @@ class ReadingRepositoryDeviceTest {
             check(migrated.readings().allVersions().single().ciphertext.contentEquals(byteArrayOf(6)))
             check(migrated.readings().allCorrectionOperations().single().id == "synthetic-operation")
             check(migrated.readings().allDeletedReadings().isEmpty())
+        } finally {
+            migrated.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
+    fun versionTwoMigrationRemovesPlaintextDeletionTime() = runBlocking {
+        val name = "synthetic-tombstone-migration-" + UUID.randomUUID() + ".db"
+        val file = context.getDatabasePath(name)
+        file.parentFile?.mkdirs()
+        val legacy = SQLiteDatabase.openOrCreateDatabase(file, null)
+        try {
+            legacy.execSQL("CREATE TABLE `readings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, `revision` INTEGER NOT NULL, `replicaConfirmedRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `outbox` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `attemptCount` INTEGER NOT NULL, `nextAttemptAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE INDEX `index_outbox_readingId` ON `outbox` (`readingId`)")
+            legacy.execSQL("CREATE TABLE `sittings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `draft_checkpoint` (`id` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `reading_versions` (`readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`readingId`, `revision`))")
+            legacy.execSQL("CREATE TABLE `correction_operations` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `resultingRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE `deleted_readings` (`id` TEXT NOT NULL, `deletedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL(
+                "INSERT INTO `deleted_readings` VALUES (?, ?)",
+                arrayOf("synthetic-deleted", time),
+            )
+            legacy.version = 2
+        } finally {
+            legacy.close()
+        }
+        val migrated = Room.databaseBuilder(context, ReadingDatabase::class.java, name)
+            .addMigrations(ReadingDatabase.MIGRATION_2_3).build()
+        try {
+            check(migrated.readings().allDeletedReadings().single().id == "synthetic-deleted")
+            val columns = migrated.openHelper.readableDatabase
+                .query("PRAGMA table_info(`deleted_readings`)").use { cursor ->
+                    buildList {
+                        while (cursor.moveToNext()) add(cursor.getString(1))
+                    }
+                }
+            check(columns == listOf("id"))
         } finally {
             migrated.close()
             context.deleteDatabase(name)
