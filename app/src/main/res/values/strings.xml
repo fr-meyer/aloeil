@@ -147,4 +147,12 @@
     <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
     <string name="csv_cache_cleared">Temporary CSV files cleared from this phone.</string>
     <string name="csv_cache_error">Could not clear the temporary CSV files. Try again.</string>
+    <string name="recovery_unreadable_title">Local readings cannot be opened</string>
+    <string name="recovery_unreadable_body">The phone cannot read its encrypted local data. Nothing has been deleted. If you have an Aloeil encrypted backup and its passphrase, you can reset this unreadable local copy and then restore the backup. Without a backup, the local readings may not be recoverable.</string>
+    <string name="recovery_keep_backup">Keep the backup file and passphrase separately. You can leave this screen without resetting.</string>
+    <string name="recovery_prepare_reset">Review local reset</string>
+    <string name="recovery_confirm_title">Delete unreadable local data?</string>
+    <string name="recovery_confirm_body">This permanently deletes this phone’s Aloeil database, including readings, drafts and deletion markers. It does not delete backup files you saved elsewhere. After reset, choose “Back up or restore” to import an encrypted archive.</string>
+    <string name="recovery_confirm_reset">Delete local data and reset</string>
+    <string name="recovery_reset_error">The local reset did not finish. No backup was imported. Try again or leave the app.</string>
 </resources>
