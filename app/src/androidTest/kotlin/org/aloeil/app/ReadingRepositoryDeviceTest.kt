@@ -220,23 +220,23 @@ class ReadingRepositoryDeviceTest {
         file.parentFile?.mkdirs()
         val legacy = SQLiteDatabase.openOrCreateDatabase(file, null)
         try {
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`readings\` (\`id\` TEXT NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, \`revision\` INTEGER NOT NULL, \`replicaConfirmedRevision\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`outbox\` (\`id\` TEXT NOT NULL, \`readingId\` TEXT NOT NULL, \`revision\` INTEGER NOT NULL, \`attemptCount\` INTEGER NOT NULL, \`nextAttemptAtMillis\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
-            legacy.execSQL("CREATE INDEX IF NOT EXISTS \`index_outbox_readingId\` ON \`outbox\` (\`readingId\`)")
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`sittings\` (\`id\` TEXT NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`id\`))")
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`draft_checkpoint\` (\`id\` INTEGER NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`id\`))")
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`reading_versions\` (\`readingId\` TEXT NOT NULL, \`revision\` INTEGER NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`readingId\`, \`revision\`))")
-            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`correction_operations\` (\`id\` TEXT NOT NULL, \`readingId\` TEXT NOT NULL, \`resultingRevision\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `readings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, `revision` INTEGER NOT NULL, `replicaConfirmedRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `outbox` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `attemptCount` INTEGER NOT NULL, `nextAttemptAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE INDEX IF NOT EXISTS `index_outbox_readingId` ON `outbox` (`readingId`)")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `sittings` (`id` TEXT NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `draft_checkpoint` (`id` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`id`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `reading_versions` (`readingId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `nonce` BLOB NOT NULL, `ciphertext` BLOB NOT NULL, PRIMARY KEY(`readingId`, `revision`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS `correction_operations` (`id` TEXT NOT NULL, `readingId` TEXT NOT NULL, `resultingRevision` INTEGER NOT NULL, PRIMARY KEY(`id`))")
             legacy.execSQL(
-                "INSERT INTO \`readings\` VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO `readings` VALUES (?, ?, ?, ?, ?)",
                 arrayOf("synthetic-reading", byteArrayOf(1, 2), byteArrayOf(3, 4), 2L, 0L),
             )
             legacy.execSQL(
-                "INSERT INTO \`reading_versions\` VALUES (?, ?, ?, ?)",
+                "INSERT INTO `reading_versions` VALUES (?, ?, ?, ?)",
                 arrayOf("synthetic-reading", 1L, byteArrayOf(5), byteArrayOf(6)),
             )
             legacy.execSQL(
-                "INSERT INTO \`correction_operations\` VALUES (?, ?, ?)",
+                "INSERT INTO `correction_operations` VALUES (?, ?, ?)",
                 arrayOf("synthetic-operation", "synthetic-reading", 2L),
             )
             legacy.version = 1

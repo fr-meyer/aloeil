@@ -318,8 +318,8 @@ abstract class ReadingDatabase : RoomDatabase() {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
-                    "CREATE TABLE IF NOT EXISTS \`deleted_readings\` (" +
-                        "\`id\` TEXT NOT NULL, \`deletedAtMillis\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))",
+                    "CREATE TABLE IF NOT EXISTS `deleted_readings` (" +
+                        "`id` TEXT NOT NULL, `deletedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
                 )
             }
         }

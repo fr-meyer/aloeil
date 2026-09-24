@@ -1,64 +1,70 @@
-# Local data implementation (P2 in progress)
+# Local data and recovery (P2 in progress)
 
-This branch introduces a Room database for manually entered readings. A successful save
-commits the reading and a retryable outbox row in one transaction. A reading has a
-caller-reserved ID, so a repeated save attempt for that ID returns the existing row instead
-of creating a second measurement. The phone remains authoritative; no network call is
-made by saving.
+## On-phone facts
 
-The eye, exact decimal value, sitting association, and event timestamp are encrypted
-with AES-256-GCM before Room stores them. Sitting start/finish times and draft
-content are encrypted too. Localized digits and either decimal separator normalize
-to exact decimal text without rounding or a clinical range check. Random row IDs,
-revision counters, and retry scheduling remain visible as database metadata; the
-SQLite file itself is not wholly encrypted. Full-file encryption would require a
-separately approved dependency or a different storage design.
+A successful save commits a reading and a retryable outbox row in one Room
+transaction. The phone remains authoritative and saving never waits for the
+network. A caller reserves the reading ID before saving; repeating a save
+with the same ID and content returns the same row. A conflicting reuse fails.
 
-A portable archive uses an independent passphrase-derived AES-256-GCM key. It verifies
-the entire archive before importing any rows. Import is additive and transactional:
-existing phone rows are kept, and new rows enter the outbox as pending. Version 2
-contains sittings, the latest reading revisions, prior versions needed for undo, and
-correction operation IDs. Version 1 archives are accepted as readings-only migration
-inputs; their missing history cannot be reconstructed, so the latest v1 value
-becomes revision 1 after restore. Version 2 requires every prior revision and
-correction operation needed for undo. An existing sitting ID with different decoded
-contents causes the whole restore to fail without changing phone rows. The same
-applies to a reading ID whose value or correction history differs. No database
-version has been released yet. The Keystore key is never exported. A user must
-retain the archive passphrase to restore it. The app uses the Android document picker
-to let the user choose a file destination. It creates the encrypted archive before opening the picker,
-limits imported file size, authenticates the file, and shows reading and sitting counts
-before the user confirms an additive restore. A selected document provider may sync the
-file itself; Aloeil does not upload it in the background. Writing a file does not mark
-any reading as replica-confirmed, because a file can later be moved or deleted.
+The encrypted reading payload contains the sitting ID, event time, eye,
+exact decimal text or a device range state, original time-zone ID, optional
+note, and creation/update audit times. Numeric values are stored as entered
+after digit and decimal-separator normalization, without rounding, clinical
+thresholds, or diagnosis. Range states are distinct facts and never
+converted to guessed numbers. A correction retains its prior encrypted
+payload and stable reading ID, increments the revision, and records an
+operation ID for retry safety. Undo creates a further revision.
 
-Protected draft checkpoints and sitting state are stored locally; the draft payload is
-encrypted with the same Keystore key. On resume, a pending reading ID can be checked
-against the saved rows before the UI claims success.
+Reading, sitting, and draft payloads use AES-256-GCM with an Android
+Keystore-held key. Random IDs, row counts, revision numbers, tombstone IDs,
+and retry timing remain visible as SQLite metadata. The file is not wholly
+encrypted. The app does not contain analytics, a crash reporter, or its own
+network permission.
 
-Corrections create a new reading revision and keep the previous encrypted payload
-for persistent undo. An operation ID prevents retries from applying a correction twice.
-A stale expected revision is rejected. A single Room transaction reads all tables for
-export, so a concurrent correction cannot produce a mixed archive snapshot.
+A confirmed delete transaction erases the reading, previous encrypted
+versions, correction operations, and pending outbox entries. It retains
+only a random reading ID and deletion time. The marker stops an older archive
+from silently restoring the reading on that phone. It does not erase copies
+in backup files the user previously saved. Import never deletes an existing
+phone reading. An incoming deletion marker that conflicts with an existing
+phone reading causes the entire restore to fail.
 
-This is an implementation slice. A fixed synthetic version-1 archive fixture
-checks historical restore compatibility. Device tests cover Room transactions,
-restore rollback, correction/undo, and database reopening after a saved reading.
-CI runs them on an API 30 Android emulator; a representative user-device
-accessibility and recovery drill is still required.
-Room schema migration tests, the remaining metadata privacy decision, device
-accessibility validation, and any optional replica client are still required to
-complete P2. Development uses synthetic fixtures only.
+Room schema version 2 adds deletion markers to version 1 with an explicit
+migration. A synthetic device test opens a version 1 database, migrates it,
+and checks that encrypted rows and correction history survive.
 
+## Portable backups
 
-## Privacy threat model and user-facing limits
+The user chooses a file through Android's document picker and supplies a
+passphrase of at least 12 characters. The archive uses an independently
+derived AES-256-GCM key; the Android Keystore key never leaves the phone.
+The app authenticates and validates the whole file before a transactional
+import. The preview reports reading, sitting, and deletion-marker counts.
+An archive write does not mark a reading as having a confirmed replica:
+the chosen file provider may move or delete it later.
 
-| Situation | Current protection | Remaining exposure or action |
-| --- | --- | --- |
-| Lost or stolen locked phone | Android app-private storage and a Keystore-held key protect encrypted reading, sitting, and draft payloads. Android automatic app backup is disabled. | A weak or absent device lock, a compromised device, or access to the unlocked user profile can expose app data. The database still reveals random IDs, row counts, revision counts, and retry timing. |
-| Shared unlocked phone | Aloeil has no account or access roles. | Anyone using the same unlocked Android profile can open the app. The optional app lock described in the product brief is not implemented. Use a separate device profile or device lock until then. |
-| Portable archive | AES-GCM authenticates the full file; a passphrase-derived key is separate from the phone Keystore key. Import validates before making a transaction. | A guessable passphrase is vulnerable to offline guessing. Losing both the phone and the archive passphrase makes recovery impossible. The user must choose and retain a strong passphrase. |
-| Replica unavailable or empty | Phone saves and corrections do not wait for a network service. Import only adds records. | No replica destination or client is implemented yet. A pending backup label does not mean a second copy exists. |
-| Logs, analytics, and support | The app has no analytics, crash reporter, or network permission in its own manifest. Development fixtures are synthetic. | Device or OS diagnostics may still record app metadata. Support must not request real readings, archive files, passphrases, or screenshots containing readings. Review the merged manifest and network traffic before the pilot. |
+Archive version 4 contains current readings, sittings, complete prior
+revision/operation history, and deletion markers. Earlier version 3, 2,
+and 1 archives remain readable. Version 1 has no recoverable correction
+history, so its last recorded value becomes the restored baseline at
+revision 1. Restore adds missing readings and deletion markers. Existing
+readings are never replaced. An existing phone tombstone prevents an old
+backup from restoring that ID. Conflicting reading, sitting, or correction
+history aborts the entire restore without changing phone rows.
 
-Suggested plain-language disclosure for the later backup screen: “Your readings are saved on this phone. A backup copy exists only after you create one and confirm where it was saved. Keep its passphrase separately. Anyone who can use your unlocked phone can open Aloeil until an app lock is available.” This copy needs French, English, and Korean localization and device validation before release.
+A backup can be opened on a fresh profile only with both the file and its
+passphrase. A user must keep them separately. The file provider may sync
+the encrypted file; Aloeil does not upload it automatically. A destination
+for any optional automatic private replica has not been chosen.
+
+## Remaining acceptance
+
+CI uses synthetic JVM fixtures and an API 30 emulator for Room transaction,
+restart, migration, archive, correction, and deletion tests. A
+representative user-device accessibility and recovery drill, residual
+metadata privacy acceptance, and a decision about whether user-chosen
+encrypted files suffice are still needed before P2 can close. If automatic
+replication is chosen, its destination/client and exact-revision,
+unavailable/empty-replica behavior need separate implementation and tests.
+Real health readings are excluded from development and tests.
