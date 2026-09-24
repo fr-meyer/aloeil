@@ -229,6 +229,17 @@ interface ReadingDao {
         tombstones: List<DeletedReadingRow>,
         cipher: ReadingCipher,
     ): Int {
+        val localOpenIds = allSittings().map { row ->
+            SittingPayloadCodec.decode(
+                row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+            )
+        }.filter { it.finishedAtMillis == null }.map { it.id }.toSet()
+        val newOpenIds = sittings.filter { (row, expected) ->
+            expected.finishedAtMillis == null && sitting(row.id) == null
+        }.map { it.second.id }.toSet()
+        require(newOpenIds.isEmpty() || (localOpenIds + newOpenIds).size == 1) {
+            "Archive would create a second open sitting"
+        }
         tombstones.forEach { incoming ->
             require(reading(incoming.id) == null) { "Deleted archive ID conflicts with phone reading" }
             val existing = deletedReading(incoming.id)
