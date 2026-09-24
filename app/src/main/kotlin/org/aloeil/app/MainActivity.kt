@@ -231,6 +231,7 @@ internal fun AloeilApp(
                 Reason.EMPTY -> R.string.error_empty
                 Reason.NUMBER -> R.string.error_number
                 Reason.DECIMAL -> R.string.error_decimal
+                Reason.LENGTH -> R.string.error_length
             }
         }
         return valueError == null
@@ -490,7 +491,7 @@ internal fun AloeilApp(
                             value = it
                             rangeState = null
                             valueError = null
-                        })
+                        }, onTooLong = { valueError = R.string.error_length })
                         Action(R.string.continue_action, busy) {
                             if (validateValue()) {
                                 rangeState = null
@@ -798,10 +799,17 @@ private fun EyeOptions(selected: Eye?, onSelect: (Eye) -> Unit) {
 }
 
 @Composable
-private fun ValueField(value: String, error: Int?, onChange: (String) -> Unit) {
+private fun ValueField(
+    value: String,
+    error: Int?,
+    onChange: (String) -> Unit,
+    onTooLong: () -> Unit,
+) {
     OutlinedTextField(
         value = value,
-        onValueChange = onChange,
+        onValueChange = { proposed ->
+            if (proposed.length <= ReadingValue.MAX_LENGTH) onChange(proposed) else onTooLong()
+        },
         label = { Text(stringResource(R.string.reading_label)) },
         supportingText = { Text(stringResource(error ?: R.string.reading_hint)) },
         isError = error != null,

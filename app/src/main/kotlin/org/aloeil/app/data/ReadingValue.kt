@@ -5,11 +5,14 @@ sealed interface ReadingValueResult {
     data class Invalid(val reason: Reason) : ReadingValueResult
 }
 
-enum class Reason { EMPTY, NUMBER, DECIMAL }
+enum class Reason { EMPTY, NUMBER, DECIMAL, LENGTH }
 
 /** Syntax only: no clinical minimum, maximum, warning band, or rounding. */
 object ReadingValue {
+    const val MAX_LENGTH = 32
+
     fun parse(input: String): ReadingValueResult {
+        if (input.length > MAX_LENGTH) return ReadingValueResult.Invalid(Reason.LENGTH)
         val source = input.trim()
         if (source.isEmpty()) return ReadingValueResult.Invalid(Reason.EMPTY)
         val out = StringBuilder()
