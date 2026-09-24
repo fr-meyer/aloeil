@@ -73,7 +73,7 @@ private enum class Step {
 }
 
 @Composable
-private fun AloeilApp(repository: ReadingRepository) {
+internal fun AloeilApp(repository: ReadingRepository) {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.LOADING) }
     var sittingId by remember { mutableStateOf("") }
