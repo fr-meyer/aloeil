@@ -1,13 +1,14 @@
 id: p2-local-first-data-recovery
 title: Build local-first readings data and recovery
 summary: Implement durable on-phone storage, migrations, an outbox, honest save and backup states, and loss-resistant recovery using synthetic fixtures only.
-status: blocked
+status: in-progress
 branch: aloeil/p2-local-first-data-recovery
 base_branch: dev
 dependencies:
   - p0-product-privacy-brief
 blockers:
-  - GitHub Actions builder approved; full Room/backup still remaining.
+  - Representative-device accessibility and fresh-profile recovery validation remain.
+  - Residual SQLite metadata privacy and backup destination decisions remain.
 scope:
   - local encrypted database and schema migrations
   - immutable reading identifiers and sitting identifiers
@@ -37,9 +38,9 @@ write_paths:
   - .speculoos/manifest.yaml
   - .speculoos/surfaces/github.yaml
 validation:
-  - ./gradlew --no-daemon :app:testSyntheticDebugUnitTest
+  - ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest
   - git diff --check
 executor: codex-only
-branch_plan: bootstrap the approved GitHub Actions builder from exact merged dev; full Room and backup work remains in P2
+branch_plan: complete local data and recovery on the GCP-authored PR against dev; keep pilot and real readings gated
 private_data_scan: required before publication
 publish_authority: operator-approved implementation go; external writes remain exact-head review gated

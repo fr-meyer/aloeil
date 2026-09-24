@@ -53,7 +53,7 @@
     <string name="error_draft_restore">Impossible de restaurer le brouillon. Les mesures enregistrées restent disponibles. Choisissez un œil pour continuer.</string>
     <string name="try_again">Réessayer</string>
     <string name="loading">Chargement…</string>
-    <string name="backup_pending">Copie de sauvegarde en attente</string>
+    <string name="backup_pending">Aucune copie de sauvegarde confirmée</string>
     <string name="backup_confirmed">Copie de sauvegarde confirmée</string>
     <string name="error_storage">Impossible de mettre à jour la séance de saisie. Réessayez.</string>
     <string name="archive_title">Sauvegarder ou restaurer</string>

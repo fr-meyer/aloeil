@@ -214,6 +214,36 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun freshFileDatabaseRestoresWithDifferentLocalKey() = runBlocking {
+        val source = repository()
+        source.startSitting("synthetic-sitting")
+        val original = source.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
+        val corrected = source.correct("synthetic-correction", original.id, 1, Eye.RIGHT, "14.2")!!
+        val archive = source.exportArchive(passphrase)
+        val name = "synthetic-fresh-profile-" + UUID.randomUUID() + ".db"
+        val targetCipher = SyntheticCipher(8)
+        val fresh = Room.databaseBuilder(context, ReadingDatabase::class.java, name).build()
+        try {
+            val restored = ReadingRepository(fresh.readings(), targetCipher, { "UTC" }, { time })
+            check(restored.all().isEmpty())
+            check(restored.importArchive(archive, passphrase) == 1)
+            check(restored.all().single() == corrected)
+        } finally {
+            fresh.close()
+        }
+        val reopened = Room.databaseBuilder(context, ReadingDatabase::class.java, name).build()
+        try {
+            val restored = ReadingRepository(reopened.readings(), targetCipher, { "UTC" }, { time })
+            check(restored.all().single() == corrected)
+            val undone = restored.undoCorrection("synthetic-undo", original.id, 2)!!
+            check(undone.eye == Eye.LEFT && undone.value == original.value)
+        } finally {
+            reopened.close()
+            context.deleteDatabase(name)
+        }
+    }
+
+    @Test
     fun versionOneDatabaseMigratesWithoutLosingSyntheticRows() = runBlocking {
         val name = "synthetic-migration-" + UUID.randomUUID() + ".db"
         val file = context.getDatabasePath(name)
@@ -303,8 +333,8 @@ class ReadingRepositoryDeviceTest {
     }
 }
 
-private class SyntheticCipher : ReadingCipher {
-    private val key = SecretKeySpec(ByteArray(32) { 7 }, "AES")
+private class SyntheticCipher(keyByte: Byte = 7) : ReadingCipher {
+    private val key = SecretKeySpec(ByteArray(32) { keyByte }, "AES")
     private val random = SecureRandom()
 
     override fun seal(plaintext: ByteArray): SealedPayload {

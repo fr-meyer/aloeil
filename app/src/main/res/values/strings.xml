@@ -54,7 +54,7 @@
     <string name="error_draft_restore">The draft could not be restored. Saved readings are still available. Choose an eye to continue.</string>
     <string name="try_again">Try again</string>
     <string name="loading">Loading…</string>
-    <string name="backup_pending">Backup copy pending</string>
+    <string name="backup_pending">No backup copy confirmed</string>
     <string name="backup_confirmed">Backup copy confirmed</string>
     <string name="error_storage">The sitting could not be updated. Try again.</string>
     <string name="archive_title">Back up or restore</string>
