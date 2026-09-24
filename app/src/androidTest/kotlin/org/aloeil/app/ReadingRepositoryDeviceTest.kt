@@ -68,6 +68,25 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun newReadingRequiresExistingOpenSitting() = runBlocking {
+        val repo = repository()
+        check(runCatching {
+            repo.record("synthetic-orphan", "missing-sitting", Eye.LEFT, "12.3")
+        }.isFailure)
+        check(repo.all().isEmpty() && repo.dueForReplica().isEmpty())
+
+        repo.startSitting("synthetic-sitting")
+        val saved = repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
+        check(repo.finishSitting("synthetic-sitting"))
+        check(runCatching {
+            repo.record("synthetic-late", "synthetic-sitting", Eye.RIGHT, "14.2")
+        }.isFailure)
+        check(repo.record(saved.id, saved.sittingId, saved.eye, saved.value) == saved)
+        check(repo.all() == listOf(saved))
+        check(repo.dueForReplica().single().readingId == saved.id)
+    }
+
+    @Test
     fun correctionRetryConflictAndUndoRetainHistory() = runBlocking {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
