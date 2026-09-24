@@ -4,13 +4,13 @@ import java.util.UUID
 
 enum class Eye { LEFT, RIGHT }
 
-/** A value in tenths of the unit shown by the user's tonometer. No clinical meaning is added. */
+/** Exact normalized decimal text in mmHg; no clinical meaning is added. */
 data class Reading(
     val id: String,
     val sittingId: String,
     val recordedAtMillis: Long,
     val eye: Eye,
-    val valueTenths: Int,
+    val value: String,
     val revision: Long,
     val replicaConfirmedRevision: Long,
 ) {

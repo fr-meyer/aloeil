@@ -6,6 +6,9 @@ import org.aloeil.app.data.DraftCodec
 import org.aloeil.app.data.BackupState
 import org.aloeil.app.data.Eye
 import org.aloeil.app.data.Reading
+import org.aloeil.app.data.ReadingValue
+import org.aloeil.app.data.ReadingValueResult
+import org.aloeil.app.data.Reason
 
 /**
  * JVM-only verification with an explicitly synthetic fixture.
@@ -28,7 +31,7 @@ object SyntheticFixtureJvmTest {
             sittingId = "synthetic-sitting-1",
             recordedAtMillis = 1_700_000_000_000L,
             eye = Eye.LEFT,
-            valueTenths = 123,
+            value = "12.3",
             revision = 1,
             replicaConfirmedRevision = 0,
         )
@@ -52,6 +55,11 @@ object SyntheticFixtureJvmTest {
             focusedControl = "save",
         )
         check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
+        check(ReadingValue.parse("١٢,٣٤") == ReadingValueResult.Valid("12.34"))
+        check(ReadingValue.parse("0") == ReadingValueResult.Valid("0"))
+        check(ReadingValue.parse("12.3.4") == ReadingValueResult.Invalid(Reason.DECIMAL))
+        check(ReadingValue.parse("") == ReadingValueResult.Invalid(Reason.EMPTY))
+        check(ReadingValue.parse("12 3") == ReadingValueResult.Invalid(Reason.NUMBER))
     }
 }
 

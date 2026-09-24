@@ -10,20 +10,21 @@ class ReadingRepository(
         readingId: String,
         sittingId: String,
         eye: Eye,
-        valueTenths: Int,
+        valueInput: String,
     ): Reading {
-        require(valueTenths > 0) { "Value must be positive" }
+        val value = (ReadingValue.parse(valueInput) as? ReadingValueResult.Valid)?.canonical
+            ?: throw IllegalArgumentException("Invalid reading syntax")
         require(sittingId.isNotBlank()) { "Sitting ID is required" }
         require(readingId.isNotBlank()) { "Reading ID is required" }
         val time = now()
-        val sealed = cipher.seal("${eye.name}|$valueTenths".toByteArray(Charsets.UTF_8))
+        val sealed = cipher.seal("${eye.name}|$value".toByteArray(Charsets.UTF_8))
         val row = ReadingRow(readingId, sittingId, time, sealed.nonce, sealed.ciphertext, 1, 0)
         val stored = dao.saveOnPhone(
             row,
             OutboxRow(readingId, readingId, 1, 0, time),
         )
         val result = decode(stored)
-        require(result.sittingId == sittingId && result.eye == eye && result.valueTenths == valueTenths) {
+        require(result.sittingId == sittingId && result.eye == eye && result.value == value) {
             "Reading ID was already used for different content"
         }
         return result
@@ -67,7 +68,7 @@ class ReadingRepository(
         // Parse and authenticate the entire archive before beginning the database transaction.
         val readings = ArchiveCodec.decode(archive, passphrase)
         val rows = readings.map { reading ->
-            val sealed = cipher.seal("${reading.eye.name}|${reading.valueTenths}".toByteArray(Charsets.UTF_8))
+            val sealed = cipher.seal("${reading.eye.name}|${reading.value}".toByteArray(Charsets.UTF_8))
             ReadingRow(
                 reading.id, reading.sittingId, reading.recordedAtMillis,
                 sealed.nonce, sealed.ciphertext, reading.revision, 0,
@@ -82,9 +83,11 @@ class ReadingRepository(
         readingId: String,
         expectedRevision: Long,
         eye: Eye,
-        valueTenths: Int,
+        valueInput: String,
     ): Reading? {
-        require(operationId.isNotBlank() && valueTenths > 0)
+        require(operationId.isNotBlank())
+        val value = (ReadingValue.parse(valueInput) as? ReadingValueResult.Valid)?.canonical
+            ?: throw IllegalArgumentException("Invalid reading syntax")
         dao.correctionOperation(operationId)?.let { applied ->
             if (applied.readingId != readingId || applied.resultingRevision != expectedRevision + 1) {
                 return null
@@ -93,7 +96,7 @@ class ReadingRepository(
         }
         val old = dao.reading(readingId) ?: return null
         if (old.revision != expectedRevision) return null
-        val sealed = cipher.seal("${eye.name}|$valueTenths".toByteArray(Charsets.UTF_8))
+        val sealed = cipher.seal("${eye.name}|$value".toByteArray(Charsets.UTF_8))
         val updated = old.copy(
             nonce = sealed.nonce,
             ciphertext = sealed.ciphertext,
@@ -126,7 +129,7 @@ class ReadingRepository(
             readingId,
             expectedRevision,
             Eye.valueOf(plaintext[0]),
-            plaintext[1].toInt(),
+            plaintext[1],
         )
     }
 
@@ -144,7 +147,7 @@ class ReadingRepository(
         require(plain.size == 2) { "Invalid encrypted reading" }
         return Reading(
             row.id, row.sittingId, row.recordedAtMillis,
-            Eye.valueOf(plain[0]), plain[1].toInt(),
+            Eye.valueOf(plain[0]), plain[1],
             row.revision, row.replicaConfirmedRevision,
         )
     }

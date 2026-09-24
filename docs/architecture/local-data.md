@@ -6,7 +6,9 @@ caller-reserved ID, so a repeated save attempt for that ID returns the existing 
 of creating a second measurement. The phone remains authoritative; no network call is
 made by saving.
 
-The eye and value are encrypted with AES-256-GCM before Room stores them. The key is
+The eye and exact decimal value are encrypted with AES-256-GCM before Room stores them.
+Localized digits and either decimal separator normalize to exact decimal text without rounding
+or a clinical range check. The key is
 non-exportable in Android Keystore. Row IDs, sitting IDs, timestamps, revision numbers,
 and backup state are currently database metadata and are **not encrypted**. Full-file
 encryption remains open before real data may be used. The app does not yet send an outbox

@@ -35,7 +35,7 @@ object ArchiveCodec {
                     out.writeUTF(reading.sittingId)
                     out.writeLong(reading.recordedAtMillis)
                     out.writeUTF(reading.eye.name)
-                    out.writeInt(reading.valueTenths)
+                    out.writeUTF(reading.value)
                     out.writeLong(reading.revision)
                 }
             }
@@ -83,9 +83,9 @@ object ArchiveCodec {
             val sitting = values.readUTF()
             val time = values.readLong()
             val eye = Eye.valueOf(values.readUTF())
-            val value = values.readInt()
+            val value = values.readUTF()
             val revision = values.readLong()
-            require(id.isNotBlank() && sitting.isNotBlank() && value > 0 && revision > 0) {
+            require(id.isNotBlank() && sitting.isNotBlank() && ReadingValue.parse(value) == ReadingValueResult.Valid(value) && revision > 0) {
                 "Invalid archived reading"
             }
             Reading(id, sitting, time, eye, value, revision, 0)
