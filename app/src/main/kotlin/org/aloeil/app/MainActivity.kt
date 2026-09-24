@@ -307,7 +307,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Action(if (hasOpenSitting) R.string.resume_sitting else R.string.start_sitting, busy) {
                             beginSitting()
                         }
-                        Secondary(R.string.archive_title) { step = Step.ARCHIVE }
+                        Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
                     }
                     Step.EYE, Step.CORRECT_EYE -> {
                         Heading(if (step == Step.EYE) R.string.choose_eye else R.string.correct_eye)
@@ -324,7 +324,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                                 step = if (step == Step.VALUE) Step.REVIEW else Step.CORRECT_REVIEW_VALUE
                             }
                         }
-                        Secondary(R.string.back) {
+                        Secondary(R.string.back, busy) {
                             step = if (step == Step.VALUE) Step.EYE else Step.CORRECT_CHOICE
                         }
                     }
@@ -334,7 +334,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Text(stringResource(R.string.eye_summary, eyeLabel(eye)))
                         Text(stringResource(R.string.reading_summary, value))
                         Action(if (busy) R.string.saving else R.string.save_reading, busy) { saveReading() }
-                        Secondary(R.string.back) { step = Step.VALUE }
+                        Secondary(R.string.back, busy) { step = Step.VALUE }
                     }
                     Step.SAVED -> {
                         Heading(R.string.saved_on_phone)
@@ -348,20 +348,20 @@ private fun AloeilApp(repository: ReadingRepository) {
                             message = null
                             step = Step.EYE
                         }
-                        Secondary(R.string.correct_reading) {
+                        Secondary(R.string.correct_reading, busy) {
                             val current = saved ?: return@Secondary
                             readingId = current.id
                             eye = current.eye
                             value = current.value
                             step = Step.CORRECT_CHOICE
                         }
-                        Secondary(R.string.finish_sitting) { step = Step.FINISH }
+                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                     }
                     Step.CORRECT_CHOICE -> {
                         Heading(R.string.choose_correction)
                         Action(R.string.correct_eye, busy) { step = Step.CORRECT_EYE }
-                        Secondary(R.string.correct_value) { step = Step.CORRECT_VALUE }
-                        Secondary(R.string.back) { if (!busy) abandonCorrection() }
+                        Secondary(R.string.correct_value, busy) { step = Step.CORRECT_VALUE }
+                        Secondary(R.string.back, busy) { if (!busy) abandonCorrection() }
                     }
                     Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE -> {
                         Heading(R.string.review_correction)
@@ -376,7 +376,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Action(if (busy) R.string.correction_saving else R.string.save_correction, busy) {
                             saveCorrection()
                         }
-                        Secondary(R.string.back) {
+                        Secondary(R.string.back, busy) {
                             step = if (step == Step.CORRECT_REVIEW_EYE) Step.CORRECT_EYE else Step.CORRECT_VALUE
                         }
                     }
@@ -392,8 +392,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                             message = null
                             step = Step.EYE
                         }
-                        Secondary(R.string.undo_correction) { undoCorrection() }
-                        Secondary(R.string.finish_sitting) { step = Step.FINISH }
+                        Secondary(R.string.undo_correction, busy) { undoCorrection() }
+                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                     }
                     Step.UNDO_DONE -> {
                         Heading(R.string.undo_done)
@@ -407,20 +407,20 @@ private fun AloeilApp(repository: ReadingRepository) {
                             message = null
                             step = Step.EYE
                         }
-                        Secondary(R.string.finish_sitting) { step = Step.FINISH }
+                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                     }
                     Step.FINISH -> {
                         Heading(R.string.finish_title)
                         Text(stringResource(R.string.finish_body))
                         Action(R.string.finish, busy) { finishSitting() }
-                        Secondary(R.string.keep_recording) {
+                        Secondary(R.string.keep_recording, busy) {
                             step = if (saved != null) Step.SAVED else Step.EYE
                         }
                     }
                     Step.FINISHED -> {
                         Heading(R.string.sitting_finished)
                         Action(R.string.start_sitting, busy) { beginSitting() }
-                        Secondary(R.string.archive_title) { step = Step.ARCHIVE }
+                        Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
                     }
                     Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
                 }
@@ -455,9 +455,10 @@ private fun Action(id: Int, disabled: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Secondary(id: Int, onClick: () -> Unit) {
+internal fun Secondary(id: Int, busy: Boolean, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
+        enabled = !busy,
         modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     ) { Text(stringResource(id)) }
 }
