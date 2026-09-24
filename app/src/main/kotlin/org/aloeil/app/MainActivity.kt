@@ -108,7 +108,7 @@ internal fun AloeilApp(
     var saved by remember { mutableStateOf<Reading?>(null) }
     var selectedSitting by remember { mutableStateOf<Sitting?>(null) }
     var fromHistory by remember { mutableStateOf(false) }
-    var historyReturnStep by remember { mutableStateOf(Step.START) }
+    var historyReturnToFinished by remember { mutableStateOf(false) }
     var captureSittingId by remember { mutableStateOf("") }
     var hasOpenSitting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -387,7 +387,9 @@ internal fun AloeilApp(
     }
 
     fun enterHistory() {
-        historyReturnStep = step
+        // Only Start and Finished currently expose History. Keep the return target safe
+        // even if another screen gains a History entry point later.
+        historyReturnToFinished = step == Step.FINISHED
         captureSittingId = sittingId
         step = Step.HISTORY
     }
@@ -721,7 +723,7 @@ internal fun AloeilApp(
                             note = reading.note.orEmpty()
                             step = Step.HISTORY_READING
                         },
-                        onBack = { step = historyReturnStep },
+                        onBack = { step = if (historyReturnToFinished) Step.FINISHED else Step.START },
                     )
                     Step.HISTORY_READING -> {
                         val current = saved
