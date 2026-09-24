@@ -53,7 +53,7 @@ class ReadingRepositoryDeviceTest {
     }
 
     private fun repository(database: ReadingDatabase = db): ReadingRepository =
-        ReadingRepository(database.readings(), cipher) { time }
+        ReadingRepository(database.readings(), cipher, { "UTC" }, { time })
 
     @Test
     fun saveAndRetryKeepOneReadingAndOneOutboxRow() = runBlocking {
@@ -453,7 +453,7 @@ class ReadingRepositoryDeviceTest {
     @Test
     fun backwardClockCannotMakeLocalSittingUnexportable() = runBlocking {
         var clock = time
-        val repo = ReadingRepository(db.readings(), cipher) { clock }
+        val repo = ReadingRepository(db.readings(), cipher, { "UTC" }, { clock })
         repo.startSitting("synthetic-sitting")
         repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
         clock = time - 60_000
