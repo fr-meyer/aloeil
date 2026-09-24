@@ -596,16 +596,18 @@ internal class SyntheticCipher(keyByte: Byte = 7) : ReadingCipher {
     private val key = SecretKeySpec(ByteArray(32) { keyByte }, "AES")
     private val random = SecureRandom()
 
-    override fun seal(plaintext: ByteArray): SealedPayload {
+    override fun seal(plaintext: ByteArray, aad: ByteArray): SealedPayload {
         val nonce = ByteArray(12).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, nonce))
+        cipher.updateAAD(aad)
         return SealedPayload(nonce, cipher.doFinal(plaintext))
     }
 
-    override fun open(payload: SealedPayload): ByteArray {
+    override fun open(payload: SealedPayload, aad: ByteArray): ByteArray {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, payload.nonce))
+        cipher.updateAAD(aad)
         return cipher.doFinal(payload.ciphertext)
     }
 }
