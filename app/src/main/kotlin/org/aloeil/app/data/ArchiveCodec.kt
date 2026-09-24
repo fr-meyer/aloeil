@@ -33,9 +33,10 @@ data class ArchiveBundle(
 
 /** Authenticated portable backup. The Android Keystore key never leaves the phone. */
 object ArchiveCodec {
+    private val magicV3 = "ALOEIL03".toByteArray(Charsets.US_ASCII)
     private val magicV2 = "ALOEIL02".toByteArray(Charsets.US_ASCII)
     private val magicV1 = "ALOEIL01".toByteArray(Charsets.US_ASCII)
-    private const val version = 2
+    private const val version = 3
     private const val maxBytes = 16 * 1024 * 1024
     private const val maxItems = 100_000
     private const val iterations = 210_000
@@ -47,7 +48,7 @@ object ArchiveCodec {
         val plain = ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->
                 out.writeInt(bundle.readings.size)
-                bundle.readings.forEach { out.writeReading(it) }
+                bundle.readings.forEach { out.writeReadingV3(it) }
                 out.writeInt(bundle.sittings.size)
                 bundle.sittings.forEach { sitting ->
                     out.writeUTF(sitting.id)
@@ -59,7 +60,7 @@ object ArchiveCodec {
                 bundle.versions.forEach { item ->
                     out.writeUTF(item.readingId)
                     out.writeLong(item.revision)
-                    out.writePayload(item.payload)
+                    out.writePayloadV3(item.payload)
                 }
                 out.writeInt(bundle.operations.size)
                 bundle.operations.forEach { item ->
@@ -74,11 +75,11 @@ object ArchiveCodec {
         val nonce = ByteArray(12).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(magicV2)
+        cipher.updateAAD(magicV3)
         val encrypted = cipher.doFinal(plain)
         return ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->
-                out.write(magicV2)
+                out.write(magicV3)
                 out.writeInt(version)
                 out.write(salt)
                 out.write(nonce)
@@ -96,7 +97,8 @@ object ArchiveCodec {
         val magic = ByteArray(8).also(input::readFully)
         val archiveVersion = input.readInt()
         require(
-            (magic.contentEquals(magicV2) && archiveVersion == version) ||
+            (magic.contentEquals(magicV3) && archiveVersion == version) ||
+                (magic.contentEquals(magicV2) && archiveVersion == 2) ||
                 (magic.contentEquals(magicV1) && archiveVersion == 1),
         ) { "Unsupported Aloeil archive" }
         val salt = ByteArray(16).also(input::readFully)
@@ -108,14 +110,20 @@ object ArchiveCodec {
         cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
         cipher.updateAAD(magic)
         val plain = cipher.doFinal(encrypted)
-        val result = if (archiveVersion == 1) decodeLegacy(plain) else decodeV2(plain)
+        val result = when (archiveVersion) {
+            1 -> decodeLegacy(plain)
+            2 -> decodeStructured(plain, version3 = false)
+            else -> decodeStructured(plain, version3 = true)
+        }
         validate(result, requireCompleteHistory = archiveVersion != 1)
         return result
     }
 
-    private fun decodeV2(plain: ByteArray): ArchiveBundle {
+    private fun decodeStructured(plain: ByteArray, version3: Boolean): ArchiveBundle {
         val input = DataInputStream(ByteArrayInputStream(plain))
-        val readings = List(input.readCount()) { input.readReading() }
+        val readings = List(input.readCount()) {
+            if (version3) input.readReadingV3() else input.readReadingV2()
+        }
         val sittings = List(input.readCount()) {
             val id = input.readUTF()
             val started = input.readLong()
@@ -123,7 +131,10 @@ object ArchiveCodec {
             Sitting(id, started, finished)
         }
         val versions = List(input.readCount()) {
-            ArchivedVersion(input.readUTF(), input.readLong(), input.readPayload())
+            ArchivedVersion(
+                input.readUTF(), input.readLong(),
+                if (version3) input.readPayloadV3() else input.readPayloadV2(),
+            )
         }
         val operations = List(input.readCount()) {
             ArchivedOperation(input.readUTF(), input.readUTF(), input.readLong())
@@ -182,7 +193,10 @@ object ArchiveCodec {
         val sittings = bundle.sittings.map { it.id }.toSet()
         bundle.readings.forEach {
             require(it.id.isNotBlank() && it.sittingId in sittings && it.revision > 0)
-            require(ReadingValue.parse(it.value) == ReadingValueResult.Valid(it.value))
+            ReadingFact.validate(
+                it.value, it.rangeState, it.timeZoneId, it.note,
+                it.createdAtMillis, it.updatedAtMillis,
+            )
         }
         bundle.sittings.forEach {
             require(it.id.isNotBlank())
@@ -193,7 +207,12 @@ object ArchiveCodec {
             require(it.revision in 1L until current.revision)
             require(it.payload.sittingId == current.sittingId)
             require(it.payload.recordedAtMillis == current.recordedAtMillis)
-            require(ReadingValue.parse(it.payload.value) == ReadingValueResult.Valid(it.payload.value))
+            require(it.payload.timeZoneId == current.timeZoneId)
+            require(it.payload.createdAtMillis == current.createdAtMillis)
+            ReadingFact.validate(
+                it.payload.value, it.payload.rangeState, it.payload.timeZoneId,
+                it.payload.note, it.payload.createdAtMillis, it.payload.updatedAtMillis,
+            )
         }
         bundle.operations.forEach {
             val current = readings[it.readingId] ?: error("Orphaned correction operation")
@@ -230,31 +249,57 @@ object ArchiveCodec {
         }
     }
 
-    private fun DataOutputStream.writeReading(reading: Reading) {
+    private fun DataOutputStream.writeReadingV3(reading: Reading) {
         writeUTF(reading.id)
-        writePayload(
-            ReadingPayload(reading.sittingId, reading.recordedAtMillis, reading.eye, reading.value),
-        )
+        writePayloadV3(reading.asPayload())
         writeLong(reading.revision)
     }
 
-    private fun DataInputStream.readReading(): Reading {
+    private fun DataInputStream.readReadingV3(): Reading {
         val id = readUTF()
-        val payload = readPayload()
-        return Reading(
-            id, payload.sittingId, payload.recordedAtMillis, payload.eye, payload.value,
-            readLong(), 0,
-        )
+        val payload = readPayloadV3()
+        return payload.asReading(id, readLong(), 0)
     }
 
-    private fun DataOutputStream.writePayload(payload: ReadingPayload) {
+    private fun DataInputStream.readReadingV2(): Reading {
+        val id = readUTF()
+        val payload = readPayloadV2()
+        return payload.asReading(id, readLong(), 0)
+    }
+
+    private fun DataOutputStream.writePayloadV3(payload: ReadingPayload) {
         writeUTF(payload.sittingId)
         writeLong(payload.recordedAtMillis)
         writeUTF(payload.eye.name)
         writeUTF(payload.value)
+        writeUTF(payload.rangeState?.name.orEmpty())
+        writeUTF(payload.timeZoneId.orEmpty())
+        writeBoolean(payload.note != null)
+        payload.note?.let { writeUTF(it) }
+        writeBoolean(payload.createdAtMillis != null)
+        if (payload.createdAtMillis != null && payload.updatedAtMillis != null) {
+            writeLong(payload.createdAtMillis)
+            writeLong(payload.updatedAtMillis)
+        }
     }
 
-    private fun DataInputStream.readPayload(): ReadingPayload =
+    private fun DataInputStream.readPayloadV3(): ReadingPayload {
+        val sittingId = readUTF()
+        val recordedAtMillis = readLong()
+        val eye = Eye.valueOf(readUTF())
+        val value = readUTF()
+        val rangeState = readUTF().takeIf { it.isNotEmpty() }?.let(RangeState::valueOf)
+        val timeZoneId = readUTF().takeIf { it.isNotEmpty() }
+        val note = if (readBoolean()) readUTF() else null
+        val hasAudit = readBoolean()
+        return ReadingPayload(
+            sittingId, recordedAtMillis, eye, value, rangeState, timeZoneId, note,
+            if (hasAudit) readLong() else null,
+            if (hasAudit) readLong() else null,
+        )
+    }
+
+    private fun DataInputStream.readPayloadV2(): ReadingPayload =
         ReadingPayload(readUTF(), readLong(), Eye.valueOf(readUTF()), readUTF())
 
     private fun DataInputStream.readCount(): Int = readInt().also {

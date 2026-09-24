@@ -199,9 +199,9 @@ interface ReadingDao {
             val currentPayload = ReadingPayloadCodec.decode(
                 cipher.open(SealedPayload(existing.nonce, existing.ciphertext)),
             )
-            require(existing.revision == expected.revision && currentPayload == ReadingPayload(
-                expected.sittingId, expected.recordedAtMillis, expected.eye, expected.value,
-            )) { "Conflicting reading ID in archive" }
+            require(existing.revision == expected.revision && currentPayload == expected.asPayload()) {
+                "Conflicting reading ID in archive"
+            }
             val currentVersions = versionsForReading(incoming.id).map { row ->
                 row.revision to ReadingPayloadCodec.decode(
                     cipher.open(SealedPayload(row.nonce, row.ciphertext)),

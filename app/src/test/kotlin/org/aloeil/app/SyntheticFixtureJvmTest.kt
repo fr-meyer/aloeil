@@ -18,6 +18,7 @@ import org.aloeil.app.data.SittingPayloadCodec
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.Reason
+import org.aloeil.app.data.RangeState
 import org.aloeil.app.data.restoredDraftStep
 
 /**
@@ -62,6 +63,11 @@ object SyntheticFixtureJvmTest {
         )
         val archive = ArchiveCodec.encode(bundle, passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == bundle)
+        // Fixed synthetic v2 archive preserves the prior revision and operation ID.
+        val version2Bytes = Base64.getDecoder().decode(
+            "QUxPRUlMMDIAAAACAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGwAAAPl3E05J0ZXhSZwwoSVE54VZQI7yU3ffjy980rw13JmTaM9G7KnRbZgZKQKuefHnY8AOGsdDjhpUjy6Clr2FSszOTs+ny00JVKriL3Er1pqtwnzCQfPRGQwHvU6tzxakKEX9ckrcvZjpgoV2gQInsQkBpAZOPsnroLH32UtSoR3JE428AqUE1UhqLJXkSRGBWf6G/vpxpOg5LmklVvB2b1ZtLfZJVY0J3LWYOTwp7PIo81G9jLg2YmSOIOPj4QxFHS3YgABLjzjRu3LL32tlDpvw2INYRKAKTUvhdol7zfibds6nTMLHql08h2mrBbMf9VNp+GNRb50uv4g=",
+        )
+        check(ArchiveCodec.decode(version2Bytes, passphrase) == bundle)
         // Fixed synthetic version-1 archive with revision 3 but no prior history.
         val legacyBytes = Base64.getDecoder().decode(
             "QUxPRUlMMDEAAAABAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGwAAAFZ3E05J0ZXhSZwwoSVE54VZX9vyU3fYjy980rw13JmTaM9G7KnRbZgZbjOueHujSU1mGsIVixhajy6Dlr6FS/jOTs+ny00KRUE9oOPCU6zxja5rtSUAqQ==",
@@ -105,6 +111,39 @@ object SyntheticFixtureJvmTest {
             ),
         )
         check(runCatching { ArchiveCodec.encode(missingMiddleRevision, passphrase) }.isFailure)
+
+        val range = Reading(
+            id = "synthetic-range-1",
+            sittingId = sitting.id,
+            recordedAtMillis = legacyTime + 10,
+            eye = Eye.RIGHT,
+            value = "",
+            revision = 1,
+            replicaConfirmedRevision = 0,
+            rangeState = RangeState.BELOW_RANGE,
+            timeZoneId = "Asia/Seoul",
+            note = "Synthetic device state",
+            createdAtMillis = legacyTime + 10,
+            updatedAtMillis = legacyTime + 10,
+        )
+        val rangeBundle = ArchiveBundle(listOf(range), listOf(sitting), emptyList(), emptyList())
+        check(ArchiveCodec.decode(ArchiveCodec.encode(rangeBundle, passphrase), passphrase) == rangeBundle)
+        val rangePayload = ReadingPayload(
+            range.sittingId, range.recordedAtMillis, range.eye, range.value,
+            range.rangeState, range.timeZoneId, range.note,
+            range.createdAtMillis, range.updatedAtMillis,
+        )
+        check(ReadingPayloadCodec.decode(ReadingPayloadCodec.encode(rangePayload)) == rangePayload)
+        check(runCatching {
+            ArchiveCodec.encode(rangeBundle.copy(
+                readings = listOf(range.copy(value = "12.3")),
+            ), passphrase)
+        }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(rangeBundle.copy(
+                readings = listOf(range.copy(timeZoneId = "Invalid/Imaginary")),
+            ), passphrase)
+        }.isFailure)
 
         val draft = DraftCheckpoint(
             sittingId = "synthetic-sitting-1",

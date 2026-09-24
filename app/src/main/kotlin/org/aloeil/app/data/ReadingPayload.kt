@@ -11,35 +11,80 @@ data class ReadingPayload(
     val recordedAtMillis: Long,
     val eye: Eye,
     val value: String,
+    val rangeState: RangeState? = null,
+    val timeZoneId: String? = null,
+    val note: String? = null,
+    val createdAtMillis: Long? = null,
+    val updatedAtMillis: Long? = null,
+)
+
+internal fun Reading.asPayload(): ReadingPayload = ReadingPayload(
+    sittingId, recordedAtMillis, eye, value, rangeState, timeZoneId,
+    note, createdAtMillis, updatedAtMillis,
+)
+
+internal fun ReadingPayload.asReading(
+    id: String,
+    revision: Long,
+    replicaConfirmedRevision: Long,
+): Reading = Reading(
+    id, sittingId, recordedAtMillis, eye, value, revision, replicaConfirmedRevision,
+    rangeState, timeZoneId, note, createdAtMillis, updatedAtMillis,
 )
 
 internal object ReadingPayloadCodec {
     fun encode(payload: ReadingPayload): ByteArray = ByteArrayOutputStream().also { bytes ->
-        require(payload.sittingId.isNotBlank())
-        require(ReadingValue.parse(payload.value) == ReadingValueResult.Valid(payload.value))
+        validate(payload)
         DataOutputStream(bytes).use { out ->
-            out.writeInt(1)
+            out.writeInt(2)
             out.writeUTF(payload.sittingId)
             out.writeLong(payload.recordedAtMillis)
             out.writeUTF(payload.eye.name)
             out.writeUTF(payload.value)
+            out.writeUTF(payload.rangeState?.name.orEmpty())
+            out.writeUTF(payload.timeZoneId.orEmpty())
+            out.writeBoolean(payload.note != null)
+            payload.note?.let(out::writeUTF)
+            out.writeBoolean(payload.createdAtMillis != null)
+            if (payload.createdAtMillis != null && payload.updatedAtMillis != null) {
+                out.writeLong(payload.createdAtMillis)
+                out.writeLong(payload.updatedAtMillis)
+            }
         }
     }.toByteArray()
 
     fun decode(bytes: ByteArray): ReadingPayload {
         val input = DataInputStream(ByteArrayInputStream(bytes))
-        require(input.readInt() == 1) { "Unsupported reading payload version" }
-        val result = ReadingPayload(
-            input.readUTF(),
-            input.readLong(),
-            Eye.valueOf(input.readUTF()),
-            input.readUTF(),
-        )
-        require(input.available() == 0 && result.sittingId.isNotBlank()) { "Invalid reading payload" }
-        require(ReadingValue.parse(result.value) == ReadingValueResult.Valid(result.value)) {
-            "Invalid reading value"
+        val version = input.readInt()
+        require(version == 1 || version == 2) { "Unsupported reading payload version" }
+        val sittingId = input.readUTF()
+        val recordedAtMillis = input.readLong()
+        val eye = Eye.valueOf(input.readUTF())
+        val value = input.readUTF()
+        val result = if (version == 1) {
+            ReadingPayload(sittingId, recordedAtMillis, eye, value)
+        } else {
+            val rangeState = input.readUTF().takeIf { it.isNotEmpty() }?.let(RangeState::valueOf)
+            val timeZoneId = input.readUTF().takeIf { it.isNotEmpty() }
+            val note = if (input.readBoolean()) input.readUTF() else null
+            val hasAudit = input.readBoolean()
+            ReadingPayload(
+                sittingId, recordedAtMillis, eye, value, rangeState, timeZoneId, note,
+                if (hasAudit) input.readLong() else null,
+                if (hasAudit) input.readLong() else null,
+            )
         }
+        require(input.available() == 0) { "Unexpected reading payload data" }
+        validate(result)
         return result
+    }
+
+    private fun validate(payload: ReadingPayload) {
+        require(payload.sittingId.isNotBlank()) { "Invalid sitting ID" }
+        ReadingFact.validate(
+            payload.value, payload.rangeState, payload.timeZoneId,
+            payload.note, payload.createdAtMillis, payload.updatedAtMillis,
+        )
     }
 }
 
