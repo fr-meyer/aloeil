@@ -36,7 +36,7 @@ object CsvExport {
                 spreadsheetSafe(reading.timeZoneId.orEmpty()),
                 reading.eye.name,
                 reading.rangeState?.name ?: "NUMERIC",
-                if (reading.rangeState == null) reading.value else "",
+                if (reading.rangeState == null) spreadsheetSafe(reading.value) else "",
                 spreadsheetSafe(reading.note.orEmpty()),
                 reading.revision.toString(),
                 reading.createdAtMillis?.let(::instant).orEmpty(),
