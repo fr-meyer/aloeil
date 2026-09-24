@@ -2,6 +2,7 @@ package org.aloeil.app.data
 
 import java.io.IOException
 import java.time.ZoneId
+import java.util.UUID
 import javax.crypto.AEADBadTagException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -24,6 +25,10 @@ class ReadingRepository(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val draftMutex = Mutex()
+
+    /** Outbox identity is independent of unrestricted reading IDs and revision syntax. */
+    private fun pendingRevision(readingId: String, revision: Long, dueAt: Long): OutboxRow =
+        OutboxRow(UUID.randomUUID().toString(), readingId, revision, 0, dueAt)
 
     /** Verify persisted encrypted rows before the UI permits any new writes or imports. */
     suspend fun verifyReadable() {
@@ -107,7 +112,7 @@ class ReadingRepository(
         val row = ReadingRow(readingId, sealed.nonce, sealed.ciphertext, 1, 0)
         val stored = dao.saveOnPhone(
             row,
-            OutboxRow(readingId, readingId, 1, 0, time),
+            pendingRevision(readingId, 1, time),
             sittingId,
             cipher,
         )
@@ -217,9 +222,7 @@ class ReadingRepository(
             )
             ReadingRow(
                 reading.id, sealed.nonce, sealed.ciphertext, reading.revision, 0,
-            ) to OutboxRow(
-                reading.id + ":" + reading.revision, reading.id, reading.revision, 0, now(),
-            )
+            ) to pendingRevision(reading.id, reading.revision, now())
         }
         val versions = bundle.versions.map { item ->
             val sealed = cipher.seal(ReadingPayloadCodec.encode(item.payload))
@@ -330,13 +333,7 @@ class ReadingRepository(
             ciphertext = sealed.ciphertext,
             revision = old.revision + 1,
         )
-        val outbox = OutboxRow(
-            "$readingId:${updated.revision}",
-            readingId,
-            updated.revision,
-            0,
-            now(),
-        )
+        val outbox = pendingRevision(readingId, updated.revision, now())
         if (!dao.applyCorrection(operationId, expectedRevision, updated, outbox)) return null
         return dao.reading(readingId)?.let(::decode)
     }

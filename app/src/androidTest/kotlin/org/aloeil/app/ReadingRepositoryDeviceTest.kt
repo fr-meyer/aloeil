@@ -101,6 +101,33 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun outboxIdsDoNotCollideWithReadingIdsThatContainRevisionSyntax() = runBlocking {
+        val repo = repository()
+        repo.startSitting("local-sitting")
+        repo.record("x:1", "local-sitting", Eye.LEFT, "12.3")
+
+        val importedSitting = Sitting("imported-sitting", time + 100, time + 200)
+        val importedReading = Reading(
+            "x", importedSitting.id, time + 101, Eye.RIGHT, "14.2", 1, 0,
+        )
+        val archive = ArchiveCodec.encode(
+            ArchiveBundle(
+                readings = listOf(importedReading),
+                sittings = listOf(importedSitting),
+                versions = emptyList(),
+                operations = emptyList(),
+            ),
+            passphrase,
+        )
+        check(repo.importArchive(archive, passphrase) == 1)
+        val pending = repo.dueForReplica()
+        check(pending.map { it.readingId }.toSet() == setOf("x:1", "x"))
+        check(pending.map { it.id }.toSet().size == 2)
+        check(repo.importArchive(archive, passphrase) == 0)
+        check(repo.dueForReplica().map { it.id }.toSet() == pending.map { it.id }.toSet())
+    }
+
+    @Test
     fun simultaneousStartsKeepExactlyOneOpenSitting() = runBlocking {
         val repo = repository()
         val attempts = listOf("synthetic-first", "synthetic-second").map { id ->
