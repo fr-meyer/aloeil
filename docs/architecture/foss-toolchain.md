@@ -4,7 +4,7 @@ Status: approved for the GitHub Actions bootstrap. This decision does not implem
 
 ## Required toolchain
 
-Aloeil builds with Eclipse Temurin 17 LTS. Oracle JDK is not permitted. The Gradle wrapper pins Gradle 8.11.1 and verifies the binary distribution checksum; the Android project pins Android Gradle Plugin 8.9.1, Kotlin and the Compose compiler plugin 2.2.10, Android SDK 35, and each current AndroidX dependency through `gradle/libs.versions.toml`.
+Aloeil builds with Eclipse Temurin 17 LTS. Oracle JDK is not permitted. The Gradle wrapper pins Gradle 8.11.1 and verifies the binary distribution checksum; the Android project pins Android Gradle Plugin 8.10.0, Kotlin and the Compose compiler plugin 2.2.10, Android SDK 35, and each current AndroidX dependency through `gradle/libs.versions.toml`.
 
 The application stack is Kotlin, Jetpack Compose, Room, DataStore, and Android Keystore-backed cryptography. Kotlin and the selected AndroidX components are Apache-2.0 licensed. Keystore access uses Android platform and Java Cryptography Architecture APIs; no proprietary helper SDK is introduced. Room and DataStore are approved for later P2 work but are deliberately not dependencies of this CI bootstrap.
 
