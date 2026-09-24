@@ -125,6 +125,12 @@ internal fun AloeilApp(repository: ReadingRepository) {
             }
         } catch (_: Exception) {
             message = R.string.error_draft_restore
+            val open = runCatching {
+                withContext(Dispatchers.IO) { repository.openSitting() }
+            }.getOrNull()
+            sittingId = open?.id.orEmpty()
+            hasOpenSitting = open != null
+            fromHistory = false
             step = Step.START
         }
     }

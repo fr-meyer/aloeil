@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -64,7 +65,7 @@ class HistoryDraftRecoveryDeviceTest {
                         error,
                     )
                 }
-                compose.onNode(target).performClick()
+                compose.onNode(target).performScrollTo().performClick()
             }
             tap(R.string.back)
             tap(R.string.history_back)

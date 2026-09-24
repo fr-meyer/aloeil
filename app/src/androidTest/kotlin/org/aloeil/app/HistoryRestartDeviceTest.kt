@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -64,7 +65,7 @@ class HistoryRestartDeviceTest {
                         error,
                     )
                 }
-                compose.onNode(target).performClick()
+                compose.onNode(target).performScrollTo().performClick()
             }
             tap(context.getString(R.string.history_title))
             val label = context.getString(R.string.left_eye) + ": " +

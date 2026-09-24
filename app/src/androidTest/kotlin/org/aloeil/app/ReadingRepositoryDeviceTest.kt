@@ -162,7 +162,7 @@ class ReadingRepositoryDeviceTest {
         local.startSitting("local-sitting")
         val old = local.record("shared-reading", "local-sitting", Eye.RIGHT, "14.2")
         check(local.deleteReading(old.id, old.revision))
-        check(runCatching { local.importArchive(archive, passphrase) }.isFailure)
+        check(local.importArchive(archive, passphrase) == 0)
         check(local.openSitting()?.id == "local-sitting")
         check(local.allSittings().map { it.id } == listOf("local-sitting"))
         check(local.all().isEmpty())
@@ -171,6 +171,26 @@ class ReadingRepositoryDeviceTest {
         check(local.importArchive(archive, passphrase) == 0)
         check(local.openSitting() == null)
         check(local.allSittings().map { it.id } == listOf("local-sitting"))
+    }
+
+    @Test
+    fun importedOpenSittingWithSurvivingReadingCannotDisplaceLocalCapture() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = ReadingRepository(sourceDb.readings(), cipher, { "UTC" }) { time + 1000 }
+            source.startSitting("imported-sitting")
+            source.record("imported-reading", "imported-sitting", Eye.LEFT, "12.3")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("local-sitting")
+        val localReading = local.record("local-reading", "local-sitting", Eye.RIGHT, "14.2")
+        check(runCatching { local.importArchive(archive, passphrase) }.isFailure)
+        check(local.openSitting()?.id == "local-sitting")
+        check(local.allSittings().map { it.id } == listOf("local-sitting"))
+        check(local.all() == listOf(localReading))
     }
 
     @Test
