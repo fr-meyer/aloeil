@@ -58,7 +58,7 @@ class HistoryDraftRecoveryDeviceTest {
                     compose.waitUntil(timeoutMillis = 10_000) {
                         compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
                     }
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     throw AssertionError(
                         "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
                         error,
@@ -86,7 +86,7 @@ class HistoryDraftRecoveryDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.saved_on_phone)))
                         .fetchSemanticsNodes().isNotEmpty()
                 }
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 throw AssertionError(
                     "Expected result missing: saved_on_phone\n" + compose.onRoot().printToString().take(4000),
                     error,

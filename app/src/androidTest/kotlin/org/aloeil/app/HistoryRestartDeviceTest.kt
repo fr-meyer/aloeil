@@ -58,7 +58,7 @@ class HistoryRestartDeviceTest {
                     compose.waitUntil(timeoutMillis = 10_000) {
                         compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
                     }
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     throw AssertionError(
                         "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
                         error,
@@ -75,7 +75,7 @@ class HistoryRestartDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.history_detail_title)))
                         .fetchSemanticsNodes().isNotEmpty()
                 }
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 throw AssertionError(
                     "Expected result missing: history_detail_title\n" + compose.onRoot().printToString().take(4000),
                     error,
