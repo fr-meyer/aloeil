@@ -73,7 +73,7 @@ private enum class Step {
 }
 
 @Composable
-private fun AloeilApp(repository: ReadingRepository) {
+internal fun AloeilApp(repository: ReadingRepository) {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.LOADING) }
     var sittingId by remember { mutableStateOf("") }
@@ -105,10 +105,10 @@ private fun AloeilApp(repository: ReadingRepository) {
                 rangeState = draft.rangeState
                 note = draft.note
                 fromHistory = draft.fromHistory
+                val open = withContext(Dispatchers.IO) { repository.openSitting() }
+                hasOpenSitting = open != null
                 if (fromHistory) {
-                    captureSittingId = withContext(Dispatchers.IO) {
-                        repository.openSitting()?.id.orEmpty()
-                    }
+                    captureSittingId = open?.id.orEmpty()
                     selectedSitting = withContext(Dispatchers.IO) {
                         repository.allSittings().firstOrNull { it.id == draft.sittingId }
                     }
@@ -116,7 +116,6 @@ private fun AloeilApp(repository: ReadingRepository) {
                 saved = committed
                 step = runCatching { Step.valueOf(restoredDraftStep(draft, committed)) }
                     .getOrDefault(Step.EYE)
-                hasOpenSitting = true
             } else {
                 val open = withContext(Dispatchers.IO) { repository.openSitting() }
                 if (open != null) {
