@@ -1,5 +1,7 @@
 package org.aloeil.app
 
+import java.util.Base64
+
 import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
 import org.aloeil.app.data.ArchivedOperation
@@ -59,6 +61,23 @@ object SyntheticFixtureJvmTest {
         )
         val archive = ArchiveCodec.encode(bundle, passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == bundle)
+        // Fixed synthetic version-1 archive, produced with the historical binary layout.
+        val legacyBytes = Base64.getDecoder().decode(
+            "QUxPRUlMMDEAAAABAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGwAAAFZ3E05J0ZXhSZwwoSVE54VZX9vyU3fYjy980rw13JmTaM9G7KnRbZgZbjOueHujSU1mGsIVixhajy6Dlr6FS/jOTs+ny00I5SxsdCE5DGCVozlPutqkUQ==",
+        )
+        val legacyTime = 1_700_000_000_000L
+        val legacyBundle = ArchiveBundle(
+            readings = listOf(
+                Reading("synthetic-v1-1", "synthetic-sitting-v1", legacyTime, Eye.LEFT, "11.2", 1, 0),
+            ),
+            sittings = listOf(Sitting("synthetic-sitting-v1", legacyTime, legacyTime)),
+            versions = emptyList(),
+            operations = emptyList(),
+        )
+        check(ArchiveCodec.decode(legacyBytes, passphrase) == legacyBundle)
+        check(runCatching {
+            ArchiveCodec.decode(legacyBytes, "wrong-passphrase".toCharArray())
+        }.isFailure)
         val tampered = archive.clone().also { it[it.lastIndex] = (it.last().toInt() xor 1).toByte() }
         check(runCatching { ArchiveCodec.decode(tampered, passphrase) }.isFailure)
         check(runCatching { ArchiveCodec.decode(archive, "wrong-passphrase".toCharArray()) }.isFailure)
