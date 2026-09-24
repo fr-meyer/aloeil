@@ -15,7 +15,7 @@
     <string name="reading_hint">Saisissez un nombre en mmHg.</string>
     <string name="not_saved">Pas encore enregistrée</string>
     <string name="continue_action">Continuer</string>
-    <string name="review_before_save">Vérifier avant d&#x27;enregistrer</string>
+    <string name="review_before_save">Vérifier avant d\'enregistrer</string>
     <string name="eye_summary">Œil : %1$s</string>
     <string name="reading_summary">Mesure : %1$s mmHg</string>
     <string name="back">Retour</string>
@@ -25,8 +25,8 @@
     <string name="already_saved">Cette mesure est déjà enregistrée sur ce téléphone.</string>
     <string name="add_another">Ajouter une autre mesure</string>
     <string name="correct_reading">Corriger cette mesure</string>
-    <string name="choose_correction">Choisir l&#x27;élément à corriger</string>
-    <string name="correct_eye">Corriger l&#x27;œil</string>
+    <string name="choose_correction">Choisir l\'élément à corriger</string>
+    <string name="correct_eye">Corriger l\'œil</string>
     <string name="correct_value">Corriger la mesure</string>
     <string name="review_correction">Vérifier la correction</string>
     <string name="previous_eye">Œil précédent : %1$s</string>
@@ -38,7 +38,7 @@
     <string name="correction_saved">Correction enregistrée</string>
     <string name="undo_correction">Annuler la correction</string>
     <string name="undo_done">Œil et mesure précédents restaurés</string>
-    <string name="nothing_to_undo">Il n&#x27;y a aucune correction à annuler.</string>
+    <string name="nothing_to_undo">Il n\'y a aucune correction à annuler.</string>
     <string name="finish_sitting">Terminer la séance de saisie</string>
     <string name="finish_title">Terminer cette séance de saisie ?</string>
     <string name="finish_body">La séance sera clôturée et restera disponible pour consultation.</string>
@@ -48,8 +48,8 @@
     <string name="error_empty">Saisissez une mesure.</string>
     <string name="error_number">Saisissez un nombre.</string>
     <string name="error_decimal">Utilisez un seul séparateur décimal.</string>
-    <string name="error_save">Impossible d&#x27;enregistrer la mesure. Votre saisie est toujours affichée. Réessayez.</string>
-    <string name="error_correction_save">Impossible d&#x27;enregistrer la correction. Vos modifications sont toujours affichées. Réessayez.</string>
+    <string name="error_save">Impossible d\'enregistrer la mesure. Votre saisie est toujours affichée. Réessayez.</string>
+    <string name="error_correction_save">Impossible d\'enregistrer la correction. Vos modifications sont toujours affichées. Réessayez.</string>
     <string name="error_draft_restore">Impossible de restaurer le brouillon. Les mesures enregistrées restent disponibles. Choisissez un œil pour continuer.</string>
     <string name="try_again">Réessayer</string>
     <string name="loading">Chargement…</string>
