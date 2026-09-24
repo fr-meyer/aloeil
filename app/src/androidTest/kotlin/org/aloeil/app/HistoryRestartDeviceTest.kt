@@ -1,8 +1,11 @@
 package org.aloeil.app
 
 import android.content.Context
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodes
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.performClick
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -54,7 +57,11 @@ class HistoryRestartDeviceTest {
             }
             val label = context.getString(R.string.left_eye) + ": " +
                 context.getString(R.string.numeric_reading, "12.3")
-            compose.onNodeWithText(label).performClick()
+            compose.waitUntil(timeoutMillis = 10_000) {
+                compose.onAllNodes(hasText(label) and hasClickAction())
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNode(hasText(label) and hasClickAction()).performClick()
             compose.runOnIdle { check(selected == "synthetic-reading") }
         } finally {
             reopened.close()
