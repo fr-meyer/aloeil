@@ -254,6 +254,19 @@ object SyntheticFixtureJvmTest {
         check(guardedRow[1] == "'=synthetic-id")
         check(guardedRow[2] == "'+synthetic-sitting")
         check(guardedRow[6] == "'+02:00")
+        check(ReadingValue.parse("+001.0") == ReadingValueResult.Valid("+001.0"))
+        check(ReadingValue.parse("-001.0") == ReadingValueResult.Valid("-001.0"))
+        val signedCsv = StringWriter()
+        CsvExport.write(
+            listOf(
+                synthetic.copy(id = "positive", value = "+001.0"),
+                synthetic.copy(id = "negative", value = "-001.0"),
+            ),
+            listOf(sitting), signedCsv,
+        )
+        val signedRows = parseCsvRows(signedCsv.toString()).drop(1).associateBy { it[1] }
+        check(signedRows["positive"]!![9] == "'+001.0")
+        check(signedRows["negative"]!![9] == "'-001.0")
         check(runCatching {
             CsvExport.write(listOf(synthetic), emptyList(), StringWriter())
         }.isFailure)
