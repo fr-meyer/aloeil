@@ -1,6 +1,7 @@
 package org.aloeil.app.data
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -373,13 +374,24 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        private const val DATABASE_NAME = "aloeil-readings.db"
         @Volatile private var applicationInstance: ReadingDatabase? = null
 
         fun open(context: Context): ReadingDatabase =
             applicationInstance ?: synchronized(this) {
                 applicationInstance ?: Room.databaseBuilder(
-                    context.applicationContext, ReadingDatabase::class.java, "aloeil-readings.db",
+                    context.applicationContext, ReadingDatabase::class.java, DATABASE_NAME,
                 ).addMigrations(MIGRATION_1_2).build().also { applicationInstance = it }
             }
+
+        /** The caller must obtain explicit confirmation before invoking this destructive reset. */
+        fun resetUnreadableStore(context: Context) = synchronized(this) {
+            applicationInstance?.close()
+            applicationInstance = null
+            val file = context.applicationContext.getDatabasePath(DATABASE_NAME)
+            if (file.exists()) require(SQLiteDatabase.deleteDatabase(file)) {
+                "Unreadable local database could not be deleted"
+            }
+        }
     }
 }

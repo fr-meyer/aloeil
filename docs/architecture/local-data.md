@@ -31,6 +31,16 @@ be exported to a new phone; a transferred database without it would be
 unreadable. Recovery on a new phone uses the user-chosen encrypted archive
 and passphrase instead.
 
+If a saved encrypted row cannot be read, the app stops normal capture,
+history and import before any new write. Opening a missing Keystore key never
+creates a replacement. The recovery screen leaves the unreadable database
+untouched until the user enters a separate confirmation step. Confirmation
+closes and deletes the local database and its SQLite auxiliary files, removes
+the old app key, and restarts with an empty profile. The user can then import
+a separately saved encrypted archive with its passphrase. This operation
+permanently removes local readings, drafts, and deletion markers, so the UI
+warns that data without a portable backup may not be recoverable.
+
 A confirmed delete transaction erases the reading, previous encrypted
 versions, correction operations, and pending outbox entries. It retains
 only a random reading ID and deletion time. The marker stops an older archive

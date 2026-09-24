@@ -10,6 +10,9 @@ data class ArchivePreview(
     val deletedCount: Int,
 )
 
+class UnreadableLocalStoreException(cause: Throwable) :
+    IllegalStateException("Local encrypted data cannot be read", cause)
+
 /** A save completes once Room commits the reading and its retryable outbox row. */
 class ReadingRepository(
     private val dao: ReadingDao,
@@ -18,6 +21,36 @@ class ReadingRepository(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     private val draftMutex = Mutex()
+
+    /** Verify persisted encrypted rows before the UI permits any new writes or imports. */
+    suspend fun verifyReadable() {
+        try {
+            val snapshot = dao.archiveSnapshot()
+            snapshot.readings.forEach { row ->
+                ReadingPayloadCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+            }
+            snapshot.sittings.forEach { row ->
+                SittingPayloadCodec.decode(
+                    row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+                )
+            }
+            snapshot.versions.forEach { row ->
+                ReadingPayloadCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+            }
+            // A malformed draft alone can be skipped while valid saved rows remain usable.
+            dao.draft()?.let { row ->
+                try {
+                    DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+                } catch (missing: MissingReadingKeyException) {
+                    throw missing
+                } catch (_: Exception) {
+                    // The normal draft-recovery path reports this and resumes an open sitting.
+                }
+            }
+        } catch (error: Exception) {
+            throw UnreadableLocalStoreException(error)
+        }
+    }
 
     suspend fun record(
         readingId: String,

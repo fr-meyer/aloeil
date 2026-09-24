@@ -49,6 +49,7 @@ import org.aloeil.app.data.Eye
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
+import org.aloeil.app.data.UnreadableLocalStoreException
 import org.aloeil.app.data.Sitting
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
@@ -60,16 +61,26 @@ import org.aloeil.app.data.restoredDraftStep
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val database = ReadingDatabase.open(applicationContext)
-        val repository = ReadingRepository(database.readings(), AndroidKeystoreReadingCipher())
-        setContent { AloeilApp(repository) }
+        val appContext = applicationContext
+        val database = ReadingDatabase.open(appContext)
+        val cipher = AndroidKeystoreReadingCipher()
+        val repository = ReadingRepository(database.readings(), cipher)
+        setContent {
+            AloeilApp(repository, resetUnreadableStore = {
+                withContext(Dispatchers.IO) {
+                    ReadingDatabase.resetUnreadableStore(appContext)
+                    cipher.deleteKeyForRecovery()
+                }
+                recreate()
+            })
+        }
     }
 }
 
-/** Keep the Activity and its composition alive until a local write settles. */
+/** Explicit in-app Back owns navigation while a draft or write is active. */
 @Composable
-internal fun BlockSystemBackWhileBusy(busy: Boolean) {
-    BackHandler(enabled = busy) { }
+internal fun BlockSystemBackWhenUnsafe(enabled: Boolean) {
+    BackHandler(enabled = enabled) { }
 }
 
 private enum class Step {
@@ -77,10 +88,14 @@ private enum class Step {
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
     FINISH, FINISHED, DELETE_CONFIRM, DELETED, HISTORY, HISTORY_READING, CSV_EXPORT, ARCHIVE,
+    RECOVERY, RECOVERY_CONFIRM,
 }
 
 @Composable
-internal fun AloeilApp(repository: ReadingRepository) {
+internal fun AloeilApp(
+    repository: ReadingRepository,
+    resetUnreadableStore: (suspend () -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.LOADING) }
     var sittingId by remember { mutableStateOf("") }
@@ -100,10 +115,16 @@ internal fun AloeilApp(repository: ReadingRepository) {
     var message by remember { mutableStateOf<Int?>(null) }
     var valueError by remember { mutableStateOf<Int?>(null) }
 
-    BlockSystemBackWhileBusy(busy)
+    val editingDraft = step in setOf(
+        Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW,
+        Step.CORRECT_CHOICE, Step.CORRECT_EYE, Step.CORRECT_VALUE, Step.CORRECT_NOTE,
+        Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE,
+    )
+    BlockSystemBackWhenUnsafe(busy || editingDraft)
 
     LaunchedEffect(Unit) {
         try {
+            withContext(Dispatchers.IO) { repository.verifyReadable() }
             val recovered = withContext(Dispatchers.IO) { repository.recoverDraft() }
             if (recovered != null) {
                 val (draft, committed) = recovered
@@ -133,6 +154,9 @@ internal fun AloeilApp(repository: ReadingRepository) {
                 }
                 step = Step.START
             }
+        } catch (_: UnreadableLocalStoreException) {
+            message = null
+            step = Step.RECOVERY
         } catch (_: Exception) {
             message = R.string.error_draft_restore
             val open = runCatching {
@@ -416,6 +440,33 @@ internal fun AloeilApp(repository: ReadingRepository) {
             ) {
                 when (step) {
                     Step.LOADING -> Heading(R.string.loading)
+                    Step.RECOVERY -> {
+                        Heading(R.string.recovery_unreadable_title)
+                        Text(stringResource(R.string.recovery_unreadable_body))
+                        Text(stringResource(R.string.recovery_keep_backup))
+                        Action(R.string.recovery_prepare_reset, busy || resetUnreadableStore == null) {
+                            step = Step.RECOVERY_CONFIRM
+                        }
+                    }
+                    Step.RECOVERY_CONFIRM -> {
+                        Heading(R.string.recovery_confirm_title)
+                        Text(stringResource(R.string.recovery_confirm_body))
+                        Action(R.string.recovery_confirm_reset, busy || resetUnreadableStore == null) {
+                            busy = true
+                            scope.launch {
+                                try {
+                                    resetUnreadableStore?.invoke()
+                                        ?: error("Recovery reset is unavailable")
+                                } catch (_: Exception) {
+                                    message = R.string.recovery_reset_error
+                                    step = Step.RECOVERY
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        }
+                        Secondary(R.string.back, busy) { step = Step.RECOVERY }
+                    }
                     Step.START -> {
                         Heading(if (hasOpenSitting) R.string.interrupted_title else R.string.start_sitting)
                         if (hasOpenSitting) Text(stringResource(R.string.interrupted_body))
