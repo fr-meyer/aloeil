@@ -34,5 +34,5 @@ jobs:
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
-      - name: Run JVM unit tests
-        run: ./gradlew --no-daemon :app:testSyntheticDebugUnitTest
+      - name: Build JVM and device database tests
+        run: ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:compileDebugAndroidTestKotlin

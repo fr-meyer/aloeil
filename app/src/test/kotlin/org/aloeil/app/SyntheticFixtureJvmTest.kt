@@ -18,6 +18,7 @@ import org.aloeil.app.data.SittingPayloadCodec
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.Reason
+import org.aloeil.app.data.restoredDraftStep
 
 /**
  * JVM-only verification with an explicitly synthetic fixture.
@@ -114,6 +115,15 @@ object SyntheticFixtureJvmTest {
             focusedControl = "save",
         )
         check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
+        val correctionDraft = draft.copy(step = "CORRECT_CHOICE", baseRevision = 1)
+        check(DraftCodec.decode(DraftCodec.encode(correctionDraft)) == correctionDraft)
+        check(restoredDraftStep(correctionDraft, synthetic) == "CORRECT_CHOICE")
+        // Back from correction persists a terminal checkpoint before showing the saved screen.
+        val abandoned = correctionDraft.copy(step = "SAVED")
+        check(restoredDraftStep(DraftCodec.decode(DraftCodec.encode(abandoned)), synthetic) == "SAVED")
+        // If the correction committed before the process stopped, stale active UI is skipped.
+        check(restoredDraftStep(correctionDraft, synthetic.copy(revision = 2)) == "CORRECT_SAVED")
+        check(restoredDraftStep(draft.copy(step = "REVIEW"), synthetic) == "SAVED")
         check(ReadingValue.parse("١٢,٣٤") == ReadingValueResult.Valid("12.34"))
         check(ReadingValue.parse("0") == ReadingValueResult.Valid("0"))
         check(ReadingValue.parse("12.3.4") == ReadingValueResult.Invalid(Reason.DECIMAL))

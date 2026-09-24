@@ -1,5 +1,8 @@
 package org.aloeil.app.data
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 data class ArchivePreview(val readingCount: Int, val sittingCount: Int)
 
 /** A save completes once Room commits the reading and its retryable outbox row. */
@@ -8,6 +11,8 @@ class ReadingRepository(
     private val cipher: ReadingCipher,
     private val now: () -> Long = System::currentTimeMillis,
 ) {
+    private val draftMutex = Mutex()
+
     suspend fun record(
         readingId: String,
         sittingId: String,
@@ -54,7 +59,7 @@ class ReadingRepository(
         return dao.updateSitting(stored.copy(nonce = sealed.nonce, ciphertext = sealed.ciphertext)) == 1
     }
 
-    suspend fun saveDraft(draft: DraftCheckpoint) {
+    suspend fun saveDraft(draft: DraftCheckpoint) = draftMutex.withLock {
         require(draft.sittingId.isNotBlank() && draft.readingId.isNotBlank())
         val sealed = cipher.seal(DraftCodec.encode(draft))
         dao.saveDraft(DraftRow(nonce = sealed.nonce, ciphertext = sealed.ciphertext))
@@ -68,7 +73,7 @@ class ReadingRepository(
         return draft to saved
     }
 
-    suspend fun clearDraft() = dao.clearDraft()
+    suspend fun clearDraft() = draftMutex.withLock { dao.clearDraft() }
 
     suspend fun all(): List<Reading> = dao.allReadings().map(::decode)
         .sortedWith(compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id })

@@ -52,6 +52,7 @@ import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.Reason
 import org.aloeil.app.data.newReadingId
+import org.aloeil.app.data.restoredDraftStep
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,10 +94,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                 eye = draft.eye
                 value = draft.input
                 saved = committed
-                step = runCatching { Step.valueOf(draft.step) }.getOrDefault(Step.EYE)
-                if (committed != null && step in setOf(Step.EYE, Step.VALUE, Step.REVIEW)) {
-                    step = Step.SAVED
-                }
+                step = runCatching { Step.valueOf(restoredDraftStep(draft, committed)) }
+                    .getOrDefault(Step.EYE)
                 hasOpenSitting = true
             } else {
                 val open = withContext(Dispatchers.IO) { repository.openSitting() }
@@ -112,8 +111,8 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
-    LaunchedEffect(step, sittingId, readingId, eye, value) {
-        if (sittingId.isNotEmpty() && readingId.isNotEmpty() && step in setOf(
+    LaunchedEffect(step, sittingId, readingId, eye, value, busy) {
+        if (!busy && sittingId.isNotEmpty() && readingId.isNotEmpty() && step in setOf(
                 Step.EYE, Step.VALUE, Step.REVIEW, Step.CORRECT_CHOICE,
                 Step.CORRECT_EYE, Step.CORRECT_VALUE,
                 Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE,
@@ -129,6 +128,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                                 Step.EYE, Step.CORRECT_EYE -> "eye"
                                 else -> "heading"
                             },
+                            baseRevision = if (step.name.startsWith("CORRECT_")) saved?.revision else null,
                         ),
                     )
                 }
@@ -247,6 +247,32 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
+    fun abandonCorrection() {
+        val current = saved ?: return
+        busy = true
+        message = null
+        scope.launch {
+            val recorded = runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.saveDraft(
+                        DraftCheckpoint(
+                            sittingId, current.id, Step.SAVED.name,
+                            current.eye, current.value, "heading",
+                        ),
+                    )
+                }
+            }.isSuccess
+            if (recorded) {
+                eye = current.eye
+                value = current.value
+                step = Step.SAVED
+            } else {
+                message = R.string.error_storage
+            }
+            busy = false
+        }
+    }
+
     fun finishSitting() {
         busy = true
         scope.launch {
@@ -335,7 +361,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Heading(R.string.choose_correction)
                         Action(R.string.correct_eye, busy) { step = Step.CORRECT_EYE }
                         Secondary(R.string.correct_value) { step = Step.CORRECT_VALUE }
-                        Secondary(R.string.back) { step = Step.SAVED }
+                        Secondary(R.string.back) { if (!busy) abandonCorrection() }
                     }
                     Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE -> {
                         Heading(R.string.review_correction)

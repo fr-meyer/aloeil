@@ -41,11 +41,13 @@ for persistent undo. An operation ID prevents retries from applying a correction
 A stale expected revision is rejected. A single Room transaction reads all tables for
 export, so a concurrent correction cannot produce a mixed archive snapshot.
 
-This is an implementation slice. A fixed synthetic version-1 archive fixture now
-checks historical restore compatibility. Room schema migration and process-restart
-tests, the remaining metadata privacy decision, device accessibility validation,
-and any optional replica client are still required to complete P2. Development uses
-synthetic fixtures only.
+This is an implementation slice. A fixed synthetic version-1 archive fixture
+checks historical restore compatibility. Device tests cover Room transactions,
+restore rollback, correction/undo, and database reopening after a saved reading.
+They compile in CI but still need execution on an Android device or emulator.
+Room schema migration tests, the remaining metadata privacy decision, device
+accessibility validation, and any optional replica client are still required to
+complete P2. Development uses synthetic fixtures only.
 
 
 ## Privacy threat model and user-facing limits
