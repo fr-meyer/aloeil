@@ -6,6 +6,7 @@ on:
     branches:
       - dev
       - main
+      - aloeil/p2-local-first-data-recovery
 
 permissions:
   contents: read
