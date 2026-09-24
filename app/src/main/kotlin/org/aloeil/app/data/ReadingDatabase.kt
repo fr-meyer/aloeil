@@ -59,9 +59,9 @@ interface ReadingDao {
     @Transaction
     suspend fun restoreMissing(rows: List<Pair<ReadingRow, OutboxRow>>): Int {
         var added = 0
-        for ((reading, outbox) in rows) {
-            if (reading(reading.id) == null) {
-                insertReading(reading)
+        for ((incoming, outbox) in rows) {
+            if (reading(incoming.id) == null) {
+                insertReading(incoming)
                 insertOutbox(outbox)
                 added++
             }
