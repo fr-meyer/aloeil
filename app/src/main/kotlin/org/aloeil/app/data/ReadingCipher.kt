@@ -15,13 +15,15 @@ interface ReadingCipher {
     fun open(payload: SealedPayload): ByteArray
 }
 
-/** The AES key stays in Android Keystore; the database only receives ciphertext. */
-class AndroidKeystoreReadingCipher : ReadingCipher {
-    private val alias = "aloeil-reading-v1"
+class MissingReadingKeyException : IllegalStateException("Local reading key is missing")
 
-    private fun key(): SecretKey {
-        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(alias, null) as? SecretKey)?.let { return it }
+/** The AES key stays in Android Keystore; the database only receives ciphertext. */
+class AndroidKeystoreReadingCipher(private val alias: String = DEFAULT_ALIAS) : ReadingCipher {
+    private fun existingKey(): SecretKey? =
+        KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            .getKey(alias, null) as? SecretKey
+
+    private fun createKey(): SecretKey {
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
         generator.init(
             KeyGenParameterSpec.Builder(
@@ -38,14 +40,28 @@ class AndroidKeystoreReadingCipher : ReadingCipher {
 
     override fun seal(plaintext: ByteArray): SealedPayload {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.init(Cipher.ENCRYPT_MODE, existingKey() ?: createKey())
         return SealedPayload(cipher.iv, cipher.doFinal(plaintext))
     }
 
     override fun open(payload: SealedPayload): ByteArray {
         require(payload.nonce.size == 12) { "Invalid encrypted reading nonce" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, payload.nonce))
+        cipher.init(
+            Cipher.DECRYPT_MODE,
+            existingKey() ?: throw MissingReadingKeyException(),
+            GCMParameterSpec(128, payload.nonce),
+        )
         return cipher.doFinal(payload.ciphertext)
+    }
+
+    /** Called only after the user confirms deletion of the unreadable local database. */
+    fun deleteKeyForRecovery() {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        if (store.containsAlias(alias)) store.deleteEntry(alias)
+    }
+
+    companion object {
+        private const val DEFAULT_ALIAS = "aloeil-reading-v1"
     }
 }

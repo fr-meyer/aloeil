@@ -128,4 +128,12 @@
     <string name="history_back">기록으로 돌아가기</string>
     <string name="history_graph_limit">일치하는 숫자 측정값이 2,000개를 넘습니다. 그래프를 보려면 날짜 범위를 좁히세요. 목록에는 모든 측정값이 있습니다.</string>
     <string name="history_show_more">측정값 50개 더 보기</string>
+    <string name="recovery_unreadable_title">이 기기의 기록을 열 수 없습니다</string>
+    <string name="recovery_unreadable_body">휴대전화에서 암호화된 로컬 데이터를 읽을 수 없습니다. 아직 삭제된 데이터는 없습니다. Aloeil 암호화 백업 파일과 암호가 있다면 읽을 수 없는 로컬 데이터를 초기화한 후 백업을 복원할 수 있습니다. 백업이 없으면 로컬 기록을 복구하지 못할 수 있습니다.</string>
+    <string name="recovery_keep_backup">백업 파일과 암호를 따로 보관하세요. 초기화하지 않고 이 화면을 나갈 수 있습니다.</string>
+    <string name="recovery_prepare_reset">로컬 초기화 검토</string>
+    <string name="recovery_confirm_title">읽을 수 없는 로컬 데이터를 삭제할까요?</string>
+    <string name="recovery_confirm_body">이 작업은 기록, 임시 저장 내용, 삭제 표시를 포함한 이 휴대전화의 Aloeil 데이터베이스를 영구적으로 삭제합니다. 다른 곳에 저장한 백업 파일은 삭제하지 않습니다. 초기화 후 “백업 또는 복원”에서 암호화된 백업을 가져오세요.</string>
+    <string name="recovery_confirm_reset">로컬 데이터 삭제 및 초기화</string>
+    <string name="recovery_reset_error">로컬 초기화가 완료되지 않았습니다. 가져온 백업은 없습니다. 다시 시도하거나 앱을 종료하세요.</string>
 </resources>

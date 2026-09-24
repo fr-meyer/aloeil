@@ -128,4 +128,12 @@
     <string name="history_back">Retour à l’historique</string>
     <string name="history_graph_limit">Plus de 2 000 mesures numériques correspondent. Réduisez la période pour afficher le graphique ; la liste reste complète.</string>
     <string name="history_show_more">Afficher 50 mesures de plus</string>
+    <string name="recovery_unreadable_title">Impossible d’ouvrir les relevés locaux</string>
+    <string name="recovery_unreadable_body">Ce téléphone ne peut pas lire ses données locales chiffrées. Rien n’a été supprimé. Si vous avez une sauvegarde Aloeil chiffrée et sa phrase secrète, vous pouvez réinitialiser cette copie illisible, puis restaurer la sauvegarde. Sans sauvegarde, les relevés locaux risquent d’être irrécupérables.</string>
+    <string name="recovery_keep_backup">Conservez le fichier de sauvegarde et la phrase secrète séparément. Vous pouvez quitter cet écran sans réinitialiser.</string>
+    <string name="recovery_prepare_reset">Examiner la réinitialisation</string>
+    <string name="recovery_confirm_title">Supprimer les données locales illisibles ?</string>
+    <string name="recovery_confirm_body">Cette action supprime définitivement la base Aloeil de ce téléphone, y compris les relevés, brouillons et marqueurs de suppression. Elle ne supprime pas les sauvegardes enregistrées ailleurs. Après la réinitialisation, choisissez « Sauvegarder ou restaurer » pour importer une archive chiffrée.</string>
+    <string name="recovery_confirm_reset">Supprimer et réinitialiser</string>
+    <string name="recovery_reset_error">La réinitialisation locale n’a pas abouti. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
 </resources>
