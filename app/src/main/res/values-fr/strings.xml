@@ -12,7 +12,7 @@
     <string name="eye_not_selected">%1$s, non sélectionné</string>
     <string name="enter_reading">Saisir la mesure</string>
     <string name="reading_label">Mesure (mmHg)</string>
-    <string name="reading_hint">Saisissez un nombre en mmHg.</string>
+    <string name="reading_hint">Saisissez un nombre en mmHg (32 caractères maximum).</string>
     <string name="not_saved">Pas encore enregistrée</string>
     <string name="continue_action">Continuer</string>
     <string name="review_before_save">Vérifier avant d\'enregistrer</string>
@@ -48,6 +48,7 @@
     <string name="error_empty">Saisissez une mesure.</string>
     <string name="error_number">Saisissez un nombre.</string>
     <string name="error_decimal">Utilisez un seul séparateur décimal.</string>
+    <string name="error_length">Le nombre est trop long. Utilisez 32 caractères au maximum.</string>
     <string name="error_save">Impossible d\'enregistrer la mesure. Votre saisie est toujours affichée. Réessayez.</string>
     <string name="error_correction_save">Impossible d\'enregistrer la correction. Vos modifications sont toujours affichées. Réessayez.</string>
     <string name="error_draft_restore">Impossible de restaurer le brouillon. Les mesures enregistrées restent disponibles. Choisissez un œil pour continuer.</string>

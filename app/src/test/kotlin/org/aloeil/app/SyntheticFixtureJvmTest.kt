@@ -210,6 +210,12 @@ object SyntheticFixtureJvmTest {
         check(ReadingValue.parse("12.3.4") == ReadingValueResult.Invalid(Reason.DECIMAL))
         check(ReadingValue.parse("") == ReadingValueResult.Invalid(Reason.EMPTY))
         check(ReadingValue.parse("12 3") == ReadingValueResult.Invalid(Reason.NUMBER))
+        val maxReading = "1".repeat(ReadingValue.MAX_LENGTH)
+        check(ReadingValue.parse(maxReading) == ReadingValueResult.Valid(maxReading))
+        check(ReadingValue.parse(maxReading + "1") ==
+            ReadingValueResult.Invalid(Reason.LENGTH))
+        check(ReadingValue.parse("١".repeat(ReadingValue.MAX_LENGTH + 1)) ==
+            ReadingValueResult.Invalid(Reason.LENGTH))
         val payload = ReadingPayload(
             synthetic.sittingId, synthetic.recordedAtMillis, synthetic.eye, synthetic.value,
         )
