@@ -18,6 +18,7 @@ import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingCipher
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
+import org.aloeil.app.data.RangeState
 import org.aloeil.app.data.SealedPayload
 import org.aloeil.app.data.Sitting
 import org.aloeil.app.data.restoredDraftStep
@@ -145,6 +146,37 @@ class ReadingRepositoryDeviceTest {
             check(restored.importArchive(archive, passphrase) == 1)
             val undone = restored.undoCorrection("synthetic-undo", original.id, 2)!!
             check(undone.revision == 3L && undone.eye == Eye.LEFT && undone.value == "12.3")
+        } finally {
+            target.close()
+        }
+    }
+
+    @Test
+    fun rangeNoteZoneAndUndoSurviveEncryptedBackup() = runBlocking {
+        val source = ReadingRepository(db.readings(), cipher, { "Asia/Seoul" }, { time })
+        source.startSitting("synthetic-sitting")
+        val original = source.recordRange(
+            "synthetic-range", "synthetic-sitting", Eye.LEFT,
+            RangeState.ABOVE_RANGE, "Synthetic note",
+        )
+        check(original.value.isEmpty())
+        check(original.timeZoneId == "Asia/Seoul")
+        check(original.createdAtMillis == time && original.updatedAtMillis == time)
+        val noted = source.correctNote("synthetic-note", original.id, 1, "Updated note")!!
+        check(noted.note == "Updated note" && noted.rangeState == RangeState.ABOVE_RANGE)
+        val changed = source.correct("synthetic-number", original.id, 2, Eye.LEFT, "12.3")!!
+        check(changed.rangeState == null && changed.value == "12.3")
+        val archive = source.exportArchive(passphrase)
+        val target = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        try {
+            val restored = ReadingRepository(target.readings(), cipher, { "UTC" }, { time })
+            check(restored.importArchive(archive, passphrase) == 1)
+            val current = restored.all().single()
+            check(current == changed.copy(replicaConfirmedRevision = 0))
+            val undone = restored.undoCorrection("synthetic-undo", original.id, 3)!!
+            check(undone.rangeState == RangeState.ABOVE_RANGE)
+            check(undone.value.isEmpty() && undone.note == "Updated note")
+            check(undone.timeZoneId == "Asia/Seoul")
         } finally {
             target.close()
         }

@@ -18,7 +18,7 @@
     <string name="continue_action">Continue</string>
     <string name="review_before_save">Review before saving</string>
     <string name="eye_summary">Eye: %1$s</string>
-    <string name="reading_summary">Reading: %1$s mmHg</string>
+    <string name="reading_summary">Reading: %1$s</string>
     <string name="back">Back</string>
     <string name="save_reading">Save reading</string>
     <string name="saving">Saving…</string>
@@ -32,8 +32,8 @@
     <string name="review_correction">Review the correction</string>
     <string name="previous_eye">Previous eye: %1$s</string>
     <string name="corrected_eye">Corrected eye: %1$s</string>
-    <string name="previous_reading">Previous reading: %1$s mmHg</string>
-    <string name="corrected_reading">Corrected reading: %1$s mmHg</string>
+    <string name="previous_reading">Previous reading: %1$s</string>
+    <string name="corrected_reading">Corrected reading: %1$s</string>
     <string name="save_correction">Save correction</string>
     <string name="correction_saving">Saving correction…</string>
     <string name="correction_saved">Correction saved</string>
@@ -80,4 +80,15 @@
     <string name="archive_export_error">The encrypted backup could not be prepared. Your readings are still on this phone.</string>
     <string name="archive_read_error">The file or passphrase could not be verified. Nothing was restored.</string>
     <string name="archive_restore_error">The backup could not be restored. Readings already on this phone were kept.</string>
+    <string name="range_state_explain">If the device showed a range message, choose the matching direction. Do not estimate a number.</string>
+    <string name="below_range">Below device range</string>
+    <string name="above_range">Above device range</string>
+    <string name="add_note">Add an optional note</string>
+    <string name="note_label">Note</string>
+    <string name="note_hint">Optional; up to 1,000 characters.</string>
+    <string name="note_summary">Note: %1$s</string>
+    <string name="correct_note">Correct the note</string>
+    <string name="previous_note">Previous note: %1$s</string>
+    <string name="corrected_note">Corrected note: %1$s</string>
+    <string name="numeric_reading">%1$s mmHg</string>
 </resources>

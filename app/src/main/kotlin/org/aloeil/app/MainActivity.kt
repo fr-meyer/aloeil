@@ -50,6 +50,7 @@ import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
+import org.aloeil.app.data.RangeState
 import org.aloeil.app.data.Reason
 import org.aloeil.app.data.newReadingId
 import org.aloeil.app.data.restoredDraftStep
@@ -64,9 +65,9 @@ class MainActivity : ComponentActivity() {
 }
 
 private enum class Step {
-    LOADING, START, EYE, VALUE, REVIEW, SAVED,
-    CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE,
-    CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_SAVED, UNDO_DONE,
+    LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
+    CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
+    CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
     FINISH, FINISHED, ARCHIVE,
 }
 
@@ -78,6 +79,8 @@ private fun AloeilApp(repository: ReadingRepository) {
     var readingId by remember { mutableStateOf("") }
     var eye by remember { mutableStateOf<Eye?>(null) }
     var value by remember { mutableStateOf("") }
+    var rangeState by remember { mutableStateOf<RangeState?>(null) }
+    var note by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf<Reading?>(null) }
     var hasOpenSitting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -93,6 +96,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                 readingId = draft.readingId
                 eye = draft.eye
                 value = draft.input
+                rangeState = draft.rangeState
+                note = draft.note
                 saved = committed
                 step = runCatching { Step.valueOf(restoredDraftStep(draft, committed)) }
                     .getOrDefault(Step.EYE)
@@ -111,11 +116,11 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
-    LaunchedEffect(step, sittingId, readingId, eye, value, busy) {
+    LaunchedEffect(step, sittingId, readingId, eye, value, rangeState, note, busy) {
         if (!busy && sittingId.isNotEmpty() && readingId.isNotEmpty() && step in setOf(
-                Step.EYE, Step.VALUE, Step.REVIEW, Step.CORRECT_CHOICE,
-                Step.CORRECT_EYE, Step.CORRECT_VALUE,
-                Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE,
+                Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW, Step.CORRECT_CHOICE,
+                Step.CORRECT_EYE, Step.CORRECT_VALUE, Step.CORRECT_NOTE,
+                Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE,
             )
         ) {
             try {
@@ -125,10 +130,13 @@ private fun AloeilApp(repository: ReadingRepository) {
                             sittingId, readingId, step.name, eye, value,
                             when (step) {
                                 Step.VALUE, Step.CORRECT_VALUE -> "reading"
+                                Step.NOTE, Step.CORRECT_NOTE -> "note"
                                 Step.EYE, Step.CORRECT_EYE -> "eye"
                                 else -> "heading"
                             },
                             baseRevision = if (step.name.startsWith("CORRECT_")) saved?.revision else null,
+                            rangeState = rangeState,
+                            note = note,
                         ),
                     )
                 }
@@ -150,6 +158,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                 readingId = newReadingId()
                 eye = null
                 value = ""
+                rangeState = null
+                note = ""
                 saved = null
                 step = Step.EYE
             } catch (_: Exception) {
@@ -179,7 +189,11 @@ private fun AloeilApp(repository: ReadingRepository) {
         scope.launch {
             val committed = try {
                 withContext(Dispatchers.IO) {
-                    repository.record(readingId, sittingId, selected, value)
+                    if (rangeState == null) {
+                        repository.record(readingId, sittingId, selected, value, note)
+                    } else {
+                        repository.recordRange(readingId, sittingId, selected, rangeState!!, note)
+                    }
                 }
             } catch (_: Exception) {
                 null
@@ -204,10 +218,20 @@ private fun AloeilApp(repository: ReadingRepository) {
         scope.launch {
             val corrected = try {
                 withContext(Dispatchers.IO) {
-                    repository.correct(
-                        current.id + ":correct:" + (current.revision + 1),
-                        current.id, current.revision, selected, value,
-                    )
+                    val operationId = current.id + ":correct:" + (current.revision + 1)
+                    when (step) {
+                        Step.CORRECT_REVIEW_EYE ->
+                            repository.correctEye(operationId, current.id, current.revision, selected)
+                        Step.CORRECT_REVIEW_NOTE ->
+                            repository.correctNote(operationId, current.id, current.revision, note)
+                        Step.CORRECT_REVIEW_VALUE ->
+                            if (rangeState == null) {
+                                repository.correct(operationId, current.id, current.revision, selected, value)
+                            } else {
+                                repository.correctRange(operationId, current.id, current.revision, rangeState!!)
+                            }
+                        else -> null
+                    }
                 }
             } catch (_: Exception) {
                 null
@@ -258,6 +282,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         DraftCheckpoint(
                             sittingId, current.id, Step.SAVED.name,
                             current.eye, current.value, "heading",
+                            rangeState = current.rangeState, note = current.note.orEmpty(),
                         ),
                     )
                 }
@@ -265,6 +290,8 @@ private fun AloeilApp(repository: ReadingRepository) {
             if (recorded) {
                 eye = current.eye
                 value = current.value
+                rangeState = current.rangeState
+                note = current.note.orEmpty()
                 step = Step.SAVED
             } else {
                 message = R.string.error_storage
@@ -318,23 +345,48 @@ private fun AloeilApp(repository: ReadingRepository) {
                     }
                     Step.VALUE, Step.CORRECT_VALUE -> {
                         Heading(if (step == Step.VALUE) R.string.enter_reading else R.string.correct_value)
-                        ValueField(value, valueError, { value = it; valueError = null })
+                        ValueField(value, valueError, {
+                            value = it
+                            rangeState = null
+                            valueError = null
+                        })
                         Action(R.string.continue_action, busy) {
                             if (validateValue()) {
-                                step = if (step == Step.VALUE) Step.REVIEW else Step.CORRECT_REVIEW_VALUE
+                                rangeState = null
+                                step = if (step == Step.VALUE) Step.NOTE else Step.CORRECT_REVIEW_VALUE
                             }
+                        }
+                        Text(stringResource(R.string.range_state_explain))
+                        Secondary(R.string.below_range, busy) {
+                            value = ""
+                            rangeState = RangeState.BELOW_RANGE
+                            valueError = null
+                            step = if (step == Step.VALUE) Step.NOTE else Step.CORRECT_REVIEW_VALUE
+                        }
+                        Secondary(R.string.above_range, busy) {
+                            value = ""
+                            rangeState = RangeState.ABOVE_RANGE
+                            valueError = null
+                            step = if (step == Step.VALUE) Step.NOTE else Step.CORRECT_REVIEW_VALUE
                         }
                         Secondary(R.string.back, busy) {
                             step = if (step == Step.VALUE) Step.EYE else Step.CORRECT_CHOICE
                         }
                     }
+                    Step.NOTE -> {
+                        Heading(R.string.add_note)
+                        NoteField(note) { note = it }
+                        Action(R.string.continue_action, busy) { step = Step.REVIEW }
+                        Secondary(R.string.back, busy) { step = Step.VALUE }
+                    }
                     Step.REVIEW -> {
                         Heading(R.string.review_before_save)
                         Text(stringResource(R.string.not_saved))
                         Text(stringResource(R.string.eye_summary, eyeLabel(eye)))
-                        Text(stringResource(R.string.reading_summary, value))
+                        Text(stringResource(R.string.reading_summary, readingLabel(value, rangeState)))
+                        if (note.isNotEmpty()) Text(stringResource(R.string.note_summary, note))
                         Action(if (busy) R.string.saving else R.string.save_reading, busy) { saveReading() }
-                        Secondary(R.string.back, busy) { step = Step.VALUE }
+                        Secondary(R.string.back, busy) { step = Step.NOTE }
                     }
                     Step.SAVED -> {
                         Heading(R.string.saved_on_phone)
@@ -343,6 +395,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                             readingId = newReadingId()
                             eye = null
                             value = ""
+                            rangeState = null
+                            note = ""
                             valueError = null
                             saved = null
                             message = null
@@ -353,6 +407,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                             readingId = current.id
                             eye = current.eye
                             value = current.value
+                            rangeState = current.rangeState
+                            note = current.note.orEmpty()
                             step = Step.CORRECT_CHOICE
                         }
                         Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
@@ -361,23 +417,40 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Heading(R.string.choose_correction)
                         Action(R.string.correct_eye, busy) { step = Step.CORRECT_EYE }
                         Secondary(R.string.correct_value, busy) { step = Step.CORRECT_VALUE }
+                        Secondary(R.string.correct_note, busy) { step = Step.CORRECT_NOTE }
                         Secondary(R.string.back, busy) { if (!busy) abandonCorrection() }
                     }
-                    Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE -> {
+                    Step.CORRECT_NOTE -> {
+                        Heading(R.string.correct_note)
+                        NoteField(note) { note = it }
+                        Action(R.string.continue_action, busy) { step = Step.CORRECT_REVIEW_NOTE }
+                        Secondary(R.string.back, busy) { step = Step.CORRECT_CHOICE }
+                    }
+                    Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE -> {
                         Heading(R.string.review_correction)
                         val current = saved
                         if (step == Step.CORRECT_REVIEW_EYE) {
                             Text(stringResource(R.string.previous_eye, eyeLabel(current?.eye)))
                             Text(stringResource(R.string.corrected_eye, eyeLabel(eye)))
+                        } else if (step == Step.CORRECT_REVIEW_NOTE) {
+                            Text(stringResource(R.string.previous_note, current?.note.orEmpty()))
+                            Text(stringResource(R.string.corrected_note, note))
                         } else {
-                            Text(stringResource(R.string.previous_reading, current?.value.orEmpty()))
-                            Text(stringResource(R.string.corrected_reading, value))
+                            Text(stringResource(
+                                R.string.previous_reading,
+                                readingLabel(current?.value.orEmpty(), current?.rangeState),
+                            ))
+                            Text(stringResource(R.string.corrected_reading, readingLabel(value, rangeState)))
                         }
                         Action(if (busy) R.string.correction_saving else R.string.save_correction, busy) {
                             saveCorrection()
                         }
                         Secondary(R.string.back, busy) {
-                            step = if (step == Step.CORRECT_REVIEW_EYE) Step.CORRECT_EYE else Step.CORRECT_VALUE
+                            step = when (step) {
+                                Step.CORRECT_REVIEW_EYE -> Step.CORRECT_EYE
+                                Step.CORRECT_REVIEW_NOTE -> Step.CORRECT_NOTE
+                                else -> Step.CORRECT_VALUE
+                            }
                         }
                     }
                     Step.CORRECT_SAVED -> {
@@ -387,6 +460,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                             readingId = newReadingId()
                             eye = null
                             value = ""
+                            rangeState = null
+                            note = ""
                             valueError = null
                             saved = null
                             message = null
@@ -402,6 +477,8 @@ private fun AloeilApp(repository: ReadingRepository) {
                             readingId = newReadingId()
                             eye = null
                             value = ""
+                            rangeState = null
+                            note = ""
                             valueError = null
                             saved = null
                             message = null
@@ -502,6 +579,25 @@ private fun eyeLabel(eye: Eye?): String = when (eye) {
     Eye.LEFT -> stringResource(R.string.left_eye)
     Eye.RIGHT -> stringResource(R.string.right_eye)
     null -> ""
+}
+
+@Composable
+private fun NoteField(note: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = note,
+        onValueChange = { if (it.length <= 1000) onChange(it) },
+        label = { Text(stringResource(R.string.note_label)) },
+        supportingText = { Text(stringResource(R.string.note_hint)) },
+        minLines = 2,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun readingLabel(value: String, rangeState: RangeState?): String = when (rangeState) {
+    RangeState.BELOW_RANGE -> stringResource(R.string.below_range)
+    RangeState.ABOVE_RANGE -> stringResource(R.string.above_range)
+    null -> stringResource(R.string.numeric_reading, value)
 }
 
 @Composable

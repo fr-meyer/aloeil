@@ -17,7 +17,7 @@
     <string name="continue_action">Continuer</string>
     <string name="review_before_save">Vérifier avant d\'enregistrer</string>
     <string name="eye_summary">Œil : %1$s</string>
-    <string name="reading_summary">Mesure : %1$s mmHg</string>
+    <string name="reading_summary">Mesure : %1$s</string>
     <string name="back">Retour</string>
     <string name="save_reading">Enregistrer la mesure</string>
     <string name="saving">Enregistrement…</string>
@@ -31,8 +31,8 @@
     <string name="review_correction">Vérifier la correction</string>
     <string name="previous_eye">Œil précédent : %1$s</string>
     <string name="corrected_eye">Œil corrigé : %1$s</string>
-    <string name="previous_reading">Mesure précédente : %1$s mmHg</string>
-    <string name="corrected_reading">Mesure corrigée : %1$s mmHg</string>
+    <string name="previous_reading">Mesure précédente : %1$s</string>
+    <string name="corrected_reading">Mesure corrigée : %1$s</string>
     <string name="save_correction">Enregistrer la correction</string>
     <string name="correction_saving">Enregistrement de la correction…</string>
     <string name="correction_saved">Correction enregistrée</string>
@@ -79,4 +79,15 @@
     <string name="archive_export_error">Impossible de préparer la sauvegarde chiffrée. Vos mesures restent sur ce téléphone.</string>
     <string name="archive_read_error">Impossible de vérifier le fichier ou le mot de passe. Aucune mesure restaurée.</string>
     <string name="archive_restore_error">Impossible de restaurer la sauvegarde. Les mesures déjà sur ce téléphone ont été conservées.</string>
+    <string name="range_state_explain">Si l’appareil affiche une indication hors plage, choisissez le sens correspondant. N’estimez pas de nombre.</string>
+    <string name="below_range">Sous la plage de l’appareil</string>
+    <string name="above_range">Au-dessus de la plage de l’appareil</string>
+    <string name="add_note">Ajouter une note facultative</string>
+    <string name="note_label">Note</string>
+    <string name="note_hint">Facultative ; 1 000 caractères maximum.</string>
+    <string name="note_summary">Note : %1$s</string>
+    <string name="correct_note">Corriger la note</string>
+    <string name="previous_note">Note précédente : %1$s</string>
+    <string name="corrected_note">Note corrigée : %1$s</string>
+    <string name="numeric_reading">%1$s mmHg</string>
 </resources>

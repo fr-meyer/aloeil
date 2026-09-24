@@ -1,6 +1,8 @@
 package org.aloeil.app
 
 import java.util.Base64
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 
 import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
@@ -154,6 +156,25 @@ object SyntheticFixtureJvmTest {
             focusedControl = "save",
         )
         check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
+        val rangeDraft = draft.copy(
+            step = "NOTE", input = "", rangeState = RangeState.ABOVE_RANGE,
+            note = "Synthetic note",
+        )
+        check(DraftCodec.decode(DraftCodec.encode(rangeDraft)) == rangeDraft)
+        check(restoredDraftStep(rangeDraft, synthetic) == "SAVED")
+        val priorDraft = ByteArrayOutputStream().also { bytes ->
+            DataOutputStream(bytes).use { out ->
+                out.writeInt(2)
+                out.writeUTF(draft.sittingId)
+                out.writeUTF(draft.readingId)
+                out.writeUTF("CORRECT_CHOICE")
+                out.writeUTF(Eye.RIGHT.name)
+                out.writeUTF(draft.input)
+                out.writeUTF(draft.focusedControl)
+                out.writeLong(1)
+            }
+        }.toByteArray()
+        check(DraftCodec.decode(priorDraft) == draft.copy(step = "CORRECT_CHOICE", baseRevision = 1))
         val correctionDraft = draft.copy(step = "CORRECT_CHOICE", baseRevision = 1)
         check(DraftCodec.decode(DraftCodec.encode(correctionDraft)) == correctionDraft)
         check(restoredDraftStep(correctionDraft, synthetic) == "CORRECT_CHOICE")
