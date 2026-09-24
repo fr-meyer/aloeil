@@ -73,8 +73,13 @@ revision 1. Restore adds missing readings and deletion markers. Existing
 readings are never replaced. An incoming deletion marker for an active phone
 reading is ignored, while unrelated missing records can still be restored.
 An existing phone tombstone prevents an old backup from restoring that ID.
-Conflicting reading, sitting, or correction
-history aborts the entire restore without changing phone rows. An archive that
+For an existing ID, restore compares the shared revision payloads and
+correction-operation IDs. If one copy has later compatible corrections, the
+phone's current reading is kept and unrelated missing readings can still be
+added. A sitting with the same start may be open in one copy and finished in
+the other; the phone's current state is kept. Divergent shared reading,
+sitting, or correction history aborts the entire restore without changing
+phone rows. An archive that
 would add another open sitting also fails atomically, so an imported sitting
 cannot replace the phone's current capture session. A sitting whose archive
 readings are all suppressed by local deletion markers is not re-created.

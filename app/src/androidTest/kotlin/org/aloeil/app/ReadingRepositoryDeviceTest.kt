@@ -293,6 +293,59 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun olderCompatibleArchiveAddsMissingReadingWithoutRollingBackLocalCorrection() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = repository(sourceDb)
+            source.startSitting("shared-sitting")
+            source.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+            source.record("missing-reading", "shared-sitting", Eye.RIGHT, "15.4")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("shared-sitting")
+        val original = local.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+        val corrected = local.correct(
+            "local-correction", original.id, original.revision, Eye.RIGHT, "14.2",
+        )!!
+        check(local.finishSitting("shared-sitting"))
+
+        check(local.importArchive(archive, passphrase) == 1)
+        check(local.importArchive(archive, passphrase) == 0)
+        val readings = local.all().associateBy { it.id }
+        check(readings["shared-reading"] == corrected)
+        check(readings["missing-reading"]?.value == "15.4")
+        check(local.openSitting() == null)
+        check(db.readings().operationsForReading(original.id).single().id == "local-correction")
+    }
+
+    @Test
+    fun newerCompatibleArchiveAddsMissingReadingWithoutOverwritingPhone() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = repository(sourceDb)
+            source.startSitting("shared-sitting")
+            val original = source.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+            source.record("missing-reading", "shared-sitting", Eye.RIGHT, "15.4")
+            source.correct("archived-correction", original.id, 1, Eye.RIGHT, "14.2")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("shared-sitting")
+        val retained = local.record("shared-reading", "shared-sitting", Eye.LEFT, "12.3")
+
+        check(local.importArchive(archive, passphrase) == 1)
+        val readings = local.all().associateBy { it.id }
+        check(readings["shared-reading"] == retained)
+        check(readings["missing-reading"]?.value == "15.4")
+        check(db.readings().operationsForReading(retained.id).isEmpty())
+    }
+
+    @Test
     fun deletionErasesContentAndOlderBackupCannotResurrectIt() = runBlocking {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
