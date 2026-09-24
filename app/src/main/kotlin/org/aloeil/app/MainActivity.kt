@@ -66,7 +66,7 @@ private enum class Step {
     LOADING, START, EYE, VALUE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_SAVED, UNDO_DONE,
-    FINISH, FINISHED,
+    FINISH, FINISHED, ARCHIVE,
 }
 
 @Composable
@@ -281,6 +281,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Action(if (hasOpenSitting) R.string.resume_sitting else R.string.start_sitting, busy) {
                             beginSitting()
                         }
+                        Secondary(R.string.archive_title) { step = Step.ARCHIVE }
                     }
                     Step.EYE, Step.CORRECT_EYE -> {
                         Heading(if (step == Step.EYE) R.string.choose_eye else R.string.correct_eye)
@@ -393,7 +394,9 @@ private fun AloeilApp(repository: ReadingRepository) {
                     Step.FINISHED -> {
                         Heading(R.string.sitting_finished)
                         Action(R.string.start_sitting, busy) { beginSitting() }
+                        Secondary(R.string.archive_title) { step = Step.ARCHIVE }
                     }
+                    Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
                 }
                 message?.let {
                     Text(

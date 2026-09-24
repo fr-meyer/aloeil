@@ -57,4 +57,27 @@
     <string name="backup_pending">Backup copy pending</string>
     <string name="backup_confirmed">Backup copy confirmed</string>
     <string name="error_storage">The sitting could not be updated. Try again.</string>
+    <string name="archive_title">Back up or restore</string>
+    <string name="archive_intro">Readings are saved on this phone. You choose where an encrypted backup file goes; nothing is uploaded automatically.</string>
+    <string name="archive_create">Create encrypted backup</string>
+    <string name="archive_restore">Restore from backup</string>
+    <string name="archive_export_explain">Choose a passphrase of at least 12 characters. Keep it separately; the file cannot be restored without it.</string>
+    <string name="archive_passphrase">Backup passphrase</string>
+    <string name="archive_choose_destination">Choose where to save</string>
+    <string name="archive_export_done">Encrypted backup saved</string>
+    <string name="archive_export_done_body">Keep the backup file and its passphrase separately. The file includes your reading history.</string>
+    <string name="archive_done">Done</string>
+    <string name="archive_import_explain">Choose an Aloeil backup file and enter its passphrase. Nothing changes until you confirm.</string>
+    <string name="archive_choose_file">Choose backup file</string>
+    <string name="archive_review">Review backup</string>
+    <string name="archive_contents">%1$d readings in %2$d sittings</string>
+    <string name="archive_restore_explain">Restore adds missing readings. Readings already on this phone are kept.</string>
+    <string name="archive_confirm_restore">Restore readings</string>
+    <string name="archive_restore_done">Restore complete</string>
+    <string name="archive_added">%1$d new readings added. Existing readings were kept.</string>
+    <string name="archive_passphrase_short">Use at least 12 characters for the backup passphrase.</string>
+    <string name="archive_write_error">The backup could not be written. If a file was created, delete it before retrying.</string>
+    <string name="archive_export_error">The encrypted backup could not be prepared. Your readings are still on this phone.</string>
+    <string name="archive_read_error">The file or passphrase could not be verified. Nothing was restored.</string>
+    <string name="archive_restore_error">The backup could not be restored. Readings already on this phone were kept.</string>
 </resources>

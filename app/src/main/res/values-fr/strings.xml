@@ -56,4 +56,27 @@
     <string name="backup_pending">Copie de sauvegarde en attente</string>
     <string name="backup_confirmed">Copie de sauvegarde confirmée</string>
     <string name="error_storage">Impossible de mettre à jour la séance de saisie. Réessayez.</string>
+    <string name="archive_title">Sauvegarder ou restaurer</string>
+    <string name="archive_intro">Vos mesures sont enregistrées sur ce téléphone. Vous choisissez où placer le fichier chiffré. Aucun envoi automatique.</string>
+    <string name="archive_create">Créer une sauvegarde chiffrée</string>
+    <string name="archive_restore">Restaurer une sauvegarde</string>
+    <string name="archive_export_explain">Choisissez un mot de passe de 12 caractères ou plus. Conservez-le séparément : sans lui, le fichier ne peut pas être restauré.</string>
+    <string name="archive_passphrase">Mot de passe de sauvegarde</string>
+    <string name="archive_choose_destination">Choisir où enregistrer</string>
+    <string name="archive_export_done">Sauvegarde chiffrée enregistrée</string>
+    <string name="archive_export_done_body">Conservez le fichier et son mot de passe séparément. Le fichier contient tout votre historique de mesures.</string>
+    <string name="archive_done">Terminé</string>
+    <string name="archive_import_explain">Choisissez un fichier de sauvegarde Aloeil et saisissez son mot de passe. Rien ne change avant votre confirmation.</string>
+    <string name="archive_choose_file">Choisir le fichier de sauvegarde</string>
+    <string name="archive_review">Vérifier la sauvegarde</string>
+    <string name="archive_contents">%1$d mesures dans %2$d séances</string>
+    <string name="archive_restore_explain">La restauration ajoute les mesures manquantes. Les mesures déjà sur ce téléphone sont conservées.</string>
+    <string name="archive_confirm_restore">Restaurer les mesures</string>
+    <string name="archive_restore_done">Restauration terminée</string>
+    <string name="archive_added">%1$d nouvelles mesures ajoutées. Les mesures existantes ont été conservées.</string>
+    <string name="archive_passphrase_short">Utilisez au moins 12 caractères pour le mot de passe de sauvegarde.</string>
+    <string name="archive_write_error">Impossible de créer la sauvegarde. Si un fichier a été créé, supprimez-le avant de réessayer.</string>
+    <string name="archive_export_error">Impossible de préparer la sauvegarde chiffrée. Vos mesures restent sur ce téléphone.</string>
+    <string name="archive_read_error">Impossible de vérifier le fichier ou le mot de passe. Aucune mesure restaurée.</string>
+    <string name="archive_restore_error">Impossible de restaurer la sauvegarde. Les mesures déjà sur ce téléphone ont été conservées.</string>
 </resources>

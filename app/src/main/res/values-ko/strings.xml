@@ -56,4 +56,27 @@
     <string name="backup_pending">백업 사본 대기 중</string>
     <string name="backup_confirmed">백업 사본 확인됨</string>
     <string name="error_storage">기록 세션을 업데이트하지 못했습니다. 다시 시도하세요.</string>
+    <string name="archive_title">백업 또는 복원</string>
+    <string name="archive_intro">측정값은 이 휴대전화에 저장됩니다. 암호화된 백업 파일의 저장 위치를 직접 선택하며 자동으로 업로드되지 않습니다.</string>
+    <string name="archive_create">암호화된 백업 만들기</string>
+    <string name="archive_restore">백업에서 복원</string>
+    <string name="archive_export_explain">12자 이상의 암호를 정하세요. 암호를 따로 보관하세요. 암호가 없으면 파일을 복원할 수 없습니다.</string>
+    <string name="archive_passphrase">백업 암호</string>
+    <string name="archive_choose_destination">저장 위치 선택</string>
+    <string name="archive_export_done">암호화된 백업 저장됨</string>
+    <string name="archive_export_done_body">백업 파일과 암호를 따로 보관하세요. 파일에는 측정 기록 전체가 포함됩니다.</string>
+    <string name="archive_done">완료</string>
+    <string name="archive_import_explain">Aloeil 백업 파일을 선택하고 암호를 입력하세요. 확인하기 전에는 아무것도 변경되지 않습니다.</string>
+    <string name="archive_choose_file">백업 파일 선택</string>
+    <string name="archive_review">백업 확인</string>
+    <string name="archive_contents">%1$d개 측정값, %2$d개 기록 세션</string>
+    <string name="archive_restore_explain">복원은 누락된 측정값을 추가합니다. 이 휴대전화의 기존 측정값은 유지됩니다.</string>
+    <string name="archive_confirm_restore">측정값 복원</string>
+    <string name="archive_restore_done">복원 완료</string>
+    <string name="archive_added">새 측정값 %1$d개를 추가했습니다. 기존 측정값은 유지되었습니다.</string>
+    <string name="archive_passphrase_short">백업 암호는 12자 이상이어야 합니다.</string>
+    <string name="archive_write_error">백업을 저장하지 못했습니다. 파일이 생성되었다면 다시 시도하기 전에 삭제하세요.</string>
+    <string name="archive_export_error">암호화된 백업을 준비하지 못했습니다. 측정값은 이 휴대전화에 남아 있습니다.</string>
+    <string name="archive_read_error">파일 또는 암호를 확인할 수 없습니다. 복원된 측정값은 없습니다.</string>
+    <string name="archive_restore_error">백업을 복원하지 못했습니다. 이 휴대전화의 기존 측정값은 유지되었습니다.</string>
 </resources>

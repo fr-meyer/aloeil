@@ -1,5 +1,7 @@
 package org.aloeil.app.data
 
+data class ArchivePreview(val readingCount: Int, val sittingCount: Int)
+
 /** A save completes once Room commits the reading and its retryable outbox row. */
 class ReadingRepository(
     private val dao: ReadingDao,
@@ -90,6 +92,11 @@ class ReadingRepository(
             },
         )
         return ArchiveCodec.encode(bundle, passphrase)
+    }
+
+    fun previewArchive(archive: ByteArray, passphrase: CharArray): ArchivePreview {
+        val bundle = ArchiveCodec.decode(archive, passphrase)
+        return ArchivePreview(bundle.readings.size, bundle.sittings.size)
     }
 
     suspend fun importArchive(archive: ByteArray, passphrase: CharArray): Int {
