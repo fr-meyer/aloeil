@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -40,6 +41,9 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
 }
 
 val testSyntheticDebugUnitTest by tasks.registering(JavaExec::class) {
@@ -59,4 +63,8 @@ val testSyntheticDebugUnitTest by tasks.registering(JavaExec::class) {
 
 tasks.matching { it.name == "check" }.configureEach {
     dependsOn(testSyntheticDebugUnitTest)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
