@@ -53,6 +53,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
 
+    BlockSystemBackWhenUnsafe(busy)
+
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
