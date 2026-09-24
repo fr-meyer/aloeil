@@ -8,7 +8,7 @@ dependencies:
   - p0-product-privacy-brief
 blockers:
   - Representative-device accessibility and fresh-profile recovery validation remain.
-  - Residual SQLite metadata privacy and backup destination decisions remain.
+  - Residual SQLite metadata privacy decision remains.
 scope:
   - local encrypted database and schema migrations
   - immutable reading identifiers and sitting identifiers

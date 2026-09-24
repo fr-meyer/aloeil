@@ -42,7 +42,9 @@ derived AES-256-GCM key; the Android Keystore key never leaves the phone.
 The app authenticates and validates the whole file before a transactional
 import. The preview reports reading, sitting, and deletion-marker counts.
 An archive write does not mark a reading as having a confirmed replica:
-the chosen file provider may move or delete it later.
+the chosen file provider may move or delete it later. The export screen confirms
+that a file write completed, while the reading screen states that no
+separate replica has been confirmed.
 
 Archive version 4 contains current readings, sittings, complete prior
 revision/operation history, and deletion markers. Earlier version 3, 2,
@@ -55,16 +57,17 @@ history aborts the entire restore without changing phone rows.
 
 A backup can be opened on a fresh profile only with both the file and its
 passphrase. A user must keep them separately. The file provider may sync
-the encrypted file; Aloeil does not upload it automatically. A destination
-for any optional automatic private replica has not been chosen.
+the encrypted file; Aloeil does not upload it automatically. The MVP uses user-chosen encrypted files and no automatic private replica.
+This follows the approved local-only default. A future automatic replica
+would require its own privacy, destination, and deployment decision.
 
 ## Remaining acceptance
 
 CI uses synthetic JVM fixtures and an API 30 emulator for Room transaction,
 restart, migration, archive, correction, and deletion tests. A
 representative user-device accessibility and recovery drill, residual
-metadata privacy acceptance, and a decision about whether user-chosen
-encrypted files suffice are still needed before P2 can close. If automatic
-replication is chosen, its destination/client and exact-revision,
-unavailable/empty-replica behavior need separate implementation and tests.
+metadata privacy acceptance are still needed before P2 can close. An
+automatic replica is outside the current MVP. If added later, its
+destination/client and exact-revision, unavailable/empty-replica behavior
+need separate implementation and tests.
 Real health readings are excluded from development and tests.

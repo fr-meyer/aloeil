@@ -13,7 +13,7 @@ status:
   pret_a_coder: ready
   blocker_summary:
     - Representative-device accessibility and fresh-profile recovery validation remain
-    - Residual metadata privacy and backup destination decisions remain
+    - Residual SQLite metadata privacy decision remains
 builder:
   provider: github-actions
   workflow: .github/workflows/ci.yml
