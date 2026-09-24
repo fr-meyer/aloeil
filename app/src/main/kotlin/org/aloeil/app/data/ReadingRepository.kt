@@ -104,6 +104,13 @@ class ReadingRepository(
     suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
         val row = dao.draft() ?: return null
         val draft = DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+        if (!draft.fromHistory) {
+            val sitting = dao.sitting(draft.sittingId)?.let(::decodeSitting)
+            if (sitting == null || sitting.finishedAtMillis != null) {
+                clearDraft()
+                return null
+            }
+        }
         if (dao.deletedReading(draft.readingId) != null) {
             clearDraft()
             return null
