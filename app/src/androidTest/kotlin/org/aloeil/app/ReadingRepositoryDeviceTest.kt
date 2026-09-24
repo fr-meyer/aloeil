@@ -352,7 +352,7 @@ class ReadingRepositoryDeviceTest {
     }
 }
 
-private class SyntheticCipher(keyByte: Byte = 7) : ReadingCipher {
+internal class SyntheticCipher(keyByte: Byte = 7) : ReadingCipher {
     private val key = SecretKeySpec(ByteArray(32) { keyByte }, "AES")
     private val random = SecureRandom()
 
