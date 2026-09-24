@@ -34,6 +34,8 @@ data class ArchiveBundle(
 
 /** Authenticated portable backup. The Android Keystore key never leaves the phone. */
 object ArchiveCodec {
+    const val MIN_PASSPHRASE_LENGTH = 12
+    const val MAX_PASSPHRASE_LENGTH = 1024
     private val magicV4 = "ALOEIL04".toByteArray(Charsets.US_ASCII)
     private val magicV3 = "ALOEIL03".toByteArray(Charsets.US_ASCII)
     private val magicV2 = "ALOEIL02".toByteArray(Charsets.US_ASCII)
@@ -45,7 +47,9 @@ object ArchiveCodec {
     private val random = SecureRandom()
 
     fun encode(bundle: ArchiveBundle, passphrase: CharArray): ByteArray {
-        require(passphrase.isNotEmpty()) { "An export passphrase is required" }
+        require(passphrase.size in MIN_PASSPHRASE_LENGTH..MAX_PASSPHRASE_LENGTH) {
+            "Export passphrase length is invalid"
+        }
         validate(bundle)
         val plain = ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->

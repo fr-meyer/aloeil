@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.aloeil.app.data.ArchiveCodec
 import org.aloeil.app.data.ArchivePreview
 import org.aloeil.app.data.ReadingRepository
 import java.io.ByteArrayOutputStream
@@ -61,10 +63,11 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     BlockSystemBackWhenUnsafe(busy)
 
-    // Never save the passphrase or decrypted archive in Activity saved state.
+    // Never save the passphrase or archive bytes in Activity saved state.
     // A recreated picker result keeps only the chosen URI and asks for the secret again.
+    val currentArchiveBytes = rememberUpdatedState(archiveBytes)
     DisposableEffect(Unit) {
-        onDispose { archiveBytes?.fill(0) }
+        onDispose { currentArchiveBytes.value?.fill(0) }
     }
     LaunchedEffect(step, archiveBytes) {
         if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null) {
@@ -179,7 +182,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     }
 
     fun prepareExport() {
-        if (passphrase.length < 12) {
+        if (passphrase.length < ArchiveCodec.MIN_PASSPHRASE_LENGTH) {
             error = R.string.archive_passphrase_short
             return
         }
@@ -259,7 +262,12 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.EXPORT -> {
                 TransferHeading(R.string.archive_create)
                 Text(stringResource(R.string.archive_export_explain))
-                PassphraseField(passphrase) { passphrase = it; error = null }
+                PassphraseField(passphrase) { input ->
+                    if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
+                        passphrase = input
+                        error = null
+                    } else error = R.string.archive_passphrase_long
+                }
                 TransferButton(
                     if (pendingExportUri == null) R.string.archive_choose_destination
                     else R.string.archive_write_selected_file,
@@ -279,7 +287,12 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.IMPORT -> {
                 TransferHeading(R.string.archive_restore)
                 Text(stringResource(R.string.archive_import_explain))
-                PassphraseField(passphrase) { passphrase = it; error = null }
+                PassphraseField(passphrase) { input ->
+                    if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
+                        passphrase = input
+                        error = null
+                    } else error = R.string.archive_passphrase_long
+                }
                 TransferButton(
                     if (pendingImportUri == null) R.string.archive_choose_file
                     else R.string.archive_review_selected_file,

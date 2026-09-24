@@ -75,6 +75,7 @@
     <string name="archive_confirm_restore">측정값 복원</string>
     <string name="archive_restore_done">복원 완료</string>
     <string name="archive_added">새 측정값 %1$d개를 추가했습니다. 기존 측정값은 유지되었습니다.</string>
+    <string name="archive_passphrase_long">백업 암호는 1,024자 이하여야 합니다.</string>
     <string name="archive_passphrase_short">백업 암호는 12자 이상이어야 합니다.</string>
     <string name="archive_reenter_passphrase">선택한 파일로 계속하려면 암호를 다시 입력하세요. 전송된 측정값은 없습니다.</string>
     <string name="archive_write_selected_file">선택한 백업 파일에 저장</string>
