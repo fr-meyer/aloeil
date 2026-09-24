@@ -373,9 +373,13 @@ abstract class ReadingDatabase : RoomDatabase() {
             }
         }
 
+        @Volatile private var applicationInstance: ReadingDatabase? = null
+
         fun open(context: Context): ReadingDatabase =
-            Room.databaseBuilder(context.applicationContext, ReadingDatabase::class.java, "aloeil-readings.db")
-                .addMigrations(MIGRATION_1_2)
-                .build()
+            applicationInstance ?: synchronized(this) {
+                applicationInstance ?: Room.databaseBuilder(
+                    context.applicationContext, ReadingDatabase::class.java, "aloeil-readings.db",
+                ).addMigrations(MIGRATION_1_2).build().also { applicationInstance = it }
+            }
     }
 }
