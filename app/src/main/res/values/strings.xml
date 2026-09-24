@@ -91,4 +91,13 @@
     <string name="previous_note">Previous note: %1$s</string>
     <string name="corrected_note">Corrected note: %1$s</string>
     <string name="numeric_reading">%1$s mmHg</string>
+    <string name="delete_reading">Delete this reading</string>
+    <string name="delete_confirm_title">Delete this reading?</string>
+    <string name="delete_confirm_body">This removes the reading and its correction history from this phone. Older backup files may still contain it. Keep or delete those files separately.</string>
+    <string name="confirm_delete">Delete reading</string>
+    <string name="keep_reading">Keep reading</string>
+    <string name="deleted_on_phone">Reading deleted from this phone</string>
+    <string name="deleted_backup_warning">Older backup files may still contain this reading. A new backup includes a marker that prevents older files from restoring it here.</string>
+    <string name="error_delete">The reading could not be deleted. Try again.</string>
+    <string name="archive_deleted_markers">This backup also contains %1$d deleted reading markers. They prevent old files from restoring those readings; this restore will not delete a reading already on this phone.</string>
 </resources>

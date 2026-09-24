@@ -1,6 +1,7 @@
 package org.aloeil.app
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -179,6 +180,81 @@ class ReadingRepositoryDeviceTest {
             check(undone.timeZoneId == "Asia/Seoul")
         } finally {
             target.close()
+        }
+    }
+
+    @Test
+    fun deletionErasesContentAndOlderBackupCannotResurrectIt() = runBlocking {
+        val repo = repository()
+        repo.startSitting("synthetic-sitting")
+        val original = repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
+        val corrected = repo.correct("synthetic-correction", original.id, 1, Eye.RIGHT, "14.2")!!
+        val oldBackup = repo.exportArchive(passphrase)
+        check(!repo.deleteReading(corrected.id, 1))
+        check(repo.all().single() == corrected)
+        check(repo.deleteReading(corrected.id, 2))
+        check(repo.all().isEmpty())
+        check(repo.dueForReplica().isEmpty())
+        check(db.readings().versionsForReading(original.id).isEmpty())
+        check(db.readings().operationsForReading(original.id).isEmpty())
+        check(db.readings().deletedReading(original.id) != null)
+        check(repo.importArchive(oldBackup, passphrase) == 0)
+        check(repo.all().isEmpty())
+        val newBackup = repo.exportArchive(passphrase)
+        check(ArchiveCodec.decode(newBackup, passphrase).deleted.single().id == original.id)
+        val target = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        try {
+            val restored = repository(target)
+            check(restored.importArchive(newBackup, passphrase) == 0)
+            check(restored.importArchive(oldBackup, passphrase) == 0)
+            check(restored.all().isEmpty())
+        } finally {
+            target.close()
+        }
+    }
+
+    @Test
+    fun versionOneDatabaseMigratesWithoutLosingSyntheticRows() = runBlocking {
+        val name = "synthetic-migration-" + UUID.randomUUID() + ".db"
+        val file = context.getDatabasePath(name)
+        file.parentFile?.mkdirs()
+        val legacy = SQLiteDatabase.openOrCreateDatabase(file, null)
+        try {
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`readings\` (\`id\` TEXT NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, \`revision\` INTEGER NOT NULL, \`replicaConfirmedRevision\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`outbox\` (\`id\` TEXT NOT NULL, \`readingId\` TEXT NOT NULL, \`revision\` INTEGER NOT NULL, \`attemptCount\` INTEGER NOT NULL, \`nextAttemptAtMillis\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL("CREATE INDEX IF NOT EXISTS \`index_outbox_readingId\` ON \`outbox\` (\`readingId\`)")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`sittings\` (\`id\` TEXT NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`draft_checkpoint\` (\`id\` INTEGER NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`reading_versions\` (\`readingId\` TEXT NOT NULL, \`revision\` INTEGER NOT NULL, \`nonce\` BLOB NOT NULL, \`ciphertext\` BLOB NOT NULL, PRIMARY KEY(\`readingId\`, \`revision\`))")
+            legacy.execSQL("CREATE TABLE IF NOT EXISTS \`correction_operations\` (\`id\` TEXT NOT NULL, \`readingId\` TEXT NOT NULL, \`resultingRevision\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))")
+            legacy.execSQL(
+                "INSERT INTO \`readings\` VALUES (?, ?, ?, ?, ?)",
+                arrayOf("synthetic-reading", byteArrayOf(1, 2), byteArrayOf(3, 4), 2L, 0L),
+            )
+            legacy.execSQL(
+                "INSERT INTO \`reading_versions\` VALUES (?, ?, ?, ?)",
+                arrayOf("synthetic-reading", 1L, byteArrayOf(5), byteArrayOf(6)),
+            )
+            legacy.execSQL(
+                "INSERT INTO \`correction_operations\` VALUES (?, ?, ?)",
+                arrayOf("synthetic-operation", "synthetic-reading", 2L),
+            )
+            legacy.version = 1
+        } finally {
+            legacy.close()
+        }
+        val migrated = Room.databaseBuilder(context, ReadingDatabase::class.java, name)
+            .addMigrations(ReadingDatabase.MIGRATION_1_2).build()
+        try {
+            val reading = migrated.readings().allReadings().single()
+            check(reading.id == "synthetic-reading" && reading.revision == 2L)
+            check(reading.ciphertext.contentEquals(byteArrayOf(3, 4)))
+            check(migrated.readings().allVersions().single().ciphertext.contentEquals(byteArrayOf(6)))
+            check(migrated.readings().allCorrectionOperations().single().id == "synthetic-operation")
+            check(migrated.readings().allDeletedReadings().isEmpty())
+        } finally {
+            migrated.close()
+            context.deleteDatabase(name)
         }
     }
 

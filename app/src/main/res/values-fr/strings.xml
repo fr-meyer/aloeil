@@ -90,4 +90,13 @@
     <string name="previous_note">Note précédente : %1$s</string>
     <string name="corrected_note">Note corrigée : %1$s</string>
     <string name="numeric_reading">%1$s mmHg</string>
+    <string name="delete_reading">Supprimer cette mesure</string>
+    <string name="delete_confirm_title">Supprimer cette mesure ?</string>
+    <string name="delete_confirm_body">La mesure et ses corrections seront supprimées de ce téléphone. D’anciens fichiers de sauvegarde peuvent encore la contenir. Conservez ou supprimez ces fichiers séparément.</string>
+    <string name="confirm_delete">Supprimer la mesure</string>
+    <string name="keep_reading">Conserver la mesure</string>
+    <string name="deleted_on_phone">Mesure supprimée de ce téléphone</string>
+    <string name="deleted_backup_warning">D’anciens fichiers de sauvegarde peuvent encore contenir cette mesure. Une nouvelle sauvegarde inclut un repère qui empêche les anciens fichiers de la restaurer ici.</string>
+    <string name="error_delete">Impossible de supprimer la mesure. Réessayez.</string>
+    <string name="archive_deleted_markers">Cette sauvegarde contient aussi %1$d repères de mesures supprimées. Ils empêchent les anciens fichiers de restaurer ces mesures ; cette restauration ne supprimera pas de mesure déjà présente sur ce téléphone.</string>
 </resources>

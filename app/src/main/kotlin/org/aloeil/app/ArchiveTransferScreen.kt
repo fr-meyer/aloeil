@@ -221,6 +221,9 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 val counts = preview
                 if (counts != null) {
                     Text(stringResource(R.string.archive_contents, counts.readingCount, counts.sittingCount))
+                    if (counts.deletedCount > 0) {
+                        Text(stringResource(R.string.archive_deleted_markers, counts.deletedCount))
+                    }
                 }
                 Text(stringResource(R.string.archive_restore_explain))
                 TransferButton(R.string.archive_confirm_restore, busy) { restore() }

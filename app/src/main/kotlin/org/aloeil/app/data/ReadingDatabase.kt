@@ -13,6 +13,8 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "readings")
 data class ReadingRow(
@@ -54,6 +56,12 @@ data class ReadingVersionRow(
     val ciphertext: ByteArray,
 )
 
+@Entity(tableName = "deleted_readings")
+data class DeletedReadingRow(
+    @PrimaryKey val id: String,
+    val deletedAtMillis: Long,
+)
+
 @Entity(tableName = "correction_operations")
 data class CorrectionOperationRow(
     @PrimaryKey val id: String,
@@ -66,6 +74,7 @@ data class ArchiveSnapshotRows(
     val sittings: List<SittingRow>,
     val versions: List<ReadingVersionRow>,
     val operations: List<CorrectionOperationRow>,
+    val deleted: List<DeletedReadingRow>,
 )
 
 @Dao
@@ -99,6 +108,7 @@ interface ReadingDao {
 
     @Transaction
     suspend fun saveOnPhone(reading: ReadingRow, outbox: OutboxRow): ReadingRow {
+        require(deletedReading(reading.id) == null) { "Reading ID was deleted" }
         this.reading(reading.id)?.let { return it }
         insertReading(reading)
         insertOutbox(outbox)
@@ -107,7 +117,7 @@ interface ReadingDao {
 
     @Transaction
     suspend fun archiveSnapshot(): ArchiveSnapshotRows = ArchiveSnapshotRows(
-        allReadings(), allSittings(), allVersions(), allCorrectionOperations(),
+        allReadings(), allSittings(), allVersions(), allCorrectionOperations(), allDeletedReadings(),
     )
 
     @Query("SELECT * FROM readings ORDER BY id DESC")
@@ -115,6 +125,36 @@ interface ReadingDao {
 
     @Query("SELECT * FROM readings WHERE id = :id LIMIT 1")
     suspend fun reading(id: String): ReadingRow?
+
+    @Query("SELECT * FROM deleted_readings WHERE id = :id LIMIT 1")
+    suspend fun deletedReading(id: String): DeletedReadingRow?
+
+    @Query("SELECT * FROM deleted_readings ORDER BY id")
+    suspend fun allDeletedReadings(): List<DeletedReadingRow>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertDeleted(row: DeletedReadingRow)
+
+    @Query("DELETE FROM readings WHERE id = :id")
+    suspend fun removeReading(id: String)
+
+    @Query("DELETE FROM reading_versions WHERE readingId = :id")
+    suspend fun removeVersions(id: String)
+
+    @Query("DELETE FROM correction_operations WHERE readingId = :id")
+    suspend fun removeOperations(id: String)
+
+    @Transaction
+    suspend fun deleteReading(id: String, expectedRevision: Long, deletedAtMillis: Long): Boolean {
+        val current = reading(id) ?: return deletedReading(id) != null
+        if (current.revision != expectedRevision) return false
+        insertDeleted(DeletedReadingRow(id, deletedAtMillis))
+        removeStaleOutbox(id)
+        removeVersions(id)
+        removeOperations(id)
+        removeReading(id)
+        return true
+    }
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertVersion(row: ReadingVersionRow)
@@ -176,8 +216,15 @@ interface ReadingDao {
         versions: List<ReadingVersionRow>,
         operations: List<CorrectionOperationRow>,
         expectedReadings: List<Reading>,
+        tombstones: List<DeletedReadingRow>,
         cipher: ReadingCipher,
     ): Int {
+        tombstones.forEach { incoming ->
+            require(reading(incoming.id) == null) { "Deleted archive ID conflicts with phone reading" }
+            val existing = deletedReading(incoming.id)
+            if (existing == null) insertDeleted(incoming)
+            else require(existing == incoming) { "Conflicting deleted reading ID" }
+        }
         sittings.forEach { (incoming, expected) ->
             val existing = sitting(incoming.id)
             if (existing == null) {
@@ -194,6 +241,7 @@ interface ReadingDao {
         val operationsByReading = operations.groupBy { it.readingId }
         require(rows.size == expectedReadings.size)
         rows.forEachIndexed { index, (incoming, _) ->
+            if (deletedReading(incoming.id) != null) return@forEachIndexed
             val existing = reading(incoming.id) ?: return@forEachIndexed
             val expected = expectedReadings[index]
             val currentPayload = ReadingPayloadCodec.decode(
@@ -224,7 +272,7 @@ interface ReadingDao {
         }
         var added = 0
         for ((incoming, outbox) in rows) {
-            if (reading(incoming.id) == null) {
+            if (reading(incoming.id) == null && deletedReading(incoming.id) == null) {
                 insertReading(incoming)
                 insertOutbox(outbox)
                 versionsByReading[incoming.id].orEmpty().forEach { insertVersion(it) }
@@ -258,17 +306,27 @@ interface ReadingDao {
 @Database(
     entities = [
         ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class,
-        ReadingVersionRow::class, CorrectionOperationRow::class,
+        ReadingVersionRow::class, CorrectionOperationRow::class, DeletedReadingRow::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class ReadingDatabase : RoomDatabase() {
     abstract fun readings(): ReadingDao
 
     companion object {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS \`deleted_readings\` (" +
+                        "\`id\` TEXT NOT NULL, \`deletedAtMillis\` INTEGER NOT NULL, PRIMARY KEY(\`id\`))",
+                )
+            }
+        }
+
         fun open(context: Context): ReadingDatabase =
             Room.databaseBuilder(context.applicationContext, ReadingDatabase::class.java, "aloeil-readings.db")
+                .addMigrations(MIGRATION_1_2)
                 .build()
     }
 }

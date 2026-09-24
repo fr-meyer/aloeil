@@ -90,4 +90,13 @@
     <string name="previous_note">이전 메모: %1$s</string>
     <string name="corrected_note">수정한 메모: %1$s</string>
     <string name="numeric_reading">%1$s mmHg</string>
+    <string name="delete_reading">이 측정값 삭제</string>
+    <string name="delete_confirm_title">이 측정값을 삭제할까요?</string>
+    <string name="delete_confirm_body">이 휴대전화에서 측정값과 수정 기록을 삭제합니다. 이전 백업 파일에는 여전히 포함될 수 있습니다. 해당 파일은 별도로 보관하거나 삭제하세요.</string>
+    <string name="confirm_delete">측정값 삭제</string>
+    <string name="keep_reading">측정값 유지</string>
+    <string name="deleted_on_phone">이 휴대전화에서 측정값 삭제됨</string>
+    <string name="deleted_backup_warning">이전 백업 파일에는 이 측정값이 남아 있을 수 있습니다. 새 백업에는 이전 파일이 여기로 다시 복원하지 못하게 하는 표시가 포함됩니다.</string>
+    <string name="error_delete">측정값을 삭제하지 못했습니다. 다시 시도하세요.</string>
+    <string name="archive_deleted_markers">이 백업에는 삭제된 측정값 표시 %1$d개도 포함됩니다. 이전 파일에서 해당 측정값을 다시 복원하지 못하게 합니다. 이 복원으로 이 휴대전화의 기존 측정값은 삭제되지 않습니다.</string>
 </resources>

@@ -4,7 +4,11 @@ import java.time.ZoneId
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-data class ArchivePreview(val readingCount: Int, val sittingCount: Int)
+data class ArchivePreview(
+    val readingCount: Int,
+    val sittingCount: Int,
+    val deletedCount: Int,
+)
 
 /** A save completes once Room commits the reading and its retryable outbox row. */
 class ReadingRepository(
@@ -98,6 +102,10 @@ class ReadingRepository(
     suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
         val row = dao.draft() ?: return null
         val draft = DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+        if (dao.deletedReading(draft.readingId) != null) {
+            clearDraft()
+            return null
+        }
         val saved = dao.reading(draft.readingId)?.let(::decode)
         require(saved == null || saved.sittingId == draft.sittingId) { "Draft ID conflict" }
         return draft to saved
@@ -125,13 +133,14 @@ class ReadingRepository(
             operations = snapshot.operations.map {
                 ArchivedOperation(it.id, it.readingId, it.resultingRevision)
             },
+            deleted = snapshot.deleted,
         )
         return ArchiveCodec.encode(bundle, passphrase)
     }
 
     fun previewArchive(archive: ByteArray, passphrase: CharArray): ArchivePreview {
         val bundle = ArchiveCodec.decode(archive, passphrase)
-        return ArchivePreview(bundle.readings.size, bundle.sittings.size)
+        return ArchivePreview(bundle.readings.size, bundle.sittings.size, bundle.deleted.size)
     }
 
     suspend fun importArchive(archive: ByteArray, passphrase: CharArray): Int {
@@ -158,7 +167,9 @@ class ReadingRepository(
         val operations = bundle.operations.map { item ->
             CorrectionOperationRow(item.id, item.readingId, item.resultingRevision)
         }
-        return dao.restoreArchive(sittings, rows, versions, operations, bundle.readings, cipher)
+        return dao.restoreArchive(
+            sittings, rows, versions, operations, bundle.readings, bundle.deleted, cipher,
+        )
     }
 
     /** Corrections keep the reading ID and record the old encrypted version for undo. */
@@ -264,6 +275,12 @@ class ReadingRepository(
         )
         if (!dao.applyCorrection(operationId, expectedRevision, updated, outbox)) return null
         return dao.reading(readingId)?.let(::decode)
+    }
+
+    /** Erase encrypted content and correction history; retain only an ID tombstone. */
+    suspend fun deleteReading(id: String, expectedRevision: Long): Boolean {
+        require(id.isNotBlank() && expectedRevision > 0)
+        return dao.deleteReading(id, expectedRevision, now())
     }
 
     suspend fun dueForReplica(): List<OutboxRow> = dao.dueOutbox(now())

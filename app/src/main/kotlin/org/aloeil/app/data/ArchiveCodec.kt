@@ -29,14 +29,16 @@ data class ArchiveBundle(
     val sittings: List<Sitting>,
     val versions: List<ArchivedVersion>,
     val operations: List<ArchivedOperation>,
+    val deleted: List<DeletedReadingRow> = emptyList(),
 )
 
 /** Authenticated portable backup. The Android Keystore key never leaves the phone. */
 object ArchiveCodec {
+    private val magicV4 = "ALOEIL04".toByteArray(Charsets.US_ASCII)
     private val magicV3 = "ALOEIL03".toByteArray(Charsets.US_ASCII)
     private val magicV2 = "ALOEIL02".toByteArray(Charsets.US_ASCII)
     private val magicV1 = "ALOEIL01".toByteArray(Charsets.US_ASCII)
-    private const val version = 3
+    private const val version = 4
     private const val maxBytes = 16 * 1024 * 1024
     private const val maxItems = 100_000
     private const val iterations = 210_000
@@ -68,6 +70,11 @@ object ArchiveCodec {
                     out.writeUTF(item.readingId)
                     out.writeLong(item.resultingRevision)
                 }
+                out.writeInt(bundle.deleted.size)
+                bundle.deleted.forEach { item ->
+                    out.writeUTF(item.id)
+                    out.writeLong(item.deletedAtMillis)
+                }
             }
         }.toByteArray()
         require(plain.size <= maxBytes) { "Archive is too large" }
@@ -75,11 +82,11 @@ object ArchiveCodec {
         val nonce = ByteArray(12).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(magicV3)
+        cipher.updateAAD(magicV4)
         val encrypted = cipher.doFinal(plain)
         return ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->
-                out.write(magicV3)
+                out.write(magicV4)
                 out.writeInt(version)
                 out.write(salt)
                 out.write(nonce)
@@ -97,7 +104,8 @@ object ArchiveCodec {
         val magic = ByteArray(8).also(input::readFully)
         val archiveVersion = input.readInt()
         require(
-            (magic.contentEquals(magicV3) && archiveVersion == version) ||
+            (magic.contentEquals(magicV4) && archiveVersion == version) ||
+                (magic.contentEquals(magicV3) && archiveVersion == 3) ||
                 (magic.contentEquals(magicV2) && archiveVersion == 2) ||
                 (magic.contentEquals(magicV1) && archiveVersion == 1),
         ) { "Unsupported Aloeil archive" }
@@ -112,17 +120,17 @@ object ArchiveCodec {
         val plain = cipher.doFinal(encrypted)
         val result = when (archiveVersion) {
             1 -> decodeLegacy(plain)
-            2 -> decodeStructured(plain, version3 = false)
-            else -> decodeStructured(plain, version3 = true)
+            2, 3, 4 -> decodeStructured(plain, archiveVersion)
+            else -> error("Unsupported archive version")
         }
         validate(result, requireCompleteHistory = archiveVersion != 1)
         return result
     }
 
-    private fun decodeStructured(plain: ByteArray, version3: Boolean): ArchiveBundle {
+    private fun decodeStructured(plain: ByteArray, archiveVersion: Int): ArchiveBundle {
         val input = DataInputStream(ByteArrayInputStream(plain))
         val readings = List(input.readCount()) {
-            if (version3) input.readReadingV3() else input.readReadingV2()
+            if (archiveVersion >= 3) input.readReadingV3() else input.readReadingV2()
         }
         val sittings = List(input.readCount()) {
             val id = input.readUTF()
@@ -133,14 +141,17 @@ object ArchiveCodec {
         val versions = List(input.readCount()) {
             ArchivedVersion(
                 input.readUTF(), input.readLong(),
-                if (version3) input.readPayloadV3() else input.readPayloadV2(),
+                if (archiveVersion >= 3) input.readPayloadV3() else input.readPayloadV2(),
             )
         }
         val operations = List(input.readCount()) {
             ArchivedOperation(input.readUTF(), input.readUTF(), input.readLong())
         }
+        val deleted = if (archiveVersion >= 4) List(input.readCount()) {
+            DeletedReadingRow(input.readUTF(), input.readLong())
+        } else emptyList()
         require(input.available() == 0) { "Unexpected archive data" }
-        return ArchiveBundle(readings, sittings, versions, operations)
+        return ArchiveBundle(readings, sittings, versions, operations, deleted)
     }
 
     private fun decodeLegacy(plain: ByteArray): ArchiveBundle {
@@ -175,7 +186,8 @@ object ArchiveCodec {
     private fun validate(bundle: ArchiveBundle, requireCompleteHistory: Boolean = true) {
         require(
             bundle.readings.size <= maxItems && bundle.sittings.size <= maxItems &&
-                bundle.versions.size <= maxItems && bundle.operations.size <= maxItems,
+                bundle.versions.size <= maxItems && bundle.operations.size <= maxItems &&
+                bundle.deleted.size <= maxItems,
         ) { "Too many archive items" }
         require(bundle.readings.map { it.id }.toSet().size == bundle.readings.size) {
             "Duplicate reading ID"
@@ -189,7 +201,13 @@ object ArchiveCodec {
         require(bundle.operations.map { it.id }.toSet().size == bundle.operations.size) {
             "Duplicate correction operation"
         }
+        require(bundle.deleted.map { it.id }.toSet().size == bundle.deleted.size) {
+            "Duplicate deleted reading ID"
+        }
         val readings = bundle.readings.associateBy { it.id }
+        bundle.deleted.forEach {
+            require(it.id.isNotBlank() && it.id !in readings) { "Deleted ID conflicts with active reading" }
+        }
         val sittings = bundle.sittings.map { it.id }.toSet()
         bundle.readings.forEach {
             require(it.id.isNotBlank() && it.sittingId in sittings && it.revision > 0)

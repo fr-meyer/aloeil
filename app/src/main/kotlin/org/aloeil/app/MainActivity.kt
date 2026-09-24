@@ -68,7 +68,7 @@ private enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
-    FINISH, FINISHED, ARCHIVE,
+    FINISH, FINISHED, DELETE_CONFIRM, DELETED, ARCHIVE,
 }
 
 @Composable
@@ -300,6 +300,32 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
+    fun deleteReading() {
+        val current = saved ?: return
+        busy = true
+        message = null
+        scope.launch {
+            val deleted = runCatching {
+                withContext(Dispatchers.IO) {
+                    repository.deleteReading(current.id, current.revision)
+                }
+            }.getOrDefault(false)
+            if (deleted) {
+                runCatching { withContext(Dispatchers.IO) { repository.clearDraft() } }
+                saved = null
+                readingId = ""
+                eye = null
+                value = ""
+                rangeState = null
+                note = ""
+                step = Step.DELETED
+            } else {
+                message = R.string.error_delete
+            }
+            busy = false
+        }
+    }
+
     fun finishSitting() {
         busy = true
         scope.launch {
@@ -412,6 +438,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             step = Step.CORRECT_CHOICE
                         }
                         Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.CORRECT_CHOICE -> {
                         Heading(R.string.choose_correction)
@@ -469,6 +496,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         }
                         Secondary(R.string.undo_correction, busy) { undoCorrection() }
                         Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.UNDO_DONE -> {
                         Heading(R.string.undo_done)
@@ -485,6 +513,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             step = Step.EYE
                         }
                         Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.FINISH -> {
                         Heading(R.string.finish_title)
@@ -498,6 +527,23 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Heading(R.string.sitting_finished)
                         Action(R.string.start_sitting, busy) { beginSitting() }
                         Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
+                    }
+                    Step.DELETE_CONFIRM -> {
+                        Heading(R.string.delete_confirm_title)
+                        Text(stringResource(R.string.eye_summary, eyeLabel(saved?.eye)))
+                        Text(stringResource(
+                            R.string.reading_summary,
+                            readingLabel(saved?.value.orEmpty(), saved?.rangeState),
+                        ))
+                        Text(stringResource(R.string.delete_confirm_body))
+                        Action(R.string.confirm_delete, busy) { deleteReading() }
+                        Secondary(R.string.keep_reading, busy) { step = Step.SAVED }
+                    }
+                    Step.DELETED -> {
+                        Heading(R.string.deleted_on_phone)
+                        Text(stringResource(R.string.deleted_backup_warning))
+                        Action(R.string.add_another, busy) { beginSitting() }
+                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                     }
                     Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
                 }
