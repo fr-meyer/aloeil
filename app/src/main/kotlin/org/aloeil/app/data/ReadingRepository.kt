@@ -55,7 +55,7 @@ class ReadingRepository(
         val stored = dao.sitting(id) ?: return false
         val current = decodeSitting(stored)
         if (current.finishedAtMillis != null) return true
-        val sealed = cipher.seal(SittingPayloadCodec.encode(current.copy(finishedAtMillis = now())))
+        val sealed = cipher.seal(SittingPayloadCodec.encode(current.copy(finishedAtMillis = maxOf(now(), current.startedAtMillis))))
         return dao.updateSitting(stored.copy(nonce = sealed.nonce, ciphertext = sealed.ciphertext)) == 1
     }
 

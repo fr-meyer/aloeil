@@ -151,6 +151,19 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun backwardClockCannotMakeLocalSittingUnexportable() = runBlocking {
+        var clock = time
+        val repo = ReadingRepository(db.readings(), cipher) { clock }
+        repo.startSitting("synthetic-sitting")
+        repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
+        clock = time - 60_000
+        check(repo.finishSitting("synthetic-sitting"))
+        val archive = repo.exportArchive(passphrase)
+        val sitting = ArchiveCodec.decode(archive, passphrase).sittings.single()
+        check(sitting.finishedAtMillis == sitting.startedAtMillis)
+    }
+
+    @Test
     fun fileDatabaseRestartRecoversCommittedReadingAndAbandonedCorrection() = runBlocking {
         val name = "synthetic-restart-" + UUID.randomUUID() + ".db"
         val first = Room.databaseBuilder(context, ReadingDatabase::class.java, name).build()
