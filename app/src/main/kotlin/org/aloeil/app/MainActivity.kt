@@ -708,7 +708,25 @@ internal fun AloeilApp(
                             )
                         }
                     }
-                    Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
+                    Step.ARCHIVE -> ArchiveTransferScreen(repository) {
+                        busy = true
+                        step = Step.LOADING
+                        scope.launch {
+                            try {
+                                val open = withContext(Dispatchers.IO) {
+                                    repository.openSitting()
+                                }
+                                sittingId = open?.id.orEmpty()
+                                hasOpenSitting = open != null
+                                step = Step.START
+                            } catch (_: Exception) {
+                                message = R.string.error_storage
+                                step = Step.ARCHIVE
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
                 }
                 message?.let {
                     Text(
