@@ -56,7 +56,11 @@ class HistoryReturnNavigationDeviceTest {
                 compose.onAllNodes(reading).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNode(reading).performScrollTo().performClick()
-            tap(R.string.history_back)
+            tap(R.string.back)
+            compose.waitUntil(timeoutMillis = 10_000) {
+                compose.onAllNodes(hasText(context.getString(R.string.history_title)))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
             tap(R.string.back)
             compose.waitUntil(timeoutMillis = 10_000) {
                 compose.onAllNodes(hasText(context.getString(R.string.sitting_finished)))
