@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -153,6 +154,8 @@ internal fun AloeilApp(
                 }
                 step = Step.START
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (_: UnreadableLocalStoreException) {
             message = null
             step = Step.RECOVERY
@@ -193,6 +196,8 @@ internal fun AloeilApp(
                         ),
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 message = R.string.error_storage
             }
