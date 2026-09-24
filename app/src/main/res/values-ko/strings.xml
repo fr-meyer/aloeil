@@ -12,7 +12,7 @@
     <string name="eye_not_selected">%1$s, 선택되지 않음</string>
     <string name="enter_reading">측정값 입력</string>
     <string name="reading_label">측정값(mmHg)</string>
-    <string name="reading_hint">mmHg 단위 숫자를 입력하세요.</string>
+    <string name="reading_hint">mmHg 단위 숫자를 입력하세요(최대 32자).</string>
     <string name="not_saved">아직 저장되지 않음</string>
     <string name="continue_action">계속</string>
     <string name="review_before_save">저장 전 확인</string>
@@ -48,6 +48,7 @@
     <string name="error_empty">측정값을 입력하세요.</string>
     <string name="error_number">숫자로 입력하세요.</string>
     <string name="error_decimal">소수점 구분 기호는 하나만 입력하세요.</string>
+    <string name="error_length">숫자가 너무 깁니다. 최대 32자까지 입력하세요.</string>
     <string name="error_save">측정값을 저장하지 못했습니다. 입력한 내용은 그대로 있습니다. 다시 시도하세요.</string>
     <string name="error_correction_save">수정 내용을 저장하지 못했습니다. 변경한 내용은 그대로 있습니다. 다시 시도하세요.</string>
     <string name="error_draft_restore">입력 중인 내용을 복원하지 못했습니다. 저장된 측정값은 그대로 있습니다. 계속하려면 눈을 선택하세요.</string>

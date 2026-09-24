@@ -13,7 +13,7 @@
     <string name="eye_not_selected">%1$s, not selected</string>
     <string name="enter_reading">Enter the reading</string>
     <string name="reading_label">Reading (mmHg)</string>
-    <string name="reading_hint">Enter a number in mmHg.</string>
+    <string name="reading_hint">Enter a number in mmHg (up to 32 characters).</string>
     <string name="not_saved">Not saved yet</string>
     <string name="continue_action">Continue</string>
     <string name="review_before_save">Review before saving</string>
@@ -49,6 +49,7 @@
     <string name="error_empty">Enter a reading.</string>
     <string name="error_number">Enter a number.</string>
     <string name="error_decimal">Use only one decimal separator.</string>
+    <string name="error_length">The number is too long. Use up to 32 characters.</string>
     <string name="error_save">The reading could not be saved. Your entry is still here. Try again.</string>
     <string name="error_correction_save">The correction could not be saved. Your changes are still here. Try again.</string>
     <string name="error_draft_restore">The draft could not be restored. Saved readings are still available. Choose an eye to continue.</string>
