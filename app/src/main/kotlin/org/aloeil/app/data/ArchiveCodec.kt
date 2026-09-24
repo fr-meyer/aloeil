@@ -109,7 +109,7 @@ object ArchiveCodec {
         cipher.updateAAD(magic)
         val plain = cipher.doFinal(encrypted)
         val result = if (archiveVersion == 1) decodeLegacy(plain) else decodeV2(plain)
-        validate(result)
+        validate(result, requireCompleteHistory = archiveVersion != 1)
         return result
     }
 
@@ -151,14 +151,17 @@ object ArchiveCodec {
             val value = if (stringValues) input.readUTF() else {
                 BigDecimal(input.readInt()).movePointLeft(1).toPlainString()
             }
-            val revision = input.readLong()
-            Reading(id, sittingId, time, eye, value, revision, 0)
+            val legacyRevision = input.readLong()
+            require(legacyRevision > 0)
+            // A v1 file contains only the latest value. Treat it as the restored baseline
+            // so future corrections and v2 exports cannot claim missing undo history.
+            Reading(id, sittingId, time, eye, value, 1, 0)
         }
         require(input.available() == 0) { "Unexpected legacy archive data" }
         return readings
     }
 
-    private fun validate(bundle: ArchiveBundle) {
+    private fun validate(bundle: ArchiveBundle, requireCompleteHistory: Boolean = true) {
         require(
             bundle.readings.size <= maxItems && bundle.sittings.size <= maxItems &&
                 bundle.versions.size <= maxItems && bundle.operations.size <= maxItems,
@@ -195,6 +198,35 @@ object ArchiveCodec {
         bundle.operations.forEach {
             val current = readings[it.readingId] ?: error("Orphaned correction operation")
             require(it.id.isNotBlank() && it.resultingRevision in 2L..current.revision)
+        }
+        if (requireCompleteHistory) {
+            val versionsByReading = bundle.versions.groupBy { it.readingId }
+            val operationsByReading = bundle.operations.groupBy { it.readingId }
+            bundle.readings.forEach { reading ->
+                require(reading.revision in 1L..(maxItems.toLong() + 1)) {
+                    "Invalid reading revision"
+                }
+                val expectedCount = reading.revision - 1
+                val prior = versionsByReading[reading.id].orEmpty().sortedBy { it.revision }
+                val corrections = operationsByReading[reading.id].orEmpty()
+                    .sortedBy { it.resultingRevision }
+                require(prior.size.toLong() == expectedCount) {
+                    "Incomplete reading revision history"
+                }
+                require(corrections.size.toLong() == expectedCount) {
+                    "Incomplete correction operation history"
+                }
+                prior.forEachIndexed { index, item ->
+                    require(item.revision == index.toLong() + 1) {
+                        "Non-contiguous reading revision history"
+                    }
+                }
+                corrections.forEachIndexed { index, item ->
+                    require(item.resultingRevision == index.toLong() + 2) {
+                        "Non-contiguous correction operation history"
+                    }
+                }
+            }
         }
     }
 

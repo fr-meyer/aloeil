@@ -128,6 +128,12 @@ interface ReadingDao {
     @Query("SELECT * FROM correction_operations")
     suspend fun allCorrectionOperations(): List<CorrectionOperationRow>
 
+    @Query("SELECT * FROM reading_versions WHERE readingId = :id ORDER BY revision")
+    suspend fun versionsForReading(id: String): List<ReadingVersionRow>
+
+    @Query("SELECT * FROM correction_operations WHERE readingId = :id ORDER BY resultingRevision, id")
+    suspend fun operationsForReading(id: String): List<CorrectionOperationRow>
+
     @Query("SELECT * FROM reading_versions WHERE readingId = :id AND revision = :revision LIMIT 1")
     suspend fun version(id: String, revision: Long): ReadingVersionRow?
 
@@ -165,16 +171,57 @@ interface ReadingDao {
     /** Authenticate and prepare off-DB first; this transaction never overwrites a phone row. */
     @Transaction
     suspend fun restoreArchive(
-        sittings: List<SittingRow>,
+        sittings: List<Pair<SittingRow, Sitting>>,
         rows: List<Pair<ReadingRow, OutboxRow>>,
         versions: List<ReadingVersionRow>,
         operations: List<CorrectionOperationRow>,
+        expectedReadings: List<Reading>,
+        cipher: ReadingCipher,
     ): Int {
-        sittings.forEach { incoming ->
-            if (sitting(incoming.id) == null) insertSitting(incoming)
+        sittings.forEach { (incoming, expected) ->
+            val existing = sitting(incoming.id)
+            if (existing == null) {
+                insertSitting(incoming)
+            } else {
+                val decoded = SittingPayloadCodec.decode(
+                    existing.id,
+                    cipher.open(SealedPayload(existing.nonce, existing.ciphertext)),
+                )
+                require(decoded == expected) { "Conflicting sitting ID in archive" }
+            }
         }
         val versionsByReading = versions.groupBy { it.readingId }
         val operationsByReading = operations.groupBy { it.readingId }
+        require(rows.size == expectedReadings.size)
+        rows.forEachIndexed { index, (incoming, _) ->
+            val existing = reading(incoming.id) ?: return@forEachIndexed
+            val expected = expectedReadings[index]
+            val currentPayload = ReadingPayloadCodec.decode(
+                cipher.open(SealedPayload(existing.nonce, existing.ciphertext)),
+            )
+            require(existing.revision == expected.revision && currentPayload == ReadingPayload(
+                expected.sittingId, expected.recordedAtMillis, expected.eye, expected.value,
+            )) { "Conflicting reading ID in archive" }
+            val currentVersions = versionsForReading(incoming.id).map { row ->
+                row.revision to ReadingPayloadCodec.decode(
+                    cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+                )
+            }
+            val incomingVersions = versionsByReading[incoming.id].orEmpty()
+                .sortedBy { it.revision }.map { row ->
+                row.revision to ReadingPayloadCodec.decode(
+                    cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+                )
+            }
+            require(currentVersions == incomingVersions) {
+                "Conflicting reading history in archive"
+            }
+            val incomingOperations = operationsByReading[incoming.id].orEmpty()
+                .sortedWith(compareBy<CorrectionOperationRow> { it.resultingRevision }.thenBy { it.id })
+            require(operationsForReading(incoming.id) == incomingOperations) {
+                "Conflicting correction history in archive"
+            }
+        }
         var added = 0
         for ((incoming, outbox) in rows) {
             if (reading(incoming.id) == null) {

@@ -104,7 +104,7 @@ class ReadingRepository(
         val bundle = ArchiveCodec.decode(archive, passphrase)
         val sittings = bundle.sittings.map { sitting ->
             val sealed = cipher.seal(SittingPayloadCodec.encode(sitting))
-            SittingRow(sitting.id, sealed.nonce, sealed.ciphertext)
+            SittingRow(sitting.id, sealed.nonce, sealed.ciphertext) to sitting
         }
         val rows = bundle.readings.map { reading ->
             val sealed = cipher.seal(
@@ -128,7 +128,7 @@ class ReadingRepository(
         val operations = bundle.operations.map { item ->
             CorrectionOperationRow(item.id, item.readingId, item.resultingRevision)
         }
-        return dao.restoreArchive(sittings, rows, versions, operations)
+        return dao.restoreArchive(sittings, rows, versions, operations, bundle.readings, cipher)
     }
 
     /** A correction keeps the reading ID and records the old encrypted version for undo. */

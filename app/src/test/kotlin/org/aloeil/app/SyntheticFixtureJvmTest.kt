@@ -61,9 +61,9 @@ object SyntheticFixtureJvmTest {
         )
         val archive = ArchiveCodec.encode(bundle, passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == bundle)
-        // Fixed synthetic version-1 archive, produced with the historical binary layout.
+        // Fixed synthetic version-1 archive with revision 3 but no prior history.
         val legacyBytes = Base64.getDecoder().decode(
-            "QUxPRUlMMDEAAAABAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGwAAAFZ3E05J0ZXhSZwwoSVE54VZX9vyU3fYjy980rw13JmTaM9G7KnRbZgZbjOueHujSU1mGsIVixhajy6Dlr6FS/jOTs+ny00I5SxsdCE5DGCVozlPutqkUQ==",
+            "QUxPRUlMMDEAAAABAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGwAAAFZ3E05J0ZXhSZwwoSVE54VZX9vyU3fYjy980rw13JmTaM9G7KnRbZgZbjOueHujSU1mGsIVixhajy6Dlr6FS/jOTs+ny00KRUE9oOPCU6zxja5rtSUAqQ==",
         )
         val legacyTime = 1_700_000_000_000L
         val legacyBundle = ArchiveBundle(
@@ -90,6 +90,20 @@ object SyntheticFixtureJvmTest {
                 passphrase,
             )
         }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(bundle.copy(versions = emptyList()), passphrase)
+        }.isFailure)
+        check(runCatching {
+            ArchiveCodec.encode(bundle.copy(operations = emptyList()), passphrase)
+        }.isFailure)
+        val missingMiddleRevision = bundle.copy(
+            readings = listOf(corrected.copy(revision = 3)),
+            operations = listOf(
+                ArchivedOperation("synthetic-operation-1", corrected.id, 2),
+                ArchivedOperation("synthetic-operation-2", corrected.id, 3),
+            ),
+        )
+        check(runCatching { ArchiveCodec.encode(missingMiddleRevision, passphrase) }.isFailure)
 
         val draft = DraftCheckpoint(
             sittingId = "synthetic-sitting-1",

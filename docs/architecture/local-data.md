@@ -19,10 +19,14 @@ the entire archive before importing any rows. Import is additive and transaction
 existing phone rows are kept, and new rows enter the outbox as pending. Version 2
 contains sittings, the latest reading revisions, prior versions needed for undo, and
 correction operation IDs. Version 1 archives are accepted as readings-only migration
-inputs; their missing history cannot be reconstructed. No database version has been
-released yet. The Keystore key is never exported. A user must retain the archive
-passphrase to restore it. The app uses the Android document picker to let the user
-choose a file destination. It creates the encrypted archive before opening the picker,
+inputs; their missing history cannot be reconstructed, so the latest v1 value
+becomes revision 1 after restore. Version 2 requires every prior revision and
+correction operation needed for undo. An existing sitting ID with different decoded
+contents causes the whole restore to fail without changing phone rows. The same
+applies to a reading ID whose value or correction history differs. No database
+version has been released yet. The Keystore key is never exported. A user must
+retain the archive passphrase to restore it. The app uses the Android document picker
+to let the user choose a file destination. It creates the encrypted archive before opening the picker,
 limits imported file size, authenticates the file, and shows reading and sitting counts
 before the user confirms an additive restore. A selected document provider may sync the
 file itself; Aloeil does not upload it in the background. Writing a file does not mark
