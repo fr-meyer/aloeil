@@ -489,6 +489,29 @@ internal fun AloeilApp(
                         Action(R.string.continue_action, busy || eye == null) {
                             step = if (step == Step.EYE) Step.VALUE else Step.CORRECT_REVIEW_EYE
                         }
+                        Secondary(R.string.back, busy) {
+                            if (step == Step.CORRECT_EYE) {
+                                step = Step.CORRECT_CHOICE
+                            } else {
+                                busy = true
+                                scope.launch {
+                                    val cleared = runCatching {
+                                        withContext(Dispatchers.IO) { repository.clearDraft() }
+                                    }.isSuccess
+                                    if (cleared) {
+                                        readingId = ""
+                                        eye = null
+                                        value = ""
+                                        rangeState = null
+                                        note = ""
+                                        step = Step.START
+                                    } else {
+                                        message = R.string.error_storage
+                                    }
+                                    busy = false
+                                }
+                            }
+                        }
                     }
                     Step.VALUE, Step.CORRECT_VALUE -> {
                         Heading(if (step == Step.VALUE) R.string.enter_reading else R.string.correct_value)

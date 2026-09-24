@@ -12,6 +12,7 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import kotlinx.coroutines.runBlocking
 import org.aloeil.app.data.AndroidKeystoreReadingCipher
+import org.aloeil.app.data.CorrectionOperationRow
 import org.aloeil.app.data.DraftCheckpoint
 import org.aloeil.app.data.DraftCodec
 import org.aloeil.app.data.DraftRow
@@ -70,6 +71,9 @@ class EncryptionMigrationDeviceTest {
             val oldVersion = ReadingPayload("sit", 1100, Eye.LEFT, "12.0", timeZoneId = "UTC")
             val previous = legacySealAgain(oldAlias, ReadingPayloadCodec.encode(oldVersion))
             db.readings().insertVersion(ReadingVersionRow("first", 1, previous.nonce, previous.ciphertext))
+            db.readings().insertCorrectionOperation(
+                CorrectionOperationRow("first:correct:2", "first", 2),
+            )
             val latest = oldVersion.copy(value = "12.3")
             val current = legacySealAgain(oldAlias, ReadingPayloadCodec.encode(latest))
             db.readings().insertReading(ReadingRow("first", current.nonce, current.ciphertext, 2, 1))
