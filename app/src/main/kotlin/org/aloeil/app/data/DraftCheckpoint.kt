@@ -21,6 +21,8 @@ data class DraftCheckpoint(
 
 internal object DraftCodec {
     fun encode(draft: DraftCheckpoint): ByteArray = ByteArrayOutputStream().also { bytes ->
+        require(draft.note.length <= 1000) { "Draft note is too long" }
+        require(draft.input.length <= ReadingValue.MAX_LENGTH) { "Draft input is too long" }
         DataOutputStream(bytes).use { out ->
             out.writeInt(4)
             out.writeUTF(draft.sittingId)

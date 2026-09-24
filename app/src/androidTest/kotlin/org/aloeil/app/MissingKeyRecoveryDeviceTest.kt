@@ -10,12 +10,16 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.aloeil.app.data.AndroidKeystoreReadingCipher
+import org.aloeil.app.data.DraftCheckpoint
 import org.aloeil.app.data.Eye
 import org.aloeil.app.data.MissingReadingKeyException
+import org.aloeil.app.data.ReadingCipher
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
+import org.aloeil.app.data.SealedPayload
 import org.aloeil.app.data.UnreadableLocalStoreException
 import org.junit.Rule
 import org.junit.Test
@@ -62,6 +66,30 @@ class MissingKeyRecoveryDeviceTest {
             tap(R.string.recovery_prepare_reset)
             tap(R.string.recovery_confirm_reset)
             compose.waitUntil(timeoutMillis = 5_000) { confirmedResets.get() == 1 }
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun cancellationDuringDraftVerificationIsNeverTreatedAsSuccess() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        try {
+            ReadingRepository(db.readings(), SyntheticCipher()).saveDraft(
+                DraftCheckpoint(
+                    "synthetic-sitting", "synthetic-reading", "EYE",
+                    null, "", "heading",
+                ),
+            )
+            val cancelled = CancellationException("synthetic verification cancelled")
+            val cancellingCipher = object : ReadingCipher {
+                override fun seal(plaintext: ByteArray): SealedPayload =
+                    error("Verification must not write")
+                override fun open(payload: SealedPayload): ByteArray = throw cancelled
+            }
+            val repo = ReadingRepository(db.readings(), cancellingCipher)
+            check(runCatching { repo.verifyReadable() }.exceptionOrNull() === cancelled)
         } finally {
             db.close()
         }

@@ -1,0 +1,35 @@
+id: p4-consented-export-sharing
+title: Add user-controlled CSV export and caregiver sharing
+summary: Export current readings only after a deliberate user action, with plaintext disclosure and the system chooser.
+status: in-progress
+branch: aloeil/p4-consented-export-sharing
+base_branch: dev
+dependencies:
+  - p2-local-first-data-recovery
+scope:
+  - stable UTF-8 CSV with spreadsheet formula protection
+  - reading count and sample before export
+  - document picker save and system chooser sharing
+  - temporary private FileProvider access and cache cleanup
+  - French, English, and Korean copy
+non_goals:
+  - automatic sharing, background upload, account creation, CSV restore, or real readings in tests
+acceptance:
+  - The user reviews plaintext disclosure and chooses each destination or recipient.
+  - Canceling save or share never reports a completed transfer.
+  - CSV omits deleted readings and correction history; encrypted archive remains the restorable format.
+  - Synthetic tests cover CSV parsing and formula protection.
+  - Intended-phone checks cover chooser cancellation, recipient access, destination file visibility, and cache cleanup.
+write_paths:
+  - app/
+  - docs/architecture/
+  - .speculoos/manifest.yaml
+  - .speculoos/surfaces/github.yaml
+  - .speculoos/tasks/p4-consented-export-sharing.yaml
+validation:
+  - ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest
+  - git diff --check
+executor: codex-only
+branch_plan: publish the GCP-authored stacked PR to dev; exact-head review and device validation precede merge
+private_data_scan: required before publication
+publish_authority: operator-approved implementation go; external writes remain exact-head review gated
