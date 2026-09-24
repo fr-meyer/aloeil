@@ -144,7 +144,7 @@
     <string name="csv_load_error">Could not prepare the reading list. Try again.</string>
     <string name="csv_write_error">Could not write the CSV. If a partial file was created, delete it before retrying.</string>
     <string name="csv_share_error">Could not open the share chooser. Nothing was sent.</string>
-    <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Clear it after the receiving app has finished reading it; copies made by that app remain outside Aloeil.</string>
+    <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Aloeil schedules its deletion after one hour; you can clear it sooner once the recipient has read it. Copies made by the receiving app remain outside Aloeil.</string>
     <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
     <string name="csv_cache_cleared">Temporary CSV files cleared from this phone.</string>
     <string name="csv_cache_error">Could not clear the temporary CSV files. Try again.</string>

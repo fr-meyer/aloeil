@@ -35,7 +35,6 @@ import org.aloeil.app.data.CsvExport
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingRepository
 import org.aloeil.app.data.Sitting
-import java.io.File
 import java.io.OutputStreamWriter
 
 /** CSV is plain text. The user reviews its scope before choosing a file or recipient. */
@@ -52,12 +51,11 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     LaunchedEffect(Unit) {
         runCatching {
             withContext(Dispatchers.IO) {
-                val directory = File(context.cacheDir, "aloeil-share")
-                val cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000
-                directory.listFiles()?.filter { it.isFile && it.lastModified() < cutoff }
-                    ?.forEach { it.delete() }
-                repository.currentFactsSnapshot() to
-                    (directory.listFiles()?.any { it.isFile } == true)
+                CsvShareCache.cleanupExpired(context)
+                val previousShare = CsvShareCache.directory(context).listFiles()
+                    ?.any { it.isFile } == true
+                if (previousShare) check(CsvShareCache.scheduleNext(context))
+                repository.currentFactsSnapshot() to previousShare
             }
         }.onSuccess { (data, previousShare) ->
             snapshot = data
@@ -98,14 +96,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         scope.launch {
             val file = runCatching {
                 withContext(Dispatchers.IO) {
-                    val directory = File(context.cacheDir, "aloeil-share")
-                    check(directory.isDirectory || directory.mkdirs())
-                    val output = File(directory, "aloeil-readings-" +
-                        System.currentTimeMillis() + ".csv")
-                    OutputStreamWriter(output.outputStream(), Charsets.UTF_8).buffered().use {
-                        CsvExport.write(data.first, data.second, it)
-                    }
-                    output
+                    CsvShareCache.writeShare(context, data.first, data.second)
                 }
             }.getOrNull()
             if (file == null) {
@@ -173,10 +164,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
                         scope.launch {
                             val cleared = runCatching {
                                 withContext(Dispatchers.IO) {
-                                    val directory = File(context.cacheDir, "aloeil-share")
-                                    directory.listFiles()?.forEach { file ->
-                                        check(file.isFile && file.delete())
-                                    }
+                                    CsvShareCache.clearAll(context)
                                 }
                             }.isSuccess
                             busy = false
