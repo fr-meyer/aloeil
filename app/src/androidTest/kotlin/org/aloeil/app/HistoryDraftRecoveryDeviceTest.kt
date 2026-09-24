@@ -2,14 +2,17 @@ package org.aloeil.app
 
 import android.content.Context
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.util.UUID
 import kotlinx.coroutines.runBlocking
+import org.aloeil.app.data.DraftCheckpoint
 import org.aloeil.app.data.Eye
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
@@ -17,26 +20,27 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Synthetic end-to-end access after the saved draft has been cleared. */
+/** A closed history correction must not masquerade as an open capture sitting. */
 @RunWith(AndroidJUnit4::class)
-class HistoryRestartDeviceTest {
+class HistoryDraftRecoveryDeviceTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun finishedReadingIsSelectableAfterDatabaseRestart() {
+    fun closedHistoryDraftCanReturnAndStartNewSitting() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val name = "synthetic-history-" + UUID.randomUUID() + ".db"
+        val name = "synthetic-history-draft-" + UUID.randomUUID() + ".db"
         val cipher = SyntheticCipher()
         val first = Room.databaseBuilder(context, ReadingDatabase::class.java, name).build()
         try {
             runBlocking {
-                val repo = ReadingRepository(first.readings(), cipher, { "Asia/Seoul" }) {
-                    1_700_000_000_000L
-                }
-                repo.startSitting("synthetic-sitting")
-                repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
-                repo.clearDraft()
-                check(repo.finishSitting("synthetic-sitting"))
+                val repo = ReadingRepository(first.readings(), cipher)
+                repo.startSitting("closed-sitting")
+                repo.record("old-reading", "closed-sitting", Eye.LEFT, "12.3")
+                check(repo.finishSitting("closed-sitting"))
+                repo.saveDraft(DraftCheckpoint(
+                    "closed-sitting", "old-reading", "CORRECT_CHOICE", Eye.LEFT,
+                    "12.3", "heading", baseRevision = 1, fromHistory = true,
+                ))
             }
         } finally {
             first.close()
@@ -44,27 +48,35 @@ class HistoryRestartDeviceTest {
         val reopened = Room.databaseBuilder(context, ReadingDatabase::class.java, name).build()
         try {
             val repo = ReadingRepository(reopened.readings(), cipher)
-            runBlocking {
-                check(repo.recoverDraft() == null)
-                check(repo.openSitting() == null)
-                check(repo.all().single().id == "synthetic-reading")
-            }
             compose.setContent { AloeilApp(repo) }
-            fun tap(label: String) {
+            fun tap(id: Int) {
+                val label = context.getString(id)
                 val target = hasText(label) and hasClickAction()
                 compose.waitUntil(timeoutMillis = 10_000) {
                     compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
                 }
                 compose.onNode(target).performClick()
             }
-            tap(context.getString(R.string.history_title))
-            val label = context.getString(R.string.left_eye) + ": " +
-                context.getString(R.string.numeric_reading, "12.3")
-            tap(label)
+            tap(R.string.back)
+            tap(R.string.history_back)
+            tap(R.string.back)
+            tap(R.string.start_sitting)
+            tap(R.string.left_eye)
+            runBlocking {
+                val open = repo.openSitting() ?: error("New sitting was not created")
+                check(open.id != "closed-sitting")
+                check(repo.all().size == 1)
+            }
+            tap(R.string.continue_action)
+            compose.onNode(hasSetTextAction()).performTextInput("14.2")
+            tap(R.string.continue_action)
+            tap(R.string.continue_action)
+            tap(R.string.save_reading)
             compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.history_detail_title)))
+                compose.onAllNodes(hasText(context.getString(R.string.saved_on_phone)))
                     .fetchSemanticsNodes().isNotEmpty()
             }
+            runBlocking { check(repo.all().size == 2) }
         } finally {
             reopened.close()
             context.deleteDatabase(name)
