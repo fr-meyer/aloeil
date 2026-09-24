@@ -109,6 +109,43 @@ class EncryptionMigrationDeviceTest {
     }
 
     @Test
+    fun damagedDraftDoesNotBlockSavedRowMigrationOrLaterOpens() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val suffix = UUID.randomUUID().toString()
+        val oldAlias = "aloeil-test-old-$suffix"
+        val newCipher = AndroidKeystoreReadingCipher("aloeil-test-new-$suffix", oldAlias)
+        try {
+            val sitting = legacySeal(oldAlias, SittingPayloadCodec.encode(Sitting("sit", 1000, null)))
+            db.readings().insertSitting(SittingRow("sit", sitting.nonce, sitting.ciphertext))
+            val fact = ReadingPayload("sit", 1100, Eye.LEFT, "12.3", timeZoneId = "UTC")
+            val reading = legacySealAgain(oldAlias, ReadingPayloadCodec.encode(fact))
+            db.readings().insertReading(ReadingRow("first", reading.nonce, reading.ciphertext, 1, 0))
+            val draft = newCipher.seal(
+                DraftCodec.encode(DraftCheckpoint("sit", "first", "EYE", Eye.LEFT, "", "heading")),
+                ReadingAad.draft(),
+            )
+            val damaged = draft.ciphertext.clone().apply {
+                this[0] = (this[0].toInt() xor 1).toByte()
+            }
+            db.readings().saveDraft(DraftRow(nonce = draft.nonce, ciphertext = damaged))
+
+            val repo = ReadingRepository(db.readings(), newCipher)
+            repo.verifyReadable()
+            check(repo.all().single().value == "12.3")
+            check(db.readings().draft()!!.ciphertext.contentEquals(damaged))
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            check(!store.containsAlias(oldAlias))
+            // The old key is gone, yet the same corrupt draft still cannot hide saved data.
+            repo.verifyReadable()
+            check(repo.all().single().value == "12.3")
+        } finally {
+            db.close()
+            newCipher.deleteKeyForRecovery()
+        }
+    }
+
+    @Test
     fun failedUpgradeKeepsOldKeyAndRowsForRetry() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
