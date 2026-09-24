@@ -1,6 +1,9 @@
 package org.aloeil.app.data
 
+import java.io.IOException
 import java.time.ZoneId
+import javax.crypto.AEADBadTagException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -41,12 +44,20 @@ class ReadingRepository(
             dao.draft()?.let { row ->
                 try {
                     DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (missing: MissingReadingKeyException) {
                     throw missing
-                } catch (_: Exception) {
-                    // The normal draft-recovery path reports this and resumes an open sitting.
+                } catch (_: AEADBadTagException) {
+                    // A corrupt draft alone does not hide valid saved rows.
+                } catch (_: IOException) {
+                    // The normal draft-recovery path reports a malformed checkpoint.
+                } catch (_: IllegalArgumentException) {
+                    // The normal draft-recovery path reports invalid draft fields.
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             throw UnreadableLocalStoreException(error)
         }
@@ -83,6 +94,7 @@ class ReadingRepository(
         require(sittingId.isNotBlank()) { "Sitting ID is required" }
         require(readingId.isNotBlank()) { "Reading ID is required" }
         val time = now()
+        require(note == null || note.length <= 1000) { "Note is too long" }
         val normalizedNote = note?.takeIf { it.isNotEmpty() }
         val sealed = cipher.seal(
             ReadingPayloadCodec.encode(
@@ -254,8 +266,11 @@ class ReadingRepository(
         readingId: String,
         expectedRevision: Long,
         note: String?,
-    ): Reading? = revise(operationId, readingId, expectedRevision) {
-        it.copy(note = note?.takeIf(String::isNotEmpty))
+    ): Reading? {
+        require(note == null || note.length <= 1000) { "Note is too long" }
+        return revise(operationId, readingId, expectedRevision) {
+            it.copy(note = note?.takeIf(String::isNotEmpty))
+        }
     }
 
     /** Undo is itself a new revision, preserving both earlier facts and the correction. */

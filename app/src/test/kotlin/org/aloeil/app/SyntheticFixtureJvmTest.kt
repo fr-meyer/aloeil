@@ -158,6 +158,12 @@ object SyntheticFixtureJvmTest {
             focusedControl = "save",
         )
         check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
+        check(runCatching {
+            DraftCodec.encode(draft.copy(note = "n".repeat(1001)))
+        }.isFailure)
+        check(runCatching {
+            DraftCodec.encode(draft.copy(input = "1".repeat(ReadingValue.MAX_LENGTH + 1)))
+        }.isFailure)
         val rangeDraft = draft.copy(
             step = "NOTE", input = "", rangeState = RangeState.ABOVE_RANGE,
             note = "Synthetic note",

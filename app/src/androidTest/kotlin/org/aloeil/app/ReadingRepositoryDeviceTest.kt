@@ -56,6 +56,36 @@ class ReadingRepositoryDeviceTest {
         ReadingRepository(database.readings(), cipher, { "UTC" }, { time })
 
     @Test
+    fun noteLimitIsEnforcedBeforeSaveAndCorrection() = runBlocking {
+        val repo = repository()
+        repo.startSitting("synthetic-sitting")
+        val fullNote = "n".repeat(1000)
+        val saved = repo.record(
+            "synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3", fullNote,
+        )
+        check(saved.note == fullNote)
+        check(runCatching {
+            repo.record(
+                "synthetic-too-long", "synthetic-sitting", Eye.RIGHT, "13.4",
+                "n".repeat(1001),
+            )
+        }.isFailure)
+        check(repo.all().size == 1)
+
+        val corrected = repo.correctNote(
+            "synthetic-note-correction", saved.id, saved.revision, fullNote,
+        )!!
+        check(corrected.revision == 2L && corrected.note == fullNote)
+        check(runCatching {
+            repo.correctNote(
+                "synthetic-too-long-correction", saved.id, corrected.revision,
+                "n".repeat(1001),
+            )
+        }.isFailure)
+        check(repo.all().single() == corrected)
+    }
+
+    @Test
     fun saveAndRetryKeepOneReadingAndOneOutboxRow() = runBlocking {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
