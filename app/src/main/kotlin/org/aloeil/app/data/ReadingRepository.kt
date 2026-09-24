@@ -17,8 +17,10 @@ class ReadingRepository(
         require(sittingId.isNotBlank()) { "Sitting ID is required" }
         require(readingId.isNotBlank()) { "Reading ID is required" }
         val time = now()
-        val sealed = cipher.seal("${eye.name}|$value".toByteArray(Charsets.UTF_8))
-        val row = ReadingRow(readingId, sittingId, time, sealed.nonce, sealed.ciphertext, 1, 0)
+        val sealed = cipher.seal(
+            ReadingPayloadCodec.encode(ReadingPayload(sittingId, time, eye, value)),
+        )
+        val row = ReadingRow(readingId, sealed.nonce, sealed.ciphertext, 1, 0)
         val stored = dao.saveOnPhone(
             row,
             OutboxRow(readingId, readingId, 1, 0, time),
@@ -32,15 +34,22 @@ class ReadingRepository(
 
     suspend fun startSitting(id: String = newSittingId()): String {
         require(id.isNotBlank()) { "Sitting ID is required" }
-        dao.insertSitting(SittingRow(id, now(), null))
+        val sealed = cipher.seal(SittingPayloadCodec.encode(Sitting(id, now(), null)))
+        dao.insertSitting(SittingRow(id, sealed.nonce, sealed.ciphertext))
         return id
     }
 
-    suspend fun openSitting(): SittingRow? = dao.openSitting()
+    suspend fun openSitting(): Sitting? = dao.allSittings()
+        .map(::decodeSitting)
+        .filter { it.finishedAtMillis == null }
+        .maxByOrNull { it.startedAtMillis }
 
     suspend fun finishSitting(id: String): Boolean {
-        if (dao.finishSitting(id, now()) == 1) return true
-        return dao.sitting(id)?.finishedAtMillis != null
+        val stored = dao.sitting(id) ?: return false
+        val current = decodeSitting(stored)
+        if (current.finishedAtMillis != null) return true
+        val sealed = cipher.seal(SittingPayloadCodec.encode(current.copy(finishedAtMillis = now())))
+        return dao.updateSitting(stored.copy(nonce = sealed.nonce, ciphertext = sealed.ciphertext)) == 1
     }
 
     suspend fun saveDraft(draft: DraftCheckpoint) {
@@ -60,6 +69,7 @@ class ReadingRepository(
     suspend fun clearDraft() = dao.clearDraft()
 
     suspend fun all(): List<Reading> = dao.allReadings().map(::decode)
+        .sortedWith(compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id })
 
     suspend fun exportArchive(passphrase: CharArray): ByteArray =
         ArchiveCodec.encode(all(), passphrase)
@@ -68,10 +78,16 @@ class ReadingRepository(
         // Parse and authenticate the entire archive before beginning the database transaction.
         val readings = ArchiveCodec.decode(archive, passphrase)
         val rows = readings.map { reading ->
-            val sealed = cipher.seal("${reading.eye.name}|${reading.value}".toByteArray(Charsets.UTF_8))
+            val sealed = cipher.seal(
+                ReadingPayloadCodec.encode(
+                    ReadingPayload(
+                        reading.sittingId, reading.recordedAtMillis,
+                        reading.eye, reading.value,
+                    ),
+                ),
+            )
             ReadingRow(
-                reading.id, reading.sittingId, reading.recordedAtMillis,
-                sealed.nonce, sealed.ciphertext, reading.revision, 0,
+                reading.id, sealed.nonce, sealed.ciphertext, reading.revision, 0,
             ) to OutboxRow(reading.id, reading.id, reading.revision, 0, now())
         }
         return dao.restoreMissing(rows)
@@ -96,7 +112,12 @@ class ReadingRepository(
         }
         val old = dao.reading(readingId) ?: return null
         if (old.revision != expectedRevision) return null
-        val sealed = cipher.seal("${eye.name}|$value".toByteArray(Charsets.UTF_8))
+        val oldPayload = decode(old)
+        val sealed = cipher.seal(
+            ReadingPayloadCodec.encode(
+                ReadingPayload(oldPayload.sittingId, oldPayload.recordedAtMillis, eye, value),
+            ),
+        )
         val updated = old.copy(
             nonce = sealed.nonce,
             ciphertext = sealed.ciphertext,
@@ -121,15 +142,15 @@ class ReadingRepository(
     ): Reading? {
         require(expectedRevision > 1)
         val prior = dao.version(readingId, expectedRevision - 1) ?: return null
-        val plaintext = cipher.open(SealedPayload(prior.nonce, prior.ciphertext))
-            .toString(Charsets.UTF_8).split('|')
-        require(plaintext.size == 2) { "Invalid prior reading" }
+        val priorPayload = ReadingPayloadCodec.decode(
+            cipher.open(SealedPayload(prior.nonce, prior.ciphertext)),
+        )
         return correct(
             operationId,
             readingId,
             expectedRevision,
-            Eye.valueOf(plaintext[0]),
-            plaintext[1],
+            priorPayload.eye,
+            priorPayload.value,
         )
     }
 
@@ -142,13 +163,18 @@ class ReadingRepository(
         dao.acknowledgeReplica(id, revision)
 
     private fun decode(row: ReadingRow): Reading {
-        val plain = cipher.open(SealedPayload(row.nonce, row.ciphertext))
-            .toString(Charsets.UTF_8).split('|')
-        require(plain.size == 2) { "Invalid encrypted reading" }
+        val payload = ReadingPayloadCodec.decode(
+            cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+        )
         return Reading(
-            row.id, row.sittingId, row.recordedAtMillis,
-            Eye.valueOf(plain[0]), plain[1],
-            row.revision, row.replicaConfirmedRevision,
+            row.id, payload.sittingId, payload.recordedAtMillis,
+            payload.eye, payload.value, row.revision, row.replicaConfirmedRevision,
         )
     }
+
+    private fun decodeSitting(row: SittingRow): Sitting =
+        SittingPayloadCodec.decode(
+            row.id,
+            cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+        )
 }

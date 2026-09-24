@@ -14,11 +14,9 @@ import androidx.room.RoomDatabase
 import androidx.room.Transaction
 import androidx.room.Update
 
-@Entity(tableName = "readings", indices = [Index("sittingId"), Index("recordedAtMillis")])
+@Entity(tableName = "readings")
 data class ReadingRow(
     @PrimaryKey val id: String,
-    val sittingId: String,
-    val recordedAtMillis: Long,
     val nonce: ByteArray,
     val ciphertext: ByteArray,
     val revision: Long,
@@ -37,8 +35,8 @@ data class OutboxRow(
 @Entity(tableName = "sittings")
 data class SittingRow(
     @PrimaryKey val id: String,
-    val startedAtMillis: Long,
-    val finishedAtMillis: Long?,
+    val nonce: ByteArray,
+    val ciphertext: ByteArray,
 )
 
 @Entity(tableName = "draft_checkpoint")
@@ -68,14 +66,14 @@ interface ReadingDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSitting(row: SittingRow)
 
-    @Query("SELECT * FROM sittings WHERE finishedAtMillis IS NULL ORDER BY startedAtMillis DESC LIMIT 1")
-    suspend fun openSitting(): SittingRow?
+    @Query("SELECT * FROM sittings")
+    suspend fun allSittings(): List<SittingRow>
 
     @Query("SELECT * FROM sittings WHERE id = :id LIMIT 1")
     suspend fun sitting(id: String): SittingRow?
 
-    @Query("UPDATE sittings SET finishedAtMillis = :finishedAt WHERE id = :id AND finishedAtMillis IS NULL")
-    suspend fun finishSitting(id: String, finishedAt: Long): Int
+    @Update
+    suspend fun updateSitting(row: SittingRow): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveDraft(row: DraftRow)
@@ -100,7 +98,7 @@ interface ReadingDao {
         return reading
     }
 
-    @Query("SELECT * FROM readings ORDER BY recordedAtMillis DESC, id DESC")
+    @Query("SELECT * FROM readings ORDER BY id DESC")
     suspend fun allReadings(): List<ReadingRow>
 
     @Query("SELECT * FROM readings WHERE id = :id LIMIT 1")
@@ -138,7 +136,6 @@ interface ReadingDao {
         val old = reading(updated.id) ?: return false
         if (old.revision != expectedRevision) return false
         require(updated.revision == old.revision + 1)
-        require(updated.sittingId == old.sittingId && updated.recordedAtMillis == old.recordedAtMillis)
         insertVersion(ReadingVersionRow(old.id, old.revision, old.nonce, old.ciphertext))
         require(updateReading(updated) == 1)
         removeStaleOutbox(old.id)

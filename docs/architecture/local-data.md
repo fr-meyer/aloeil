@@ -6,14 +6,13 @@ caller-reserved ID, so a repeated save attempt for that ID returns the existing 
 of creating a second measurement. The phone remains authoritative; no network call is
 made by saving.
 
-The eye and exact decimal value are encrypted with AES-256-GCM before Room stores them.
-Localized digits and either decimal separator normalize to exact decimal text without rounding
-or a clinical range check. The key is
-non-exportable in Android Keystore. Row IDs, sitting IDs, timestamps, revision numbers,
-and backup state are currently database metadata and are **not encrypted**. Full-file
-encryption remains open before real data may be used. The app does not yet send an outbox
-entry to a replica. The displayed backup state must remain pending until a future replica
-acknowledges the exact current revision.
+The eye, exact decimal value, sitting association, and event timestamp are encrypted
+with AES-256-GCM before Room stores them. Sitting start/finish times and draft
+content are encrypted too. Localized digits and either decimal separator normalize
+to exact decimal text without rounding or a clinical range check. Random row IDs,
+revision counters, and retry scheduling remain visible as database metadata; the
+SQLite file itself is not wholly encrypted. Full-file encryption would require a
+separately approved dependency or a different storage design.
 
 A portable archive uses an independent passphrase-derived AES-256-GCM key. It verifies
 the entire archive before importing any rows. Import is additive and transactional:
@@ -30,6 +29,6 @@ for persistent undo. An operation ID prevents retries from applying a correction
 A stale expected revision is rejected. The portable archive currently contains only the
 latest reading revision, so correction and undo history is not yet portable.
 
-This is an implementation slice. Portable correction history, full database encryption,
+This is an implementation slice. Portable correction/sitting history, the remaining metadata privacy decision,
 migration and process-restart tests, UI wiring, and a replica client are still required
 to complete P2. Development uses synthetic fixtures only.

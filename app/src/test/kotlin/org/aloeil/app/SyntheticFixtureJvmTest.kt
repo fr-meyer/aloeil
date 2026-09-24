@@ -6,6 +6,10 @@ import org.aloeil.app.data.DraftCodec
 import org.aloeil.app.data.BackupState
 import org.aloeil.app.data.Eye
 import org.aloeil.app.data.Reading
+import org.aloeil.app.data.ReadingPayload
+import org.aloeil.app.data.ReadingPayloadCodec
+import org.aloeil.app.data.Sitting
+import org.aloeil.app.data.SittingPayloadCodec
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.Reason
@@ -60,6 +64,12 @@ object SyntheticFixtureJvmTest {
         check(ReadingValue.parse("12.3.4") == ReadingValueResult.Invalid(Reason.DECIMAL))
         check(ReadingValue.parse("") == ReadingValueResult.Invalid(Reason.EMPTY))
         check(ReadingValue.parse("12 3") == ReadingValueResult.Invalid(Reason.NUMBER))
+        val payload = ReadingPayload(
+            synthetic.sittingId, synthetic.recordedAtMillis, synthetic.eye, synthetic.value,
+        )
+        check(ReadingPayloadCodec.decode(ReadingPayloadCodec.encode(payload)) == payload)
+        val sitting = Sitting("synthetic-sitting-1", 1_700_000_000_000L, null)
+        check(SittingPayloadCodec.decode(sitting.id, SittingPayloadCodec.encode(sitting)) == sitting)
     }
 }
 
