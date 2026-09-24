@@ -82,6 +82,22 @@ interface ReadingDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSitting(row: SittingRow)
 
+    @Transaction
+    suspend fun insertOpenSitting(row: SittingRow, cipher: ReadingCipher) {
+        val open = allSittings().map { stored ->
+            SittingPayloadCodec.decode(
+                stored.id, cipher.open(SealedPayload(stored.nonce, stored.ciphertext)),
+            )
+        }.filter { it.finishedAtMillis == null }
+        require(open.size <= 1) { "Multiple sittings are already open" }
+        if (open.isNotEmpty()) {
+            require(open.single().id == row.id) { "Another sitting is already open" }
+            return
+        }
+        require(sitting(row.id) == null) { "Sitting ID was already used" }
+        insertSitting(row)
+    }
+
     @Query("SELECT * FROM sittings")
     suspend fun allSittings(): List<SittingRow>
 

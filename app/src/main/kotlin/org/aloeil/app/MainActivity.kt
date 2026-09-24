@@ -580,7 +580,7 @@ internal fun AloeilApp(repository: ReadingRepository) {
                         Text(stringResource(R.string.finish_body))
                         Action(R.string.finish, busy) { finishSitting() }
                         Secondary(R.string.keep_recording, busy) {
-                            step = if (saved != null) Step.SAVED else Step.EYE
+                            if (saved != null) step = Step.SAVED else beginSitting()
                         }
                     }
                     Step.FINISHED -> {

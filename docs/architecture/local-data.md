@@ -2,6 +2,10 @@
 
 ## On-phone facts
 
+Opening a sitting is transactional and permits at most one open sitting.
+Repeating the same sitting ID is idempotent; starting a different sitting
+while one is open fails instead of hiding the earlier one.
+
 A successful save commits a reading and a retryable outbox row in one Room
 transaction. The phone remains authoritative and saving never waits for the
 network. A caller reserves the reading ID before saving; repeating a save

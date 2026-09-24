@@ -10,6 +10,9 @@ import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
@@ -65,6 +68,19 @@ class ReadingRepositoryDeviceTest {
             repo.record("synthetic-reading", "synthetic-sitting", Eye.RIGHT, "14.1")
         }.isFailure)
         check(repo.all().single() == first)
+    }
+
+    @Test
+    fun simultaneousStartsKeepExactlyOneOpenSitting() = runBlocking {
+        val repo = repository()
+        val attempts = listOf("synthetic-first", "synthetic-second").map { id ->
+            async(Dispatchers.Default) { runCatching { repo.startSitting(id) }.getOrNull() }
+        }.awaitAll()
+        val winner = attempts.filterNotNull().single()
+        check(repo.startSitting(winner) == winner)
+        check(runCatching { repo.startSitting("synthetic-third") }.isFailure)
+        check(repo.allSittings().single().id == winner)
+        check(repo.openSitting()?.id == winner)
     }
 
     @Test
