@@ -33,8 +33,43 @@ data class OutboxRow(
     val nextAttemptAtMillis: Long,
 )
 
+@Entity(tableName = "sittings")
+data class SittingRow(
+    @PrimaryKey val id: String,
+    val startedAtMillis: Long,
+    val finishedAtMillis: Long?,
+)
+
+@Entity(tableName = "draft_checkpoint")
+data class DraftRow(
+    @PrimaryKey val id: Int = 1,
+    val nonce: ByteArray,
+    val ciphertext: ByteArray,
+)
+
 @Dao
 interface ReadingDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertSitting(row: SittingRow)
+
+    @Query("SELECT * FROM sittings WHERE finishedAtMillis IS NULL ORDER BY startedAtMillis DESC LIMIT 1")
+    suspend fun openSitting(): SittingRow?
+
+    @Query("SELECT * FROM sittings WHERE id = :id LIMIT 1")
+    suspend fun sitting(id: String): SittingRow?
+
+    @Query("UPDATE sittings SET finishedAtMillis = :finishedAt WHERE id = :id AND finishedAtMillis IS NULL")
+    suspend fun finishSitting(id: String, finishedAt: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun saveDraft(row: DraftRow)
+
+    @Query("SELECT * FROM draft_checkpoint WHERE id = 1 LIMIT 1")
+    suspend fun draft(): DraftRow?
+
+    @Query("DELETE FROM draft_checkpoint WHERE id = 1")
+    suspend fun clearDraft()
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertReading(row: ReadingRow)
 
@@ -89,7 +124,11 @@ interface ReadingDao {
     }
 }
 
-@Database(entities = [ReadingRow::class, OutboxRow::class], version = 1, exportSchema = true)
+@Database(
+    entities = [ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class],
+    version = 1,
+    exportSchema = true,
+)
 abstract class ReadingDatabase : RoomDatabase() {
     abstract fun readings(): ReadingDao
 

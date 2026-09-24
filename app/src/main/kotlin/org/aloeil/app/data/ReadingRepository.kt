@@ -29,6 +29,35 @@ class ReadingRepository(
         return result
     }
 
+    suspend fun startSitting(id: String = newSittingId()): String {
+        require(id.isNotBlank()) { "Sitting ID is required" }
+        dao.insertSitting(SittingRow(id, now(), null))
+        return id
+    }
+
+    suspend fun openSitting(): SittingRow? = dao.openSitting()
+
+    suspend fun finishSitting(id: String): Boolean {
+        if (dao.finishSitting(id, now()) == 1) return true
+        return dao.sitting(id)?.finishedAtMillis != null
+    }
+
+    suspend fun saveDraft(draft: DraftCheckpoint) {
+        require(draft.sittingId.isNotBlank() && draft.readingId.isNotBlank())
+        val sealed = cipher.seal(DraftCodec.encode(draft))
+        dao.saveDraft(DraftRow(nonce = sealed.nonce, ciphertext = sealed.ciphertext))
+    }
+
+    suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
+        val row = dao.draft() ?: return null
+        val draft = DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext)))
+        val saved = dao.reading(draft.readingId)?.let(::decode)
+        require(saved == null || saved.sittingId == draft.sittingId) { "Draft ID conflict" }
+        return draft to saved
+    }
+
+    suspend fun clearDraft() = dao.clearDraft()
+
     suspend fun all(): List<Reading> = dao.allReadings().map(::decode)
 
     suspend fun exportArchive(passphrase: CharArray): ByteArray =

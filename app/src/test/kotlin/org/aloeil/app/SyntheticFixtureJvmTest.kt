@@ -1,6 +1,8 @@
 package org.aloeil.app
 
 import org.aloeil.app.data.ArchiveCodec
+import org.aloeil.app.data.DraftCheckpoint
+import org.aloeil.app.data.DraftCodec
 import org.aloeil.app.data.BackupState
 import org.aloeil.app.data.Eye
 import org.aloeil.app.data.Reading
@@ -38,6 +40,16 @@ object SyntheticFixtureJvmTest {
         check(runCatching { ArchiveCodec.decode(tampered, passphrase) }.isFailure)
         check(runCatching { ArchiveCodec.decode(archive, "wrong-passphrase".toCharArray()) }.isFailure)
         check(runCatching { ArchiveCodec.encode(listOf(synthetic, synthetic), passphrase) }.isFailure)
+
+        val draft = DraftCheckpoint(
+            sittingId = "synthetic-sitting-1",
+            readingId = "synthetic-id-2",
+            step = "review",
+            eye = Eye.RIGHT,
+            input = "12.3",
+            focusedControl = "save",
+        )
+        check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
     }
 }
 

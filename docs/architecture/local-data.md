@@ -19,6 +19,10 @@ existing phone rows are kept, and new rows enter the outbox as pending. The arch
 format is versioned; no previous released database version exists yet. The Keystore key
 is never exported. A user must retain the archive passphrase to restore it.
 
-This is an implementation slice. Protected drafts, corrections with undo, full database
-encryption, migration and process-restart tests, UI wiring, and a replica client are still
-required to complete P2. Development uses synthetic fixtures only.
+Protected draft checkpoints and sitting state are stored locally; the draft payload is
+encrypted with the same Keystore key. On resume, a pending reading ID can be checked
+against the saved rows before the UI claims success.
+
+This is an implementation slice. Corrections with undo, full database encryption,
+migration and process-restart tests, UI wiring, and a replica client are still required
+to complete P2. Development uses synthetic fixtures only.
