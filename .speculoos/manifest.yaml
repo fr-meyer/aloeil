@@ -1,19 +1,19 @@
 schema_version: 0.1
 project: Aloeil
 workflow: speculoos-v1
-canonical_task: p2-local-first-data-recovery
+canonical_task: p4-consented-export-sharing
 repository:
   upstream: null
   fork: fr-meyer/aloeil
   base_branch: dev
-  working_branch: aloeil/p2-local-first-data-recovery
+  working_branch: aloeil/p4-consented-export-sharing
   default_branch: main
 status:
   phase: implementation-in-progress
   pret_a_coder: ready
   blocker_summary:
-    - Representative-device accessibility and fresh-profile recovery validation remain
-    - Residual SQLite metadata privacy decision remains
+    - Intended-phone CSV save, chooser cancellation, recipient access, and cache cleanup remain
+    - P5 representative-device accessibility and privacy validation remain
 builder:
   provider: github-actions
   workflow: .github/workflows/ci.yml
@@ -70,9 +70,9 @@ surfaces:
     enabled: true
     status: open
     base_branch: dev
-    head_branch: aloeil/p2-local-first-data-recovery
+    head_branch: aloeil/p4-consented-export-sharing
     default_branch: main
-    pull_request: https://github.com/fr-meyer/aloeil/pull/4
+    pull_request: https://github.com/fr-meyer/aloeil/pull/6
     head_sha: null
   vibe_kanban:
     enabled: planned
@@ -99,7 +99,7 @@ gates:
     - explicit-user-consent
     - backup-and-restore-acceptance-pass
     - accessibility-validation-pass
-current_task: p2-local-first-data-recovery
+current_task: p4-consented-export-sharing
 next_tasks:
-  - p2-local-first-data-recovery
+  - p5-validation
 surfaces_local_only: false

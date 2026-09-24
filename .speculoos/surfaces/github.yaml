@@ -10,15 +10,15 @@ project:
   number: null
   url: null
 current_task:
-  id: p2-local-first-data-recovery
+  id: p4-consented-export-sharing
   issue: null
-  pull_request: https://github.com/fr-meyer/aloeil/pull/4
+  pull_request: https://github.com/fr-meyer/aloeil/pull/6
   project_item: null
-  branch: aloeil/p2-local-first-data-recovery
+  branch: aloeil/p4-consented-export-sharing
   status: in-progress
   project_status: In Progress
 notes:
   - Repository source and synthetic fixtures are public; real readings are forbidden.
   - Initial repository bootstrap uses the constrained Mergeguez broker.
   - Future feature work targets dev through reviewed pull requests.
-  - GitHub Actions runs synthetic JVM and API 30 emulator tests; P2 validation and privacy decisions remain.
+  - GitHub Actions runs synthetic JVM and API 30 emulator tests; P4 device checks and P5 validation remain.
