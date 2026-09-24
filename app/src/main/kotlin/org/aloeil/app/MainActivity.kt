@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -99,6 +100,7 @@ internal fun AloeilApp(
 ) {
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.LOADING) }
+    var archiveReturnPending by rememberSaveable { mutableStateOf(false) }
     var sittingId by remember { mutableStateOf("") }
     var readingId by remember { mutableStateOf("") }
     var eye by remember { mutableStateOf<Eye?>(null) }
@@ -122,6 +124,11 @@ internal fun AloeilApp(
         Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE,
     )
     BlockSystemBackWhenUnsafe(busy || editingDraft)
+
+    LaunchedEffect(step) {
+        if (step == Step.ARCHIVE) archiveReturnPending = true
+        else if (step != Step.LOADING) archiveReturnPending = false
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -153,7 +160,7 @@ internal fun AloeilApp(
                     sittingId = open.id
                     hasOpenSitting = true
                 }
-                step = Step.START
+                step = if (archiveReturnPending) Step.ARCHIVE else Step.START
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
