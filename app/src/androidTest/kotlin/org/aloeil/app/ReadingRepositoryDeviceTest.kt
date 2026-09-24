@@ -167,6 +167,10 @@ class ReadingRepositoryDeviceTest {
         check(local.allSittings().map { it.id } == listOf("local-sitting"))
         check(local.all().isEmpty())
         check(db.readings().deletedReading("shared-reading") != null)
+        check(local.finishSitting("local-sitting"))
+        check(local.importArchive(archive, passphrase) == 0)
+        check(local.openSitting() == null)
+        check(local.allSittings().map { it.id } == listOf("local-sitting"))
     }
 
     @Test

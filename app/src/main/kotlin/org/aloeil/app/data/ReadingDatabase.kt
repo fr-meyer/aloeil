@@ -245,24 +245,36 @@ interface ReadingDao {
         tombstones: List<DeletedReadingRow>,
         cipher: ReadingCipher,
     ): Int {
-        val localOpenIds = allSittings().map { row ->
-            SittingPayloadCodec.decode(
-                row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext)),
-            )
-        }.filter { it.finishedAtMillis == null }.map { it.id }.toSet()
-        val newOpenIds = sittings.filter { (row, expected) ->
-            expected.finishedAtMillis == null && sitting(row.id) == null
-        }.map { it.second.id }.toSet()
-        require(newOpenIds.isEmpty() || (localOpenIds + newOpenIds).size == 1) {
-            "Archive would create a second open sitting"
-        }
+        require(rows.size == expectedReadings.size)
         tombstones.forEach { incoming ->
             require(reading(incoming.id) == null) { "Deleted archive ID conflicts with phone reading" }
             val existing = deletedReading(incoming.id)
             if (existing == null) insertDeleted(incoming)
             else require(existing == incoming) { "Conflicting deleted reading ID" }
         }
-        sittings.forEach { (incoming, expected) ->
+        val archivedSittingIdsWithRows = expectedReadings.map { it.sittingId }.toSet()
+        val survivingSittingIds = rows.indices.mapNotNull { index ->
+            expectedReadings[index].sittingId.takeIf {
+                deletedReading(rows[index].first.id) == null
+            }
+        }.toSet()
+        val sittingsToRestore = sittings.filter { (incoming, _) ->
+            sitting(incoming.id) != null ||
+                incoming.id !in archivedSittingIdsWithRows ||
+                incoming.id in survivingSittingIds
+        }
+        val localOpenIds = allSittings().map { row ->
+            SittingPayloadCodec.decode(
+                row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext)),
+            )
+        }.filter { it.finishedAtMillis == null }.map { it.id }.toSet()
+        val newOpenIds = sittingsToRestore.filter { (row, expected) ->
+            expected.finishedAtMillis == null && sitting(row.id) == null
+        }.map { it.second.id }.toSet()
+        require(newOpenIds.isEmpty() || (localOpenIds + newOpenIds).size == 1) {
+            "Archive would create a second open sitting"
+        }
+        sittingsToRestore.forEach { (incoming, expected) ->
             val existing = sitting(incoming.id)
             if (existing == null) {
                 insertSitting(incoming)
@@ -276,7 +288,6 @@ interface ReadingDao {
         }
         val versionsByReading = versions.groupBy { it.readingId }
         val operationsByReading = operations.groupBy { it.readingId }
-        require(rows.size == expectedReadings.size)
         rows.forEachIndexed { index, (incoming, _) ->
             if (deletedReading(incoming.id) != null) return@forEachIndexed
             val existing = reading(incoming.id) ?: return@forEachIndexed

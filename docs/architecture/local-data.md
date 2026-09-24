@@ -64,8 +64,10 @@ readings are never replaced. An existing phone tombstone prevents an old
 backup from restoring that ID. Conflicting reading, sitting, or correction
 history aborts the entire restore without changing phone rows. An archive that
 would add another open sitting also fails atomically, so an imported sitting
-cannot replace the phone's current capture session. Finish the current
-sitting or restore on a fresh profile before importing that archive.
+cannot replace the phone's current capture session. A sitting whose archive
+readings are all suppressed by local deletion markers is not re-created.
+Finish the current sitting or restore on a fresh profile before importing
+an archive with a genuinely open sitting.
 
 A backup can be opened on a fresh profile only with both the file and its
 passphrase. A user must keep them separately. The file provider may sync
