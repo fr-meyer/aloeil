@@ -139,8 +139,18 @@ interface ReadingDao {
             }
         }
         draft()?.let { row ->
-            upgraded(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft())
-                ?.let { sealed -> saveDraft(row.copy(nonce = sealed.nonce, ciphertext = sealed.ciphertext)) }
+            // Drafts are unsaved checkpoints. A damaged current-format draft must
+            // not roll back migration or make valid saved readings unreadable.
+            val sealed = try {
+                upgraded(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft())
+            } catch (_: AEADBadTagException) {
+                null
+            } catch (_: MissingReadingKeyException) {
+                null
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+            sealed?.let { saveDraft(row.copy(nonce = it.nonce, ciphertext = it.ciphertext)) }
         }
     }
 
