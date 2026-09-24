@@ -9,6 +9,9 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -92,6 +95,31 @@ class MissingKeyRecoveryDeviceTest {
             check(runCatching { repo.verifyReadable() }.exceptionOrNull() === cancelled)
         } finally {
             db.close()
+        }
+    }
+
+    @Test
+    fun concurrentFirstUseNeverReplacesTheReadingKey() {
+        val alias = "aloeil-synthetic-first-use-" + java.util.UUID.randomUUID()
+        val cleanup = AndroidKeystoreReadingCipher(alias)
+        val workers = Executors.newFixedThreadPool(8)
+        val start = CountDownLatch(1)
+        try {
+            val sealed = (0 until 8).map { index ->
+                workers.submit<Pair<ByteArray, SealedPayload>> {
+                    check(start.await(10, TimeUnit.SECONDS))
+                    val original = "synthetic-$index".toByteArray()
+                    original to AndroidKeystoreReadingCipher(alias).seal(original)
+                }
+            }
+            start.countDown()
+            sealed.forEach { future ->
+                val (original, payload) = future.get(30, TimeUnit.SECONDS)
+                check(cleanup.open(payload).contentEquals(original))
+            }
+        } finally {
+            workers.shutdownNow()
+            cleanup.deleteKeyForRecovery()
         }
     }
 
