@@ -87,9 +87,9 @@ class MissingKeyRecoveryDeviceTest {
             )
             val cancelled = CancellationException("synthetic verification cancelled")
             val cancellingCipher = object : ReadingCipher {
-                override fun seal(plaintext: ByteArray): SealedPayload =
+                override fun seal(plaintext: ByteArray, aad: ByteArray): SealedPayload =
                     error("Verification must not write")
-                override fun open(payload: SealedPayload): ByteArray = throw cancelled
+                override fun open(payload: SealedPayload, aad: ByteArray): ByteArray = throw cancelled
             }
             val repo = ReadingRepository(db.readings(), cancellingCipher)
             check(runCatching { repo.verifyReadable() }.exceptionOrNull() === cancelled)
@@ -109,13 +109,13 @@ class MissingKeyRecoveryDeviceTest {
                 workers.submit<Pair<ByteArray, SealedPayload>> {
                     check(start.await(10, TimeUnit.SECONDS))
                     val original = "synthetic-$index".toByteArray()
-                    original to AndroidKeystoreReadingCipher(alias).seal(original)
+                    original to AndroidKeystoreReadingCipher(alias).seal(original, "first-use".toByteArray())
                 }
             }
             start.countDown()
             sealed.forEach { future ->
                 val (original, payload) = future.get(30, TimeUnit.SECONDS)
-                check(cleanup.open(payload).contentEquals(original))
+                check(cleanup.open(payload, "first-use".toByteArray()).contentEquals(original))
             }
         } finally {
             workers.shutdownNow()
@@ -128,9 +128,9 @@ class MissingKeyRecoveryDeviceTest {
         val alias = "aloeil-synthetic-key-loss-" + java.util.UUID.randomUUID()
         val cipher = AndroidKeystoreReadingCipher(alias)
         try {
-            val sealed = cipher.seal("synthetic".toByteArray())
+            val sealed = cipher.seal("synthetic".toByteArray(), "key-loss".toByteArray())
             cipher.deleteKeyForRecovery()
-            check(runCatching { cipher.open(sealed) }.exceptionOrNull()
+            check(runCatching { cipher.open(sealed, "key-loss".toByteArray()) }.exceptionOrNull()
                 is MissingReadingKeyException)
             val store = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
             check(!store.containsAlias(alias))
