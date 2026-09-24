@@ -238,7 +238,9 @@ private fun ReadingGraph(readings: List<Reading>) {
 internal fun HistoryReadingDetail(
     reading: Reading,
     sitting: Sitting?,
+    busy: Boolean,
     onCorrect: () -> Unit,
+    onUndo: () -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -257,9 +259,12 @@ internal fun HistoryReadingDetail(
         }
     }
     Text(stringResource(R.string.history_revision, reading.revision))
-    Secondary(R.string.correct_reading, false, onCorrect)
-    Secondary(R.string.delete_reading, false, onDelete)
-    Secondary(R.string.back, false, onBack)
+    Secondary(R.string.correct_reading, busy, onCorrect)
+    if (reading.revision > 1) {
+        Secondary(R.string.undo_correction, busy, onUndo)
+    }
+    Secondary(R.string.delete_reading, busy, onDelete)
+    Secondary(R.string.back, busy, onBack)
 }
 
 private fun formatReadingTime(reading: Reading): String =

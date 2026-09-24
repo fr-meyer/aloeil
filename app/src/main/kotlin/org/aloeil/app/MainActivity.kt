@@ -635,7 +635,9 @@ private fun AloeilApp(repository: ReadingRepository) {
                             HistoryReadingDetail(
                                 reading = current,
                                 sitting = selectedSitting,
+                                busy = busy,
                                 onCorrect = { step = Step.CORRECT_CHOICE },
+                                onUndo = { undoCorrection() },
                                 onDelete = { step = Step.DELETE_CONFIRM },
                                 onBack = { returnToHistory() },
                             )
