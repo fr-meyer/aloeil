@@ -10,6 +10,9 @@ import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
@@ -65,6 +68,19 @@ class ReadingRepositoryDeviceTest {
             repo.record("synthetic-reading", "synthetic-sitting", Eye.RIGHT, "14.1")
         }.isFailure)
         check(repo.all().single() == first)
+    }
+
+    @Test
+    fun simultaneousStartsKeepExactlyOneOpenSitting() = runBlocking {
+        val repo = repository()
+        val attempts = listOf("synthetic-first", "synthetic-second").map { id ->
+            async(Dispatchers.Default) { runCatching { repo.startSitting(id) }.getOrNull() }
+        }.awaitAll()
+        val winner = attempts.filterNotNull().single()
+        check(repo.startSitting(winner) == winner)
+        check(runCatching { repo.startSitting("synthetic-third") }.isFailure)
+        check(repo.allSittings().single().id == winner)
+        check(repo.openSitting()?.id == winner)
     }
 
     @Test
@@ -146,11 +162,63 @@ class ReadingRepositoryDeviceTest {
         local.startSitting("local-sitting")
         val old = local.record("shared-reading", "local-sitting", Eye.RIGHT, "14.2")
         check(local.deleteReading(old.id, old.revision))
-        check(runCatching { local.importArchive(archive, passphrase) }.isFailure)
+        check(local.importArchive(archive, passphrase) == 0)
         check(local.openSitting()?.id == "local-sitting")
         check(local.allSittings().map { it.id } == listOf("local-sitting"))
         check(local.all().isEmpty())
         check(db.readings().deletedReading("shared-reading") != null)
+        check(local.finishSitting("local-sitting"))
+        check(local.importArchive(archive, passphrase) == 0)
+        check(local.openSitting() == null)
+        check(local.allSittings().map { it.id } == listOf("local-sitting"))
+    }
+
+    @Test
+    fun incomingTombstonePreservesActiveReadingAndRestoresUnrelatedReading() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = ReadingRepository(sourceDb.readings(), cipher, { "UTC" }) { time + 1000 }
+            source.startSitting("archive-sitting")
+            val removed = source.record("shared-reading", "archive-sitting", Eye.LEFT, "12.3")
+            check(source.deleteReading(removed.id, removed.revision))
+            source.record("unrelated-reading", "archive-sitting", Eye.RIGHT, "15.4")
+            check(source.finishSitting("archive-sitting"))
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("local-sitting")
+        val retained = local.record("shared-reading", "local-sitting", Eye.RIGHT, "14.2")
+        check(local.finishSitting("local-sitting"))
+
+        check(local.importArchive(archive, passphrase) == 1)
+        check(local.importArchive(archive, passphrase) == 0)
+        val restored = local.all().associateBy { it.id }
+        check(restored["shared-reading"] == retained)
+        check(restored["unrelated-reading"]?.value == "15.4")
+        check(db.readings().deletedReading("shared-reading") == null)
+        check(local.allSittings().map { it.id }.toSet() == setOf("local-sitting", "archive-sitting"))
+    }
+
+    @Test
+    fun importedOpenSittingWithSurvivingReadingCannotDisplaceLocalCapture() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = ReadingRepository(sourceDb.readings(), cipher, { "UTC" }) { time + 1000 }
+            source.startSitting("imported-sitting")
+            source.record("imported-reading", "imported-sitting", Eye.LEFT, "12.3")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("local-sitting")
+        val localReading = local.record("local-reading", "local-sitting", Eye.RIGHT, "14.2")
+        check(runCatching { local.importArchive(archive, passphrase) }.isFailure)
+        check(local.openSitting()?.id == "local-sitting")
+        check(local.allSittings().map { it.id } == listOf("local-sitting"))
+        check(local.all() == listOf(localReading))
     }
 
     @Test

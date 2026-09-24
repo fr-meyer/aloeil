@@ -2,6 +2,10 @@
 
 ## On-phone facts
 
+Opening a sitting is transactional and permits at most one open sitting.
+Repeating the same sitting ID is idempotent; starting a different sitting
+while one is open fails instead of hiding the earlier one.
+
 A successful save commits a reading and a retryable outbox row in one Room
 transaction. The phone remains authoritative and saving never waits for the
 network. A caller reserves the reading ID before saving; repeating a save
@@ -32,8 +36,8 @@ versions, correction operations, and pending outbox entries. It retains
 only a random reading ID and deletion time. The marker stops an older archive
 from silently restoring the reading on that phone. It does not erase copies
 in backup files the user previously saved. Import never deletes an existing
-phone reading. An incoming deletion marker that conflicts with an existing
-phone reading causes the entire restore to fail.
+phone reading. An incoming deletion marker for an active phone reading is
+ignored; unrelated missing records in the same archive can still be restored.
 
 Room schema version 2 adds deletion markers to version 1 with an explicit
 migration. A synthetic device test opens a version 1 database, migrates it,
@@ -56,12 +60,16 @@ revision/operation history, and deletion markers. Earlier version 3, 2,
 and 1 archives remain readable. Version 1 has no recoverable correction
 history, so its last recorded value becomes the restored baseline at
 revision 1. Restore adds missing readings and deletion markers. Existing
-readings are never replaced. An existing phone tombstone prevents an old
-backup from restoring that ID. Conflicting reading, sitting, or correction
+readings are never replaced. An incoming deletion marker for an active phone
+reading is ignored, while unrelated missing records can still be restored.
+An existing phone tombstone prevents an old backup from restoring that ID.
+Conflicting reading, sitting, or correction
 history aborts the entire restore without changing phone rows. An archive that
 would add another open sitting also fails atomically, so an imported sitting
-cannot replace the phone's current capture session. Finish the current
-sitting or restore on a fresh profile before importing that archive.
+cannot replace the phone's current capture session. A sitting whose archive
+readings are all suppressed by local deletion markers is not re-created.
+Finish the current sitting or restore on a fresh profile before importing
+an archive with a genuinely open sitting.
 
 A backup can be opened on a fresh profile only with both the file and its
 passphrase. A user must keep them separately. The file provider may sync

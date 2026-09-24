@@ -5,7 +5,9 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -57,13 +59,13 @@ class HistoryRestartDeviceTest {
                     compose.waitUntil(timeoutMillis = 10_000) {
                         compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
                     }
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     throw AssertionError(
                         "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
                         error,
                     )
                 }
-                compose.onNode(target).performClick()
+                compose.onNode(target).performScrollTo().performClick()
             }
             tap(context.getString(R.string.history_title))
             val label = context.getString(R.string.left_eye) + ": " +
@@ -74,7 +76,7 @@ class HistoryRestartDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.history_detail_title)))
                         .fetchSemanticsNodes().isNotEmpty()
                 }
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 throw AssertionError(
                     "Expected result missing: history_detail_title\n" + compose.onRoot().printToString().take(4000),
                     error,

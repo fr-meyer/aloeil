@@ -123,39 +123,38 @@ internal fun HistoryScreen(
     val filtered = filterHistory(all, eye, fromText, toText)
     if (filtered.invalidDate) {
         Text(stringResource(R.string.history_invalid_date), color = MaterialTheme.colorScheme.error)
+    }
+    Text(stringResource(R.string.history_count, filtered.readings.size))
+    if (filtered.readings.isEmpty()) {
+        Text(stringResource(R.string.history_no_match))
     } else {
-        Text(stringResource(R.string.history_count, filtered.readings.size))
-        if (filtered.readings.isEmpty()) {
-            Text(stringResource(R.string.history_no_match))
+        if (filtered.readings.count { it.rangeState == null } <= 2000) {
+            ReadingGraph(filtered.readings)
         } else {
-            if (filtered.readings.count { it.rangeState == null } <= 2000) {
-                ReadingGraph(filtered.readings)
-            } else {
-                Text(stringResource(R.string.history_graph_limit))
-            }
-            Text(stringResource(R.string.history_list_title),
-                modifier = Modifier.semantics { heading() },
-                style = MaterialTheme.typography.titleLarge)
-            filtered.readings.take(visibleCount).forEach { reading ->
-                OutlinedButton(
-                    onClick = { onSelect(reading, sittings[reading.sittingId]) },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+            Text(stringResource(R.string.history_graph_limit))
+        }
+        Text(stringResource(R.string.history_list_title),
+            modifier = Modifier.semantics { heading() },
+            style = MaterialTheme.typography.titleLarge)
+        filtered.readings.take(visibleCount).forEach { reading ->
+            OutlinedButton(
+                onClick = { onSelect(reading, sittings[reading.sittingId]) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(eyeLabel(reading.eye) + ": " + readingLabel(reading.value, reading.rangeState))
-                        Text(formatReadingTime(reading), style = MaterialTheme.typography.bodyMedium)
-                        if (reading.note != null) {
-                            Text(stringResource(R.string.note_summary, reading.note))
-                        }
+                    Text(eyeLabel(reading.eye) + ": " + readingLabel(reading.value, reading.rangeState))
+                    Text(formatReadingTime(reading), style = MaterialTheme.typography.bodyMedium)
+                    if (reading.note != null) {
+                        Text(stringResource(R.string.note_summary, reading.note))
                     }
                 }
             }
-            if (filtered.readings.size > visibleCount) {
-                Secondary(R.string.history_show_more, false) { visibleCount += 50 }
-            }
+        }
+        if (filtered.readings.size > visibleCount) {
+            Secondary(R.string.history_show_more, false) { visibleCount += 50 }
         }
     }
     Secondary(R.string.back, false, onBack)

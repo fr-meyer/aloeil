@@ -2,6 +2,7 @@ package org.aloeil.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Keep the Activity and its composition alive until a local write settles. */
+@Composable
+internal fun BlockSystemBackWhileBusy(busy: Boolean) {
+    BackHandler(enabled = busy) { }
+}
+
 private enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
@@ -92,6 +99,8 @@ internal fun AloeilApp(repository: ReadingRepository) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
     var valueError by remember { mutableStateOf<Int?>(null) }
+
+    BlockSystemBackWhileBusy(busy)
 
     LaunchedEffect(Unit) {
         try {
@@ -126,6 +135,12 @@ internal fun AloeilApp(repository: ReadingRepository) {
             }
         } catch (_: Exception) {
             message = R.string.error_draft_restore
+            val open = runCatching {
+                withContext(Dispatchers.IO) { repository.openSitting() }
+            }.getOrNull()
+            sittingId = open?.id.orEmpty()
+            hasOpenSitting = open != null
+            fromHistory = false
             step = Step.START
         }
     }
@@ -587,7 +602,7 @@ internal fun AloeilApp(repository: ReadingRepository) {
                         Text(stringResource(R.string.finish_body))
                         Action(R.string.finish, busy) { finishSitting() }
                         Secondary(R.string.keep_recording, busy) {
-                            step = if (saved != null) Step.SAVED else Step.EYE
+                            if (saved != null) step = Step.SAVED else beginSitting()
                         }
                     }
                     Step.FINISHED -> {
