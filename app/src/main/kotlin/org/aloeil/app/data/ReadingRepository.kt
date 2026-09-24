@@ -76,6 +76,60 @@ class ReadingRepository(
         return dao.restoreMissing(rows)
     }
 
+    /** A correction keeps the reading ID and records the old encrypted version for undo. */
+    suspend fun correct(
+        operationId: String,
+        readingId: String,
+        expectedRevision: Long,
+        eye: Eye,
+        valueTenths: Int,
+    ): Reading? {
+        require(operationId.isNotBlank() && valueTenths > 0)
+        dao.correctionOperation(operationId)?.let { applied ->
+            if (applied.readingId != readingId || applied.resultingRevision != expectedRevision + 1) {
+                return null
+            }
+            return dao.reading(readingId)?.let(::decode)
+        }
+        val old = dao.reading(readingId) ?: return null
+        if (old.revision != expectedRevision) return null
+        val sealed = cipher.seal("${eye.name}|$valueTenths".toByteArray(Charsets.UTF_8))
+        val updated = old.copy(
+            nonce = sealed.nonce,
+            ciphertext = sealed.ciphertext,
+            revision = old.revision + 1,
+        )
+        val outbox = OutboxRow(
+            "$readingId:${updated.revision}",
+            readingId,
+            updated.revision,
+            0,
+            now(),
+        )
+        if (!dao.applyCorrection(operationId, expectedRevision, updated, outbox)) return null
+        return dao.reading(readingId)?.let(::decode)
+    }
+
+    /** Undo is itself a new revision, preserving both earlier facts and the correction. */
+    suspend fun undoCorrection(
+        operationId: String,
+        readingId: String,
+        expectedRevision: Long,
+    ): Reading? {
+        require(expectedRevision > 1)
+        val prior = dao.version(readingId, expectedRevision - 1) ?: return null
+        val plaintext = cipher.open(SealedPayload(prior.nonce, prior.ciphertext))
+            .toString(Charsets.UTF_8).split('|')
+        require(plaintext.size == 2) { "Invalid prior reading" }
+        return correct(
+            operationId,
+            readingId,
+            expectedRevision,
+            Eye.valueOf(plaintext[0]),
+            plaintext[1].toInt(),
+        )
+    }
+
     suspend fun dueForReplica(): List<OutboxRow> = dao.dueOutbox(now())
 
     suspend fun retryLater(id: String, retryAtMillis: Long) = dao.retryLater(id, retryAtMillis)

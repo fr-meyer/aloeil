@@ -33,6 +33,8 @@ object SyntheticFixtureJvmTest {
             replicaConfirmedRevision = 0,
         )
         check(synthetic.backupState == BackupState.PENDING)
+        check(synthetic.copy(revision = 2, replicaConfirmedRevision = 1).backupState == BackupState.PENDING)
+        check(synthetic.copy(replicaConfirmedRevision = 1).backupState == BackupState.CONFIRMED)
         val passphrase = "synthetic-test-only".toCharArray()
         val archive = ArchiveCodec.encode(listOf(synthetic), passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == listOf(synthetic))

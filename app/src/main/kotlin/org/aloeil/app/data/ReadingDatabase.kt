@@ -12,6 +12,7 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.Update
 
 @Entity(tableName = "readings", indices = [Index("sittingId"), Index("recordedAtMillis")])
 data class ReadingRow(
@@ -45,6 +46,21 @@ data class DraftRow(
     @PrimaryKey val id: Int = 1,
     val nonce: ByteArray,
     val ciphertext: ByteArray,
+)
+
+@Entity(tableName = "reading_versions", primaryKeys = ["readingId", "revision"])
+data class ReadingVersionRow(
+    val readingId: String,
+    val revision: Long,
+    val nonce: ByteArray,
+    val ciphertext: ByteArray,
+)
+
+@Entity(tableName = "correction_operations")
+data class CorrectionOperationRow(
+    @PrimaryKey val id: String,
+    val readingId: String,
+    val resultingRevision: Long,
 )
 
 @Dao
@@ -90,6 +106,47 @@ interface ReadingDao {
     @Query("SELECT * FROM readings WHERE id = :id LIMIT 1")
     suspend fun reading(id: String): ReadingRow?
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertVersion(row: ReadingVersionRow)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertCorrectionOperation(row: CorrectionOperationRow)
+
+    @Query("SELECT * FROM reading_versions WHERE readingId = :id AND revision = :revision LIMIT 1")
+    suspend fun version(id: String, revision: Long): ReadingVersionRow?
+
+    @Query("SELECT * FROM correction_operations WHERE id = :id LIMIT 1")
+    suspend fun correctionOperation(id: String): CorrectionOperationRow?
+
+    @Update
+    suspend fun updateReading(row: ReadingRow): Int
+
+    @Query("DELETE FROM outbox WHERE readingId = :readingId")
+    suspend fun removeStaleOutbox(readingId: String)
+
+    /** The old encrypted value is retained for persistent undo. */
+    @Transaction
+    suspend fun applyCorrection(
+        operationId: String,
+        expectedRevision: Long,
+        updated: ReadingRow,
+        outbox: OutboxRow,
+    ): Boolean {
+        correctionOperation(operationId)?.let {
+            return it.readingId == updated.id && it.resultingRevision == expectedRevision + 1
+        }
+        val old = reading(updated.id) ?: return false
+        if (old.revision != expectedRevision) return false
+        require(updated.revision == old.revision + 1)
+        require(updated.sittingId == old.sittingId && updated.recordedAtMillis == old.recordedAtMillis)
+        insertVersion(ReadingVersionRow(old.id, old.revision, old.nonce, old.ciphertext))
+        require(updateReading(updated) == 1)
+        removeStaleOutbox(old.id)
+        insertOutbox(outbox)
+        insertCorrectionOperation(CorrectionOperationRow(operationId, old.id, updated.revision))
+        return true
+    }
+
     /** Restore is additive and atomic: an absent or empty replica never removes phone rows. */
     @Transaction
     suspend fun restoreMissing(rows: List<Pair<ReadingRow, OutboxRow>>): Int {
@@ -125,7 +182,10 @@ interface ReadingDao {
 }
 
 @Database(
-    entities = [ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class],
+    entities = [
+        ReadingRow::class, OutboxRow::class, SittingRow::class, DraftRow::class,
+        ReadingVersionRow::class, CorrectionOperationRow::class,
+    ],
     version = 1,
     exportSchema = true,
 )

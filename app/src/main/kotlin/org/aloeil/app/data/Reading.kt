@@ -22,3 +22,4 @@ enum class BackupState { PENDING, CONFIRMED }
 
 fun newSittingId(): String = UUID.randomUUID().toString()
 fun newReadingId(): String = UUID.randomUUID().toString()
+fun newOperationId(): String = UUID.randomUUID().toString()

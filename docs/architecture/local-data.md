@@ -23,6 +23,11 @@ Protected draft checkpoints and sitting state are stored locally; the draft payl
 encrypted with the same Keystore key. On resume, a pending reading ID can be checked
 against the saved rows before the UI claims success.
 
-This is an implementation slice. Corrections with undo, full database encryption,
+Corrections create a new reading revision and keep the previous encrypted payload
+for persistent undo. An operation ID prevents retries from applying a correction twice.
+A stale expected revision is rejected. The portable archive currently contains only the
+latest reading revision, so correction and undo history is not yet portable.
+
+This is an implementation slice. Portable correction history, full database encryption,
 migration and process-restart tests, UI wiring, and a replica client are still required
 to complete P2. Development uses synthetic fixtures only.
