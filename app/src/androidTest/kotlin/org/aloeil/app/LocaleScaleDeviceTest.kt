@@ -3,6 +3,7 @@ package org.aloeil.app
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.ui.test.DeviceConfigurationOverride
+import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.FontScale
 import androidx.compose.ui.test.ForcedSize
 import androidx.compose.ui.test.Locales
@@ -32,6 +33,7 @@ import org.junit.runner.RunWith
 import java.util.Locale
 
 /** Synthetic locale and enlarged-text capture checks on a narrow viewport. */
+@OptIn(ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class LocaleScaleDeviceTest {
     @get:Rule val compose = createComposeRule()
