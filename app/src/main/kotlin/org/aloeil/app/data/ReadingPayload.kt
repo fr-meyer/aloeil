@@ -109,6 +109,7 @@ internal object SittingPayloadCodec {
         require(input.readInt() == 1) { "Unsupported sitting payload version" }
         val started = input.readLong()
         val finished = if (input.readBoolean()) input.readLong() else null
+        require(finished == null || finished >= started) { "Invalid sitting times" }
         require(input.available() == 0) { "Invalid sitting payload" }
         return Sitting(id, started, finished)
     }

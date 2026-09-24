@@ -183,6 +183,19 @@ object SyntheticFixtureJvmTest {
             }
         }.toByteArray()
         check(DraftCodec.decode(priorDraft) == draft.copy(step = "CORRECT_CHOICE", baseRevision = 1))
+        val oversizedDraft = ByteArrayOutputStream().also { bytes ->
+            DataOutputStream(bytes).use { out ->
+                out.writeInt(2)
+                out.writeUTF(draft.sittingId)
+                out.writeUTF(draft.readingId)
+                out.writeUTF(draft.step)
+                out.writeUTF(Eye.RIGHT.name)
+                out.writeUTF("1".repeat(ReadingValue.MAX_LENGTH + 1))
+                out.writeUTF(draft.focusedControl)
+                out.writeLong(1)
+            }
+        }.toByteArray()
+        check(runCatching { DraftCodec.decode(oversizedDraft) }.isFailure)
         val correctionDraft = draft.copy(step = "CORRECT_CHOICE", baseRevision = 1)
         check(DraftCodec.decode(DraftCodec.encode(correctionDraft)) == correctionDraft)
         check(restoredDraftStep(correctionDraft, synthetic) == "CORRECT_CHOICE")
@@ -227,6 +240,15 @@ object SyntheticFixtureJvmTest {
         )
         check(ReadingPayloadCodec.decode(ReadingPayloadCodec.encode(payload)) == payload)
         check(SittingPayloadCodec.decode(sitting.id, SittingPayloadCodec.encode(sitting)) == sitting)
+        val reversedSitting = ByteArrayOutputStream().also { bytes ->
+            DataOutputStream(bytes).use { out ->
+                out.writeInt(1)
+                out.writeLong(sitting.startedAtMillis)
+                out.writeBoolean(true)
+                out.writeLong(sitting.startedAtMillis - 1)
+            }
+        }.toByteArray()
+        check(runCatching { SittingPayloadCodec.decode(sitting.id, reversedSitting) }.isFailure)
     }
 }
 
