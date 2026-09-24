@@ -21,7 +21,7 @@ See [the approved product and privacy baseline](docs/product-privacy-baseline.md
 
 ## Project status
 
-The public repository and Speculoos baseline are initialized. P1 accessible capture design is ready; no app binary, cloud service, account, or health-data collection exists yet.
+CI bootstrap is in progress on GitHub Actions; the repository still contains no health data.
 
 ## License
 

@@ -10,14 +10,15 @@ project:
   number: null
   url: null
 current_task:
-  id: p1-accessible-manual-capture
+  id: p2-local-first-data-recovery
   issue: null
   pull_request: null
   project_item: null
-  branch: aloeil/p1-accessible-manual-capture
-  status: ready
-  project_status: Todo
+  branch: aloeil/p2-github-actions-ci
+  status: in-progress
+  project_status: In Progress
 notes:
   - Repository source and synthetic fixtures are public; real readings are forbidden.
   - Initial repository bootstrap uses the constrained Mergeguez broker.
   - Future feature work targets dev through reviewed pull requests.
+  - GitHub Actions is the approved builder; full Room and backup work remains in P2.
