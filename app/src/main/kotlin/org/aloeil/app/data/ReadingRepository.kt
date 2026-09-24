@@ -78,7 +78,7 @@ class ReadingRepository(
     suspend fun startSitting(id: String = newSittingId()): String {
         require(id.isNotBlank()) { "Sitting ID is required" }
         val sealed = cipher.seal(SittingPayloadCodec.encode(Sitting(id, now(), null)))
-        dao.insertSitting(SittingRow(id, sealed.nonce, sealed.ciphertext))
+        dao.insertOpenSitting(SittingRow(id, sealed.nonce, sealed.ciphertext), cipher)
         return id
     }
 

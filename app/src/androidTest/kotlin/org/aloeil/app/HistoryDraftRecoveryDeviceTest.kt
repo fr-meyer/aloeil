@@ -6,7 +6,9 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -57,13 +59,13 @@ class HistoryDraftRecoveryDeviceTest {
                     compose.waitUntil(timeoutMillis = 10_000) {
                         compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
                     }
-                } catch (error: Exception) {
+                } catch (error: Throwable) {
                     throw AssertionError(
                         "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
                         error,
                     )
                 }
-                compose.onNode(target).performClick()
+                compose.onNode(target).performScrollTo().performClick()
             }
             tap(R.string.back)
             tap(R.string.history_back)
@@ -85,7 +87,7 @@ class HistoryDraftRecoveryDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.saved_on_phone)))
                         .fetchSemanticsNodes().isNotEmpty()
                 }
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 throw AssertionError(
                     "Expected result missing: saved_on_phone\n" + compose.onRoot().printToString().take(4000),
                     error,
