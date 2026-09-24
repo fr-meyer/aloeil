@@ -55,6 +55,7 @@ internal object DraftCodec {
             fromHistory = if (version >= 4) input.readBoolean() else false,
         )
         require(draft.note.length <= 1000) { "Invalid draft note" }
+        require(draft.input.length <= ReadingValue.MAX_LENGTH) { "Invalid draft input length" }
         require(input.available() == 0) { "Unexpected draft data" }
         require(draft.sittingId.isNotBlank() && draft.readingId.isNotBlank()) { "Invalid draft" }
         return draft
