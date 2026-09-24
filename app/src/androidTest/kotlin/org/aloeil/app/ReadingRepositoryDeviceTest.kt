@@ -108,7 +108,7 @@ class ReadingRepositoryDeviceTest {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
         val original = repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
-        val newSitting = Sitting("synthetic-other-sitting", time + 100, null)
+        val newSitting = Sitting("synthetic-other-sitting", time + 100, time + 200)
         val newReading = Reading(
             "synthetic-other-reading", newSitting.id, time + 101, Eye.RIGHT, "14.2", 1, 0,
         )
@@ -132,11 +132,33 @@ class ReadingRepositoryDeviceTest {
     }
 
     @Test
+    fun importedOpenSittingCannotDisplaceLocalCaptureEvenWhenReadingWasDeleted() = runBlocking {
+        val sourceDb = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val archive = try {
+            val source = ReadingRepository(sourceDb.readings(), cipher, { "UTC" }) { time + 1000 }
+            source.startSitting("imported-sitting")
+            source.record("shared-reading", "imported-sitting", Eye.LEFT, "12.3")
+            source.exportArchive(passphrase)
+        } finally {
+            sourceDb.close()
+        }
+        val local = repository()
+        local.startSitting("local-sitting")
+        val old = local.record("shared-reading", "local-sitting", Eye.RIGHT, "14.2")
+        check(local.deleteReading(old.id, old.revision))
+        check(runCatching { local.importArchive(archive, passphrase) }.isFailure)
+        check(local.openSitting()?.id == "local-sitting")
+        check(local.allSittings().map { it.id } == listOf("local-sitting"))
+        check(local.all().isEmpty())
+        check(db.readings().deletedReading("shared-reading") != null)
+    }
+
+    @Test
     fun conflictingReadingRollsBackNewSitting() = runBlocking {
         val repo = repository()
         repo.startSitting("synthetic-sitting")
         val original = repo.record("synthetic-reading", "synthetic-sitting", Eye.LEFT, "12.3")
-        val newSitting = Sitting("synthetic-other-sitting", time + 100, null)
+        val newSitting = Sitting("synthetic-other-sitting", time + 100, time + 200)
         val conflict = ArchiveBundle(
             readings = listOf(original.copy(value = "15.0")),
             sittings = listOf(
