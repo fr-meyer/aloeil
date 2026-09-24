@@ -116,6 +116,8 @@ class ReadingRepository(
     suspend fun all(): List<Reading> = dao.allReadings().map(::decode)
         .sortedWith(compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id })
 
+    suspend fun allSittings(): List<Sitting> = dao.allSittings().map(::decodeSitting)
+
     suspend fun exportArchive(passphrase: CharArray): ByteArray {
         val snapshot = dao.archiveSnapshot()
         val bundle = ArchiveBundle(

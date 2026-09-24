@@ -48,6 +48,7 @@ import org.aloeil.app.data.Eye
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
+import org.aloeil.app.data.Sitting
 import org.aloeil.app.data.ReadingValue
 import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.RangeState
@@ -68,7 +69,7 @@ private enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
-    FINISH, FINISHED, DELETE_CONFIRM, DELETED, ARCHIVE,
+    FINISH, FINISHED, DELETE_CONFIRM, DELETED, HISTORY, HISTORY_READING, ARCHIVE,
 }
 
 @Composable
@@ -82,6 +83,10 @@ private fun AloeilApp(repository: ReadingRepository) {
     var rangeState by remember { mutableStateOf<RangeState?>(null) }
     var note by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf<Reading?>(null) }
+    var selectedSitting by remember { mutableStateOf<Sitting?>(null) }
+    var fromHistory by remember { mutableStateOf(false) }
+    var historyReturnStep by remember { mutableStateOf(Step.START) }
+    var captureSittingId by remember { mutableStateOf("") }
     var hasOpenSitting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
@@ -98,6 +103,15 @@ private fun AloeilApp(repository: ReadingRepository) {
                 value = draft.input
                 rangeState = draft.rangeState
                 note = draft.note
+                fromHistory = draft.fromHistory
+                if (fromHistory) {
+                    captureSittingId = withContext(Dispatchers.IO) {
+                        repository.openSitting()?.id.orEmpty()
+                    }
+                    selectedSitting = withContext(Dispatchers.IO) {
+                        repository.allSittings().firstOrNull { it.id == draft.sittingId }
+                    }
+                }
                 saved = committed
                 step = runCatching { Step.valueOf(restoredDraftStep(draft, committed)) }
                     .getOrDefault(Step.EYE)
@@ -116,7 +130,7 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
-    LaunchedEffect(step, sittingId, readingId, eye, value, rangeState, note, busy) {
+    LaunchedEffect(step, sittingId, readingId, eye, value, rangeState, note, fromHistory, busy) {
         if (!busy && sittingId.isNotEmpty() && readingId.isNotEmpty() && step in setOf(
                 Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW, Step.CORRECT_CHOICE,
                 Step.CORRECT_EYE, Step.CORRECT_VALUE, Step.CORRECT_NOTE,
@@ -137,6 +151,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             baseRevision = if (step.name.startsWith("CORRECT_")) saved?.revision else null,
                             rangeState = rangeState,
                             note = note,
+                            fromHistory = fromHistory,
                         ),
                     )
                 }
@@ -283,6 +298,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             sittingId, current.id, Step.SAVED.name,
                             current.eye, current.value, "heading",
                             rangeState = current.rangeState, note = current.note.orEmpty(),
+                            fromHistory = fromHistory,
                         ),
                     )
                 }
@@ -326,6 +342,32 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
+    fun enterHistory() {
+        historyReturnStep = step
+        captureSittingId = sittingId
+        step = Step.HISTORY
+    }
+
+    fun returnToHistory() {
+        busy = true
+        scope.launch {
+            val cleared = runCatching {
+                withContext(Dispatchers.IO) { repository.clearDraft() }
+            }.isSuccess
+            if (cleared) {
+                sittingId = captureSittingId
+                saved = null
+                selectedSitting = null
+                fromHistory = false
+                step = Step.HISTORY
+                message = null
+            } else {
+                message = R.string.error_storage
+            }
+            busy = false
+        }
+    }
+
     fun finishSitting() {
         busy = true
         scope.launch {
@@ -361,6 +403,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             beginSitting()
                         }
                         Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
+                        Secondary(R.string.history_title, busy) { enterHistory() }
                     }
                     Step.EYE, Step.CORRECT_EYE -> {
                         Heading(if (step == Step.EYE) R.string.choose_eye else R.string.correct_eye)
@@ -417,16 +460,20 @@ private fun AloeilApp(repository: ReadingRepository) {
                     Step.SAVED -> {
                         Heading(R.string.saved_on_phone)
                         BackupStatus(saved)
-                        Action(R.string.add_another, busy) {
-                            readingId = newReadingId()
-                            eye = null
-                            value = ""
-                            rangeState = null
-                            note = ""
-                            valueError = null
-                            saved = null
-                            message = null
-                            step = Step.EYE
+                        if (fromHistory) {
+                            Action(R.string.history_back, busy) { returnToHistory() }
+                        } else {
+                            Action(R.string.add_another, busy) {
+                                readingId = newReadingId()
+                                eye = null
+                                value = ""
+                                rangeState = null
+                                note = ""
+                                valueError = null
+                                saved = null
+                                message = null
+                                step = Step.EYE
+                            }
                         }
                         Secondary(R.string.correct_reading, busy) {
                             val current = saved ?: return@Secondary
@@ -437,7 +484,9 @@ private fun AloeilApp(repository: ReadingRepository) {
                             note = current.note.orEmpty()
                             step = Step.CORRECT_CHOICE
                         }
-                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        if (!fromHistory) {
+                            Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        }
                         Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.CORRECT_CHOICE -> {
@@ -483,36 +532,48 @@ private fun AloeilApp(repository: ReadingRepository) {
                     Step.CORRECT_SAVED -> {
                         Heading(R.string.correction_saved)
                         BackupStatus(saved)
-                        Action(R.string.add_another, busy) {
-                            readingId = newReadingId()
-                            eye = null
-                            value = ""
-                            rangeState = null
-                            note = ""
-                            valueError = null
-                            saved = null
-                            message = null
-                            step = Step.EYE
+                        if (fromHistory) {
+                            Action(R.string.history_back, busy) { returnToHistory() }
+                        } else {
+                            Action(R.string.add_another, busy) {
+                                readingId = newReadingId()
+                                eye = null
+                                value = ""
+                                rangeState = null
+                                note = ""
+                                valueError = null
+                                saved = null
+                                message = null
+                                step = Step.EYE
+                            }
                         }
                         Secondary(R.string.undo_correction, busy) { undoCorrection() }
-                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        if (!fromHistory) {
+                            Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        }
                         Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.UNDO_DONE -> {
                         Heading(R.string.undo_done)
                         BackupStatus(saved)
-                        Action(R.string.add_another, busy) {
-                            readingId = newReadingId()
-                            eye = null
-                            value = ""
-                            rangeState = null
-                            note = ""
-                            valueError = null
-                            saved = null
-                            message = null
-                            step = Step.EYE
+                        if (fromHistory) {
+                            Action(R.string.history_back, busy) { returnToHistory() }
+                        } else {
+                            Action(R.string.add_another, busy) {
+                                readingId = newReadingId()
+                                eye = null
+                                value = ""
+                                rangeState = null
+                                note = ""
+                                valueError = null
+                                saved = null
+                                message = null
+                                step = Step.EYE
+                            }
                         }
-                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        if (!fromHistory) {
+                            Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        }
                         Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
                     }
                     Step.FINISH -> {
@@ -527,6 +588,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Heading(R.string.sitting_finished)
                         Action(R.string.start_sitting, busy) { beginSitting() }
                         Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
+                        Secondary(R.string.history_title, busy) { enterHistory() }
                     }
                     Step.DELETE_CONFIRM -> {
                         Heading(R.string.delete_confirm_title)
@@ -537,13 +599,47 @@ private fun AloeilApp(repository: ReadingRepository) {
                         ))
                         Text(stringResource(R.string.delete_confirm_body))
                         Action(R.string.confirm_delete, busy) { deleteReading() }
-                        Secondary(R.string.keep_reading, busy) { step = Step.SAVED }
+                        Secondary(R.string.keep_reading, busy) {
+                            step = if (fromHistory) Step.HISTORY_READING else Step.SAVED
+                        }
                     }
                     Step.DELETED -> {
                         Heading(R.string.deleted_on_phone)
                         Text(stringResource(R.string.deleted_backup_warning))
-                        Action(R.string.add_another, busy) { beginSitting() }
-                        Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        if (fromHistory) {
+                            Action(R.string.history_back, busy) { returnToHistory() }
+                        } else {
+                            Action(R.string.add_another, busy) { beginSitting() }
+                            Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
+                        }
+                    }
+                    Step.HISTORY -> HistoryScreen(
+                        repository = repository,
+                        onSelect = { reading, sitting ->
+                            fromHistory = true
+                            saved = reading
+                            selectedSitting = sitting
+                            sittingId = reading.sittingId
+                            readingId = reading.id
+                            eye = reading.eye
+                            value = reading.value
+                            rangeState = reading.rangeState
+                            note = reading.note.orEmpty()
+                            step = Step.HISTORY_READING
+                        },
+                        onBack = { step = historyReturnStep },
+                    )
+                    Step.HISTORY_READING -> {
+                        val current = saved
+                        if (current != null) {
+                            HistoryReadingDetail(
+                                reading = current,
+                                sitting = selectedSitting,
+                                onCorrect = { step = Step.CORRECT_CHOICE },
+                                onDelete = { step = Step.DELETE_CONFIRM },
+                                onBack = { returnToHistory() },
+                            )
+                        }
                     }
                     Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
                 }
@@ -621,7 +717,7 @@ private fun ValueField(value: String, error: Int?, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun eyeLabel(eye: Eye?): String = when (eye) {
+internal fun eyeLabel(eye: Eye?): String = when (eye) {
     Eye.LEFT -> stringResource(R.string.left_eye)
     Eye.RIGHT -> stringResource(R.string.right_eye)
     null -> ""
@@ -640,7 +736,7 @@ private fun NoteField(note: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun readingLabel(value: String, rangeState: RangeState?): String = when (rangeState) {
+internal fun readingLabel(value: String, rangeState: RangeState?): String = when (rangeState) {
     RangeState.BELOW_RANGE -> stringResource(R.string.below_range)
     RangeState.ABOVE_RANGE -> stringResource(R.string.above_range)
     null -> stringResource(R.string.numeric_reading, value)

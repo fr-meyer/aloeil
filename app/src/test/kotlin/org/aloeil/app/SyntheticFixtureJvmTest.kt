@@ -1,6 +1,7 @@
 package org.aloeil.app
 
 import java.util.Base64
+import java.time.Instant
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 
@@ -22,6 +23,7 @@ import org.aloeil.app.data.ReadingValueResult
 import org.aloeil.app.data.Reason
 import org.aloeil.app.data.RangeState
 import org.aloeil.app.data.restoredDraftStep
+import org.aloeil.app.data.filterHistory
 
 /**
  * JVM-only verification with an explicitly synthetic fixture.
@@ -184,6 +186,25 @@ object SyntheticFixtureJvmTest {
         // If the correction committed before the process stopped, stale active UI is skipped.
         check(restoredDraftStep(correctionDraft, synthetic.copy(revision = 2)) == "CORRECT_SAVED")
         check(restoredDraftStep(draft.copy(step = "REVIEW"), synthetic) == "SAVED")
+        val historyDraft = correctionDraft.copy(fromHistory = true, note = "Synthetic history note")
+        check(DraftCodec.decode(DraftCodec.encode(historyDraft)) == historyDraft)
+        val boundary = Instant.parse("2026-01-01T00:30:00Z").toEpochMilli()
+        val west = synthetic.copy(
+            id = "synthetic-west", recordedAtMillis = boundary, timeZoneId = "America/Los_Angeles",
+        )
+        val east = synthetic.copy(
+            id = "synthetic-east", recordedAtMillis = boundary, eye = Eye.RIGHT,
+            timeZoneId = "Asia/Seoul",
+        )
+        val duplicate = west.copy(id = "synthetic-west-duplicate")
+        val history = listOf(west, east, duplicate)
+        val oldDay = filterHistory(history, null, "2025-12-31", "2025-12-31")
+        check(oldDay.readings.map { it.id }.toSet() == setOf(west.id, duplicate.id))
+        val newDay = filterHistory(history, Eye.RIGHT, "2026-01-01", "2026-01-01")
+        check(newDay.readings == listOf(east))
+        check(filterHistory(history, null, "bad", "").invalidDate)
+        check(filterHistory(history, null, "2026-01-02", "2026-01-01").invalidDate)
+        check(filterHistory(history, null, "", "").readings.size == 3)
         check(ReadingValue.parse("١٢,٣٤") == ReadingValueResult.Valid("12.34"))
         check(ReadingValue.parse("0") == ReadingValueResult.Valid("0"))
         check(ReadingValue.parse("12.3.4") == ReadingValueResult.Invalid(Reason.DECIMAL))

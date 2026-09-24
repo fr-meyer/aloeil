@@ -16,12 +16,13 @@ data class DraftCheckpoint(
     val baseRevision: Long? = null,
     val rangeState: RangeState? = null,
     val note: String = "",
+    val fromHistory: Boolean = false,
 )
 
 internal object DraftCodec {
     fun encode(draft: DraftCheckpoint): ByteArray = ByteArrayOutputStream().also { bytes ->
         DataOutputStream(bytes).use { out ->
-            out.writeInt(3)
+            out.writeInt(4)
             out.writeUTF(draft.sittingId)
             out.writeUTF(draft.readingId)
             out.writeUTF(draft.step)
@@ -31,13 +32,14 @@ internal object DraftCodec {
             out.writeLong(draft.baseRevision ?: 0)
             out.writeUTF(draft.rangeState?.name.orEmpty())
             out.writeUTF(draft.note)
+            out.writeBoolean(draft.fromHistory)
         }
     }.toByteArray()
 
     fun decode(bytes: ByteArray): DraftCheckpoint {
         val input = DataInputStream(ByteArrayInputStream(bytes))
         val version = input.readInt()
-        require(version in 1..3) { "Unsupported draft version" }
+        require(version in 1..4) { "Unsupported draft version" }
         val draft = DraftCheckpoint(
             sittingId = input.readUTF(),
             readingId = input.readUTF(),
@@ -48,6 +50,7 @@ internal object DraftCodec {
             baseRevision = if (version >= 2) input.readLong().takeIf { it > 0 } else null,
             rangeState = if (version >= 3) input.readUTF().takeIf { it.isNotEmpty() }?.let(RangeState::valueOf) else null,
             note = if (version >= 3) input.readUTF() else "",
+            fromHistory = if (version >= 4) input.readBoolean() else false,
         )
         require(draft.note.length <= 1000) { "Invalid draft note" }
         require(input.available() == 0) { "Unexpected draft data" }
