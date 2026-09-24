@@ -19,7 +19,7 @@ class CsvShareCacheDeviceTest {
         val file = CsvShareCache.writeShare(context, emptyList(), emptyList())
         try {
             // No recipient is selected, as when the system chooser is cancelled.
-            val job = scheduler.getPendingJob(CsvShareCache.JOB_ID)
+            val job = scheduler.getPendingJob(CsvShareCache.jobId(file))
             check(job != null && job.isPersisted)
             val uri = FileProvider.getUriForFile(
                 context, "org.aloeil.app.fileprovider", file,
@@ -38,7 +38,7 @@ class CsvShareCacheDeviceTest {
             check(!file.exists())
         } finally {
             file.delete()
-            scheduler.cancel(CsvShareCache.JOB_ID)
+            scheduler.cancel(CsvShareCache.jobId(file))
         }
     }
 }

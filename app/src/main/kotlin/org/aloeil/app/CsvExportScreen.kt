@@ -54,7 +54,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
                 CsvShareCache.cleanupExpired(context)
                 val previousShare = CsvShareCache.directory(context).listFiles()
                     ?.any { it.isFile } == true
-                if (previousShare) check(CsvShareCache.scheduleNext(context))
+                if (previousShare) CsvShareCache.ensureScheduled(context)
                 repository.currentFactsSnapshot() to previousShare
             }
         }.onSuccess { (data, previousShare) ->

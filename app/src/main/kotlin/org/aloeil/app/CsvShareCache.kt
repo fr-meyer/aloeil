@@ -16,8 +16,11 @@ import org.aloeil.app.data.Sitting
 /** Plain-text shares live only in this private cache until the delayed local cleanup runs. */
 internal object CsvShareCache {
     const val RETENTION_MILLIS = 60L * 60 * 1000
-    const val JOB_ID = 0xA10E1
+    private const val JOB_ID_NAMESPACE = 0x10000000
+    private const val JOB_ID_MASK = 0x0FFFFFFF
     private const val DEADLINE_SLACK_MILLIS = 5L * 60 * 1000
+
+    fun jobId(file: File): Int = JOB_ID_NAMESPACE or (file.name.hashCode() and JOB_ID_MASK)
 
     fun directory(context: Context): File = File(context.cacheDir, "aloeil-share")
 
@@ -33,16 +36,15 @@ internal object CsvShareCache {
         directory(context).listFiles()?.forEach { check(it.isFile && it.delete()) }
     }
 
-    /** Also schedule before writing so an interrupted share still has a cleanup job. */
-    fun scheduleNext(context: Context): Boolean {
+    /** Each file keeps its own persisted cleanup job, even if the chooser is cancelled. */
+    fun scheduleFile(context: Context, file: File): Boolean {
         val now = System.currentTimeMillis()
-        val earliest = directory(context).listFiles()?.filter(File::isFile)
-            ?.minOfOrNull { it.lastModified() + RETENTION_MILLIS }
-            ?: now + RETENTION_MILLIS
-        val delay = maxOf(1L, earliest - now)
+        val expiresAt = if (file.isFile) file.lastModified() + RETENTION_MILLIS
+            else now + RETENTION_MILLIS
+        val delay = maxOf(1L, expiresAt - now)
         val scheduler = context.getSystemService(JobScheduler::class.java)
         val info = JobInfo.Builder(
-            JOB_ID, ComponentName(context, CsvShareCleanupJobService::class.java),
+            jobId(file), ComponentName(context, CsvShareCleanupJobService::class.java),
         ).setMinimumLatency(delay)
             .setOverrideDeadline(delay + DEADLINE_SLACK_MILLIS)
             .setPersisted(true)
@@ -50,21 +52,38 @@ internal object CsvShareCache {
         return scheduler.schedule(info) == JobScheduler.RESULT_SUCCESS
     }
 
+    /** Restore a missing cleanup after an interrupted write or an app upgrade. */
+    fun ensureScheduled(context: Context) {
+        val scheduler = context.getSystemService(JobScheduler::class.java)
+        directory(context).listFiles()?.filter(File::isFile)?.forEach { file ->
+            if (scheduler.getPendingJob(jobId(file)) == null) {
+                check(scheduleFile(context, file))
+            }
+        }
+    }
+
+    @Synchronized
     fun writeShare(context: Context, readings: List<Reading>, sittings: List<Sitting>): File {
         val folder = directory(context)
         check(folder.isDirectory || folder.mkdirs())
-        val output = File(folder, "aloeil-readings-" + UUID.randomUUID() + ".csv")
+        val scheduler = context.getSystemService(JobScheduler::class.java)
+        val output = generateSequence {
+            File(folder, "aloeil-readings-" + UUID.randomUUID() + ".csv")
+        }.first { candidate ->
+            scheduler.getPendingJob(jobId(candidate)) == null &&
+                (folder.listFiles()?.none { it.isFile && jobId(it) == jobId(candidate) } ?: true)
+        }
         try {
-            // The persisted job exists before any plaintext is written, including when
-            // the system chooser is later cancelled or this process is killed.
-            check(scheduleNext(context))
+            // Schedule before writing so process death and a cancelled chooser are covered.
+            check(scheduleFile(context, output))
             OutputStreamWriter(output.outputStream(), Charsets.UTF_8).buffered().use {
                 CsvExport.write(readings, sittings, it)
             }
-            check(scheduleNext(context))
+            check(scheduleFile(context, output))
             return output
         } catch (error: Exception) {
             output.delete()
+            scheduler.cancel(jobId(output))
             throw error
         }
     }
@@ -74,15 +93,7 @@ internal object CsvShareCache {
 class CsvShareCleanupJobService : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Thread {
-            var retry = false
-            try {
-                CsvShareCache.cleanupExpired(this)
-                if (CsvShareCache.directory(this).listFiles()?.any(File::isFile) == true) {
-                    retry = !CsvShareCache.scheduleNext(this)
-                }
-            } catch (_: Exception) {
-                retry = true
-            }
+            val retry = runCatching { CsvShareCache.cleanupExpired(this) }.isFailure
             jobFinished(params, retry)
         }.start()
         return true

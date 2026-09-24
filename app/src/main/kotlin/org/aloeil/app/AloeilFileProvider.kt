@@ -26,5 +26,6 @@ class AloeilFileProvider : FileProvider() {
             throw FileNotFoundException("Temporary CSV expired")
         }
         return super.openFile(uri, mode)
+            ?: throw FileNotFoundException("Temporary CSV could not be opened")
     }
 }
