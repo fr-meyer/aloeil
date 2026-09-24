@@ -6,6 +6,8 @@ import android.app.job.JobScheduler
 import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
+import android.os.SystemClock
+import android.provider.Settings
 import java.io.File
 import java.util.UUID
 import java.io.OutputStreamWriter
@@ -22,13 +24,39 @@ internal object CsvShareCache {
 
     fun jobId(file: File): Int = JOB_ID_NAMESPACE or (file.name.hashCode() and JOB_ID_MASK)
 
+    private val shareName = Regex(
+        """^aloeil-readings-([0-9]+)-([0-9]+)-[0-9a-fA-F-]{36}\.csv$""",
+    )
+
     fun directory(context: Context): File = File(context.cacheDir, "aloeil-share")
 
-    fun isExpired(file: File, now: Long = System.currentTimeMillis()): Boolean =
-        now - file.lastModified() >= RETENTION_MILLIS
+    fun bootCount(context: Context): Int = runCatching {
+        Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
+    }.getOrDefault(-1)
 
-    fun cleanupExpired(context: Context, now: Long = System.currentTimeMillis()) {
-        directory(context).listFiles()?.filter { it.isFile && isExpired(it, now) }
+    fun newFile(context: Context, boot: Int, issuedElapsed: Long): File =
+        File(directory(context), "aloeil-readings-$boot-$issuedElapsed-" + UUID.randomUUID() + ".csv")
+
+    private fun lease(file: File): Pair<Int, Long>? {
+        val match = shareName.matchEntire(file.name) ?: return null
+        val boot = match.groupValues[1].toIntOrNull() ?: return null
+        val issued = match.groupValues[2].toLongOrNull() ?: return null
+        return boot to issued
+    }
+
+    fun isExpired(
+        context: Context,
+        file: File,
+        nowElapsed: Long = SystemClock.elapsedRealtime(),
+        currentBoot: Int = bootCount(context),
+    ): Boolean {
+        val (issuedBoot, issuedElapsed) = lease(file) ?: return true
+        return currentBoot < 0 || issuedBoot != currentBoot ||
+            nowElapsed < issuedElapsed || nowElapsed - issuedElapsed >= RETENTION_MILLIS
+    }
+
+    fun cleanupExpired(context: Context) {
+        directory(context).listFiles()?.filter { it.isFile && isExpired(context, it) }
             ?.forEach { check(it.delete()) { "Temporary CSV could not be removed" } }
     }
 
@@ -38,10 +66,11 @@ internal object CsvShareCache {
 
     /** Each file keeps its own persisted cleanup job, even if the chooser is cancelled. */
     fun scheduleFile(context: Context, file: File): Boolean {
-        val now = System.currentTimeMillis()
-        val expiresAt = if (file.isFile) file.lastModified() + RETENTION_MILLIS
-            else now + RETENTION_MILLIS
-        val delay = maxOf(1L, expiresAt - now)
+        val (issuedBoot, issuedElapsed) = lease(file) ?: return false
+        if (issuedBoot != bootCount(context)) return false
+        val delay = maxOf(
+            1L, issuedElapsed + RETENTION_MILLIS - SystemClock.elapsedRealtime(),
+        )
         val scheduler = context.getSystemService(JobScheduler::class.java)
         val info = JobInfo.Builder(
             jobId(file), ComponentName(context, CsvShareCleanupJobService::class.java),
@@ -67,8 +96,11 @@ internal object CsvShareCache {
         val folder = directory(context)
         check(folder.isDirectory || folder.mkdirs())
         val scheduler = context.getSystemService(JobScheduler::class.java)
+        val boot = bootCount(context)
+        check(boot >= 0) { "Boot identity is unavailable" }
+        val issuedElapsed = SystemClock.elapsedRealtime()
         val output = generateSequence {
-            File(folder, "aloeil-readings-" + UUID.randomUUID() + ".csv")
+            newFile(context, boot, issuedElapsed)
         }.first { candidate ->
             scheduler.getPendingJob(jobId(candidate)) == null &&
                 (folder.listFiles()?.none { it.isFile && jobId(it) == jobId(candidate) } ?: true)

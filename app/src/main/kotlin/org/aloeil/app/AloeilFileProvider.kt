@@ -21,7 +21,7 @@ class AloeilFileProvider : FileProvider() {
         if (file.parentFile != folder || !file.isFile) {
             throw FileNotFoundException("Temporary CSV is missing")
         }
-        if (CsvShareCache.isExpired(file)) {
+        if (CsvShareCache.isExpired(context, file)) {
             file.delete()
             throw FileNotFoundException("Temporary CSV expired")
         }
