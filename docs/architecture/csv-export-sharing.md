@@ -12,13 +12,13 @@ The file is UTF-8 and follows RFC 4180 quoting with CRLF rows. Schema
 version 1 has one row per current reading. Column names and order are
 stable:
 
-\`\`\`text
+```text
 aloeil_csv_version,reading_id,sitting_id,sitting_started_at_utc,sitting_finished_at_utc,recorded_at_utc,recorded_time_zone,eye,reading_kind,value_mmhg,note,revision,created_at_utc,updated_at_utc
-\`\`\`
+```
 
 UTC timestamps use ISO 8601. The recorded IANA time-zone ID is a separate
-column. The reading kind is \`NUMERIC\`, \`BELOW_RANGE\`, or
-\`ABOVE_RANGE\`; range-state rows have an empty numeric value. Missing
+column. The reading kind is `NUMERIC`, `BELOW_RANGE`, or
+`ABOVE_RANGE`; range-state rows have an empty numeric value. Missing
 legacy fields are empty cells. Each row includes its sitting start and
 finish times. User-controlled text cells receive a leading apostrophe when their first
 non-whitespace character could trigger a spreadsheet formula. The original
@@ -36,7 +36,7 @@ cache directory, passes only a content URI through FileProvider, and grants
 temporary read access. The user can clear these prepared files after the
 receiving app has read them. Files older than 24 hours are removed the
 next time the export screen opens. Copies held by recipients or document
-providers remain outside Aloeil's control. Android app backup is disabled.
+providers remain outside Aloeil's control. Android app backup and device-to-device extraction of app files are disabled.
 
 This feature uses synthetic fixtures in development and CI. P5 must still
 inspect the merged manifest, cache behavior, chooser cancellation,

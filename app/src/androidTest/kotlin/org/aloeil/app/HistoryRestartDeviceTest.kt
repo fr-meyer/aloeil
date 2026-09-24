@@ -52,8 +52,15 @@ class HistoryRestartDeviceTest {
             compose.setContent { AloeilApp(repo) }
             fun tap(label: String) {
                 val target = hasText(label) and hasClickAction()
-                compose.waitUntil(timeoutMillis = 10_000) {
-                    compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
+                try {
+                    compose.waitUntil(timeoutMillis = 10_000) {
+                        compose.onAllNodes(target).fetchSemanticsNodes().isNotEmpty()
+                    }
+                } catch (error: Exception) {
+                    throw AssertionError(
+                        "Could not tap: " + label + "\n" + compose.onRoot().printToString().take(4000),
+                        error,
+                    )
                 }
                 compose.onNode(target).performClick()
             }
@@ -61,9 +68,16 @@ class HistoryRestartDeviceTest {
             val label = context.getString(R.string.left_eye) + ": " +
                 context.getString(R.string.numeric_reading, "12.3")
             tap(label)
-            compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.history_detail_title)))
-                    .fetchSemanticsNodes().isNotEmpty()
+            try {
+                compose.waitUntil(timeoutMillis = 10_000) {
+                    compose.onAllNodes(hasText(context.getString(R.string.history_detail_title)))
+                        .fetchSemanticsNodes().isNotEmpty()
+                }
+            } catch (error: Exception) {
+                throw AssertionError(
+                    "Expected result missing: history_detail_title\n" + compose.onRoot().printToString().take(4000),
+                    error,
+                )
             }
         } finally {
             reopened.close()
