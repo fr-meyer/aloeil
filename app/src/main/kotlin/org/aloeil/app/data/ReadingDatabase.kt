@@ -107,9 +107,19 @@ interface ReadingDao {
     suspend fun insertOutbox(row: OutboxRow)
 
     @Transaction
-    suspend fun saveOnPhone(reading: ReadingRow, outbox: OutboxRow): ReadingRow {
+    suspend fun saveOnPhone(
+        reading: ReadingRow,
+        outbox: OutboxRow,
+        sittingId: String,
+        cipher: ReadingCipher,
+    ): ReadingRow {
         require(deletedReading(reading.id) == null) { "Reading ID was deleted" }
         this.reading(reading.id)?.let { return it }
+        val linked = sitting(sittingId) ?: throw IllegalArgumentException("Sitting does not exist")
+        val state = SittingPayloadCodec.decode(
+            linked.id, cipher.open(SealedPayload(linked.nonce, linked.ciphertext)),
+        )
+        require(state.finishedAtMillis == null) { "Sitting is already finished" }
         insertReading(reading)
         insertOutbox(outbox)
         return reading

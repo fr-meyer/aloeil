@@ -63,6 +63,8 @@ class ReadingRepository(
         val stored = dao.saveOnPhone(
             row,
             OutboxRow(readingId, readingId, 1, 0, time),
+            sittingId,
+            cipher,
         )
         val result = decode(stored)
         require(
