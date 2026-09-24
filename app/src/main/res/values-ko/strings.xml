@@ -128,4 +128,22 @@
     <string name="history_back">기록으로 돌아가기</string>
     <string name="history_graph_limit">일치하는 숫자 측정값이 2,000개를 넘습니다. 그래프를 보려면 날짜 범위를 좁히세요. 목록에는 모든 측정값이 있습니다.</string>
     <string name="history_show_more">측정값 50개 더 보기</string>
+    <string name="csv_title">CSV로 측정값 내보내기</string>
+    <string name="csv_disclosure">CSV는 암호화되지 않은 텍스트입니다. 현재의 모든 측정값, ID, 날짜, 시간대, 값과 메모가 포함됩니다. 저장 위치나 수신자는 Aloeil이 철회할 수 없는 사본을 보관할 수 있습니다. 내보내기 전에 기록을 확인하세요.</string>
+    <string name="csv_count">현재 측정값 %1$d개를 내보냅니다.</string>
+    <string name="csv_fields">현재 측정값마다 한 행이 있으며 기록 세션 날짜, 눈, 정확한 값 또는 기기 측정 범위 상태, 메모와 수정 버전이 포함됩니다. 삭제된 값과 이전 수정 버전은 제외됩니다.</string>
+    <string name="csv_sample_title">파일의 처음 세 측정값:</string>
+    <string name="csv_backup_reminder">수정 기록까지 완전히 복원하려면 암호화된 백업을 사용하세요.</string>
+    <string name="csv_save">CSV 저장 위치 선택</string>
+    <string name="csv_share">앱 또는 수신자 선택</string>
+    <string name="csv_choose_recipient">Aloeil CSV 공유</string>
+    <string name="csv_saved">CSV 파일이 저장되었습니다. 암호화되지 않았습니다.</string>
+    <string name="csv_chooser_opened">시스템 공유 화면에서 수신자를 선택하세요. Aloeil은 전달 여부를 확인할 수 없습니다.</string>
+    <string name="csv_load_error">측정값 목록을 준비하지 못했습니다. 다시 시도하세요.</string>
+    <string name="csv_write_error">CSV를 쓰지 못했습니다. 일부 파일이 생성되었다면 다시 시도하기 전에 삭제하세요.</string>
+    <string name="csv_share_error">공유 화면을 열지 못했습니다. 아무것도 전송되지 않았습니다.</string>
+    <string name="csv_cache_disclosure">공유 화면은 Aloeil의 비공개 캐시에 있는 임시 일반 텍스트 CSV를 사용합니다. 수신 앱이 파일을 읽은 뒤 삭제하세요. 수신 앱이 만든 사본은 Aloeil에서 삭제할 수 없습니다.</string>
+    <string name="csv_clear_cache">이 휴대전화의 임시 CSV 삭제</string>
+    <string name="csv_cache_cleared">이 휴대전화의 임시 CSV 파일이 삭제되었습니다.</string>
+    <string name="csv_cache_error">임시 CSV 파일을 삭제하지 못했습니다. 다시 시도하세요.</string>
 </resources>

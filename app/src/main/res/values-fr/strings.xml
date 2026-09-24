@@ -128,4 +128,22 @@
     <string name="history_back">Retour à l’historique</string>
     <string name="history_graph_limit">Plus de 2 000 mesures numériques correspondent. Réduisez la période pour afficher le graphique ; la liste reste complète.</string>
     <string name="history_show_more">Afficher 50 mesures de plus</string>
+    <string name="csv_title">Exporter les mesures en CSV</string>
+    <string name="csv_disclosure">Le CSV est en texte clair. Il contient toutes les mesures actuelles, y compris les identifiants, dates, fuseaux horaires, valeurs et notes. Le destinataire peut conserver une copie qu’Aloeil ne peut pas révoquer. Vérifiez l’historique avant d’exporter.</string>
+    <string name="csv_count">%1$d mesures actuelles seront exportées.</string>
+    <string name="csv_fields">Le fichier contient une ligne par mesure actuelle, avec les dates de séance, l’œil, la valeur exacte ou l’état hors plage, la note et la révision. Les mesures supprimées et les anciennes corrections sont omises.</string>
+    <string name="csv_sample_title">Trois premières mesures du fichier :</string>
+    <string name="csv_backup_reminder">Utilisez la sauvegarde chiffrée pour une copie complète et restaurable avec l’historique des corrections.</string>
+    <string name="csv_save">Choisir où enregistrer le CSV</string>
+    <string name="csv_share">Choisir une application ou un destinataire</string>
+    <string name="csv_choose_recipient">Partager le CSV Aloeil</string>
+    <string name="csv_saved">Fichier CSV enregistré. Il n’est pas chiffré.</string>
+    <string name="csv_chooser_opened">Choisissez un destinataire dans la feuille système. Aloeil ne confirme pas la livraison.</string>
+    <string name="csv_load_error">Impossible de préparer la liste des mesures. Réessayez.</string>
+    <string name="csv_write_error">Impossible d’écrire le CSV. Si un fichier partiel a été créé, supprimez-le avant de réessayer.</string>
+    <string name="csv_share_error">Impossible d’ouvrir le choix de partage. Rien n’a été envoyé.</string>
+    <string name="csv_cache_disclosure">Le choix de partage utilise un CSV temporaire en texte clair dans le cache privé d’Aloeil. Supprimez-le après la lecture par l’application destinataire ; les copies faites par celle-ci restent hors d’Aloeil.</string>
+    <string name="csv_clear_cache">Supprimer le CSV temporaire de ce téléphone</string>
+    <string name="csv_cache_cleared">Fichiers CSV temporaires supprimés de ce téléphone.</string>
+    <string name="csv_cache_error">Impossible de supprimer les fichiers CSV temporaires. Réessayez.</string>
 </resources>

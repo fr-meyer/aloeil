@@ -69,7 +69,7 @@ private enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
-    FINISH, FINISHED, DELETE_CONFIRM, DELETED, HISTORY, HISTORY_READING, ARCHIVE,
+    FINISH, FINISHED, DELETE_CONFIRM, DELETED, HISTORY, HISTORY_READING, CSV_EXPORT, ARCHIVE,
 }
 
 @Composable
@@ -86,6 +86,7 @@ private fun AloeilApp(repository: ReadingRepository) {
     var selectedSitting by remember { mutableStateOf<Sitting?>(null) }
     var fromHistory by remember { mutableStateOf(false) }
     var historyReturnStep by remember { mutableStateOf(Step.START) }
+    var csvReturnStep by remember { mutableStateOf(Step.START) }
     var captureSittingId by remember { mutableStateOf("") }
     var hasOpenSitting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -342,6 +343,11 @@ private fun AloeilApp(repository: ReadingRepository) {
         }
     }
 
+    fun enterCsv() {
+        csvReturnStep = step
+        step = Step.CSV_EXPORT
+    }
+
     fun enterHistory() {
         historyReturnStep = step
         captureSittingId = sittingId
@@ -404,6 +410,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         }
                         Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
                         Secondary(R.string.history_title, busy) { enterHistory() }
+                        Secondary(R.string.csv_title, busy) { enterCsv() }
                     }
                     Step.EYE, Step.CORRECT_EYE -> {
                         Heading(if (step == Step.EYE) R.string.choose_eye else R.string.correct_eye)
@@ -589,6 +596,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                         Action(R.string.start_sitting, busy) { beginSitting() }
                         Secondary(R.string.archive_title, busy) { step = Step.ARCHIVE }
                         Secondary(R.string.history_title, busy) { enterHistory() }
+                        Secondary(R.string.csv_title, busy) { enterCsv() }
                     }
                     Step.DELETE_CONFIRM -> {
                         Heading(R.string.delete_confirm_title)
@@ -641,6 +649,7 @@ private fun AloeilApp(repository: ReadingRepository) {
                             )
                         }
                     }
+                    Step.CSV_EXPORT -> CsvExportScreen(repository) { step = csvReturnStep }
                     Step.ARCHIVE -> ArchiveTransferScreen(repository) { step = Step.START }
                 }
                 message?.let {

@@ -129,4 +129,22 @@
     <string name="history_back">Back to history</string>
     <string name="history_graph_limit">More than 2,000 numeric readings match. Narrow the dates to view the graph; the list remains complete.</string>
     <string name="history_show_more">Show 50 more readings</string>
+    <string name="csv_title">Export readings as CSV</string>
+    <string name="csv_disclosure">CSV is plain text. It contains every current reading, including IDs, dates, time zones, values and notes. The destination or recipient may keep a copy that Aloeil cannot revoke. Review your history before exporting.</string>
+    <string name="csv_count">%1$d current readings will be exported.</string>
+    <string name="csv_fields">The file has one row per current reading, with sitting dates, eye, exact value or device range state, note and revision. Deleted readings and earlier correction versions are omitted.</string>
+    <string name="csv_sample_title">First three readings in the file:</string>
+    <string name="csv_backup_reminder">Use the encrypted backup for a complete, restorable copy with correction history.</string>
+    <string name="csv_save">Choose where to save CSV</string>
+    <string name="csv_share">Choose an app or recipient</string>
+    <string name="csv_choose_recipient">Share Aloeil CSV</string>
+    <string name="csv_saved">CSV file saved. It is unencrypted.</string>
+    <string name="csv_chooser_opened">Choose a recipient in the system sheet. Delivery is not confirmed by Aloeil.</string>
+    <string name="csv_load_error">Could not prepare the reading list. Try again.</string>
+    <string name="csv_write_error">Could not write the CSV. If a partial file was created, delete it before retrying.</string>
+    <string name="csv_share_error">Could not open the share chooser. Nothing was sent.</string>
+    <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Clear it after the receiving app has finished reading it; copies made by that app remain outside Aloeil.</string>
+    <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
+    <string name="csv_cache_cleared">Temporary CSV files cleared from this phone.</string>
+    <string name="csv_cache_error">Could not clear the temporary CSV files. Try again.</string>
 </resources>

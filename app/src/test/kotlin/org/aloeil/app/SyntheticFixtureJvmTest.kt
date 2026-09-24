@@ -2,11 +2,13 @@ package org.aloeil.app
 
 import java.util.Base64
 import java.time.Instant
+import java.io.StringWriter
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 
 import org.aloeil.app.data.ArchiveBundle
 import org.aloeil.app.data.ArchiveCodec
+import org.aloeil.app.data.CsvExport
 import org.aloeil.app.data.ArchivedOperation
 import org.aloeil.app.data.ArchivedVersion
 import org.aloeil.app.data.DraftCheckpoint
@@ -215,6 +217,34 @@ object SyntheticFixtureJvmTest {
         )
         check(ReadingPayloadCodec.decode(ReadingPayloadCodec.encode(payload)) == payload)
         check(SittingPayloadCodec.decode(sitting.id, SittingPayloadCodec.encode(sitting)) == sitting)
+        val csvRange = range.copy(
+            note = "=HYPERLINK(\"fake\",\"synthetic\")\nnext",
+        )
+        val csvWriter = StringWriter()
+        CsvExport.write(listOf(csvRange, synthetic), listOf(sitting), csvWriter)
+        val csvRows = parseCsvRows(csvWriter.toString())
+        check(csvRows.size == 3)
+        check(csvRows.first() == CsvExport.columns)
+        check(csvRows[1][1] == synthetic.id)
+        check(csvRows[2][1] == csvRange.id)
+        check(csvRows[2][6] == "Asia/Seoul")
+        check(csvRows[2][8] == RangeState.BELOW_RANGE.name)
+        check(csvRows[2][9].isEmpty())
+        check(csvRows[2][10] == "'=HYPERLINK(\"fake\",\"synthetic\")\nnext")
+        val hostileSitting = sitting.copy(id = "+synthetic-sitting")
+        val hostileReading = synthetic.copy(
+            id = "=synthetic-id", sittingId = hostileSitting.id,
+            timeZoneId = "+02:00",
+        )
+        val guarded = StringWriter()
+        CsvExport.write(listOf(hostileReading), listOf(hostileSitting), guarded)
+        val guardedRow = parseCsvRows(guarded.toString())[1]
+        check(guardedRow[1] == "'=synthetic-id")
+        check(guardedRow[2] == "'+synthetic-sitting")
+        check(guardedRow[6] == "'+02:00")
+        check(runCatching {
+            CsvExport.write(listOf(synthetic), emptyList(), StringWriter())
+        }.isFailure)
     }
 }
 
@@ -222,3 +252,37 @@ private data class SyntheticBuildFixture(
     val builder: String,
     val records: List<String>,
 )
+
+/** Independent small RFC 4180 reader for checking the exported synthetic fixture. */
+private fun parseCsvRows(csv: String): List<List<String>> {
+    val rows = mutableListOf<List<String>>()
+    var row = mutableListOf<String>()
+    val cell = StringBuilder()
+    var quoted = false
+    var index = 0
+    while (index < csv.length) {
+        val char = csv[index]
+        when {
+            char == '"' && quoted && index + 1 < csv.length && csv[index + 1] == '"' -> {
+                cell.append('"')
+                index++
+            }
+            char == '"' -> quoted = !quoted
+            char == ',' && !quoted -> {
+                row.add(cell.toString())
+                cell.clear()
+            }
+            char == '\r' && !quoted && index + 1 < csv.length && csv[index + 1] == '\n' -> {
+                row.add(cell.toString())
+                rows.add(row)
+                row = mutableListOf()
+                cell.clear()
+                index++
+            }
+            else -> cell.append(char)
+        }
+        index++
+    }
+    check(!quoted && row.isEmpty() && cell.isEmpty())
+    return rows
+}

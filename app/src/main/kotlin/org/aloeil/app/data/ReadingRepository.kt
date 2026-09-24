@@ -118,6 +118,11 @@ class ReadingRepository(
 
     suspend fun allSittings(): List<Sitting> = dao.allSittings().map(::decodeSitting)
 
+    suspend fun currentFactsSnapshot(): Pair<List<Reading>, List<Sitting>> {
+        val rows = dao.archiveSnapshot()
+        return rows.readings.map(::decode) to rows.sittings.map(::decodeSitting)
+    }
+
     suspend fun exportArchive(passphrase: CharArray): ByteArray {
         val snapshot = dao.archiveSnapshot()
         val bundle = ArchiveBundle(
