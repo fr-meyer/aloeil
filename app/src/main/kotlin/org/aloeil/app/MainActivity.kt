@@ -2,6 +2,7 @@ package org.aloeil.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,6 +66,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Keep the Activity and its composition alive until a local write settles. */
+@Composable
+internal fun BlockSystemBackWhileBusy(busy: Boolean) {
+    BackHandler(enabled = busy) { }
+}
+
 private enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
@@ -91,6 +98,8 @@ internal fun AloeilApp(repository: ReadingRepository) {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
     var valueError by remember { mutableStateOf<Int?>(null) }
+
+    BlockSystemBackWhileBusy(busy)
 
     LaunchedEffect(Unit) {
         try {

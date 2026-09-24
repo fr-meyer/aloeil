@@ -36,8 +36,8 @@ versions, correction operations, and pending outbox entries. It retains
 only a random reading ID and deletion time. The marker stops an older archive
 from silently restoring the reading on that phone. It does not erase copies
 in backup files the user previously saved. Import never deletes an existing
-phone reading. An incoming deletion marker that conflicts with an existing
-phone reading causes the entire restore to fail.
+phone reading. An incoming deletion marker for an active phone reading is
+ignored; unrelated missing records in the same archive can still be restored.
 
 Room schema version 2 adds deletion markers to version 1 with an explicit
 migration. A synthetic device test opens a version 1 database, migrates it,
