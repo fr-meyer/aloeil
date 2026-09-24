@@ -35,3 +35,16 @@ export, so a concurrent correction cannot produce a mixed archive snapshot.
 This is an implementation slice. Legacy migration and process-restart tests, the
 remaining metadata privacy decision, device accessibility validation, and a replica
 client are still required to complete P2. Development uses synthetic fixtures only.
+
+
+## Privacy threat model and user-facing limits
+
+| Situation | Current protection | Remaining exposure or action |
+| --- | --- | --- |
+| Lost or stolen locked phone | Android app-private storage and a Keystore-held key protect encrypted reading, sitting, and draft payloads. Android automatic app backup is disabled. | A weak or absent device lock, a compromised device, or access to the unlocked user profile can expose app data. The database still reveals random IDs, row counts, revision counts, and retry timing. |
+| Shared unlocked phone | Aloeil has no account or access roles. | Anyone using the same unlocked Android profile can open the app. The optional app lock described in the product brief is not implemented. Use a separate device profile or device lock until then. |
+| Portable archive | AES-GCM authenticates the full file; a passphrase-derived key is separate from the phone Keystore key. Import validates before making a transaction. | A guessable passphrase is vulnerable to offline guessing. Losing both the phone and the archive passphrase makes recovery impossible. The user must choose and retain a strong passphrase. |
+| Replica unavailable or empty | Phone saves and corrections do not wait for a network service. Import only adds records. | No replica destination or client is implemented yet. A pending backup label does not mean a second copy exists. |
+| Logs, analytics, and support | The app has no analytics, crash reporter, or network permission in its own manifest. Development fixtures are synthetic. | Device or OS diagnostics may still record app metadata. Support must not request real readings, archive files, passphrases, or screenshots containing readings. Review the merged manifest and network traffic before the pilot. |
+
+Suggested plain-language disclosure for the later backup screen: “Your readings are saved on this phone. A backup copy exists only after you create one and confirm where it was saved. Keep its passphrase separately. Anyone who can use your unlocked phone can open Aloeil until an app lock is available.” This copy needs French, English, and Korean localization and device validation before release.
