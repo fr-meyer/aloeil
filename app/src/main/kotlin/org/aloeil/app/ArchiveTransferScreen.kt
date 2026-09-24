@@ -1,5 +1,6 @@
 package org.aloeil.app
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -12,9 +13,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -45,7 +49,9 @@ private const val MAX_ARCHIVE_FILE_BYTES = 16 * 1024 * 1024 + 64
 internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var step by remember { mutableStateOf(TransferStep.CHOOSE) }
+    var step by rememberSaveable { mutableStateOf(TransferStep.CHOOSE) }
+    var pendingExportUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingImportUri by rememberSaveable { mutableStateOf<String?>(null) }
     var passphrase by remember { mutableStateOf("") }
     var archiveBytes by remember { mutableStateOf<ByteArray?>(null) }
     var preview by remember { mutableStateOf<ArchivePreview?>(null) }
@@ -55,33 +61,98 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     BlockSystemBackWhenUnsafe(busy)
 
+    // Never save the passphrase or decrypted archive in Activity saved state.
+    // A recreated picker result keeps only the chosen URI and asks for the secret again.
+    DisposableEffect(Unit) {
+        onDispose { archiveBytes?.fill(0) }
+    }
+    LaunchedEffect(step, archiveBytes) {
+        if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null) {
+            preview = null
+            passphrase = ""
+            error = R.string.archive_reenter_passphrase
+            step = TransferStep.IMPORT
+        }
+    }
+
+    fun writeArchive(uri: Uri, bytes: ByteArray) {
+        busy = true
+        error = null
+        scope.launch {
+            val saved = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                        output.write(bytes)
+                        output.flush()
+                    } ?: throw IllegalStateException("Cannot open backup destination")
+                }
+            }.isSuccess
+            bytes.fill(0)
+            busy = false
+            if (saved) {
+                step = TransferStep.EXPORT_DONE
+            } else {
+                error = R.string.archive_write_error
+                step = TransferStep.EXPORT
+            }
+        }
+    }
+
+    fun previewArchive(uri: Uri) {
+        busy = true
+        error = null
+        val secret = passphrase.toCharArray()
+        scope.launch {
+            val result = try {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val bytes = context.contentResolver.openInputStream(uri)?.use(::readArchive)
+                            ?: throw IllegalStateException("Cannot open archive")
+                        try {
+                            bytes to repository.previewArchive(bytes, secret)
+                        } catch (error: Exception) {
+                            bytes.fill(0)
+                            throw error
+                        }
+                    }
+                }
+            } finally {
+                secret.fill('\u0000')
+            }
+            busy = false
+            result.onSuccess { (bytes, counts) ->
+                archiveBytes?.fill(0)
+                archiveBytes = bytes
+                preview = counts
+                step = TransferStep.IMPORT_PREVIEW
+            }.onFailure {
+                passphrase = ""
+                error = R.string.archive_read_error
+                step = TransferStep.IMPORT
+            }
+        }
+    }
+
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
         val bytes = archiveBytes
         archiveBytes = null
-        if (uri == null || bytes == null) {
-            bytes?.fill(0)
-            step = TransferStep.EXPORT
-        } else {
-            busy = true
-            scope.launch {
-                val saved = runCatching {
-                    withContext(Dispatchers.IO) {
-                        context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                            output.write(bytes)
-                            output.flush()
-                        } ?: throw IllegalStateException("Cannot open backup destination")
-                    }
-                }.isSuccess
-                bytes.fill(0)
-                busy = false
-                if (saved) {
-                    step = TransferStep.EXPORT_DONE
-                } else {
-                    error = R.string.archive_write_error
-                    step = TransferStep.EXPORT
-                }
+        when {
+            uri == null -> {
+                bytes?.fill(0)
+                pendingExportUri = null
+                step = TransferStep.EXPORT
+            }
+            bytes == null -> {
+                pendingExportUri = uri.toString()
+                passphrase = ""
+                error = R.string.archive_reenter_passphrase
+                step = TransferStep.EXPORT
+            }
+            else -> {
+                pendingExportUri = null
+                writeArchive(uri, bytes)
             }
         }
     }
@@ -89,39 +160,21 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     val openDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
-        if (uri != null) {
-            busy = true
-            error = null
-            scope.launch {
-                val result = runCatching {
-                    withContext(Dispatchers.IO) {
-                        val bytes = context.contentResolver.openInputStream(uri)?.use(::readArchive)
-                            ?: throw IllegalStateException("Cannot open archive")
-                        val secret = passphrase.toCharArray()
-                        try {
-                            bytes to repository.previewArchive(bytes, secret)
-                        } catch (error: Exception) {
-                            bytes.fill(0)
-                            throw error
-                        } finally {
-                            secret.fill('\u0000')
-                        }
-                    }
-                }
-                busy = false
-                result.onSuccess { (bytes, counts) ->
-                    archiveBytes?.fill(0)
-                    archiveBytes = bytes
-                    preview = counts
-                    step = TransferStep.IMPORT_PREVIEW
-                }.onFailure {
-                    passphrase = ""
-                    error = R.string.archive_read_error
-                    step = TransferStep.IMPORT
-                }
+        when {
+            uri == null -> {
+                pendingImportUri = null
+                passphrase = ""
+                step = TransferStep.IMPORT
             }
-        } else {
-            passphrase = ""
+            passphrase.isEmpty() -> {
+                pendingImportUri = uri.toString()
+                error = R.string.archive_reenter_passphrase
+                step = TransferStep.IMPORT
+            }
+            else -> {
+                pendingImportUri = null
+                previewArchive(uri)
+            }
         }
     }
 
@@ -145,9 +198,15 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             }
             busy = false
             result.onSuccess { bytes ->
-                archiveBytes = bytes
+                val selected = pendingExportUri
                 passphrase = ""
-                createDocument.launch("aloeil-backup.aloeil")
+                if (selected == null) {
+                    archiveBytes = bytes
+                    createDocument.launch("aloeil-backup.aloeil")
+                } else {
+                    pendingExportUri = null
+                    writeArchive(Uri.parse(selected), bytes)
+                }
             }.onFailure { error = R.string.archive_export_error }
         }
     }
@@ -201,9 +260,14 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 TransferHeading(R.string.archive_create)
                 Text(stringResource(R.string.archive_export_explain))
                 PassphraseField(passphrase) { passphrase = it; error = null }
-                TransferButton(R.string.archive_choose_destination, busy) { prepareExport() }
+                TransferButton(
+                    if (pendingExportUri == null) R.string.archive_choose_destination
+                    else R.string.archive_write_selected_file,
+                    busy,
+                ) { prepareExport() }
                 TransferSecondary(R.string.back, busy) {
                     passphrase = ""
+                    pendingExportUri = null
                     step = TransferStep.CHOOSE
                 }
             }
@@ -216,11 +280,21 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 TransferHeading(R.string.archive_restore)
                 Text(stringResource(R.string.archive_import_explain))
                 PassphraseField(passphrase) { passphrase = it; error = null }
-                TransferButton(R.string.archive_choose_file, busy || passphrase.isEmpty()) {
-                    openDocument.launch(arrayOf("*/*"))
+                TransferButton(
+                    if (pendingImportUri == null) R.string.archive_choose_file
+                    else R.string.archive_review_selected_file,
+                    busy || passphrase.isEmpty(),
+                ) {
+                    val selected = pendingImportUri
+                    if (selected == null) openDocument.launch(arrayOf("*/*"))
+                    else {
+                        pendingImportUri = null
+                        previewArchive(Uri.parse(selected))
+                    }
                 }
                 TransferSecondary(R.string.back, busy) {
                     passphrase = ""
+                    pendingImportUri = null
                     step = TransferStep.CHOOSE
                 }
             }
