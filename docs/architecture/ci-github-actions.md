@@ -13,7 +13,7 @@ Pull requests run JVM unit tests only. The workflow does not start an emulator a
 | JDK | Eclipse Temurin 17 LTS via `actions/setup-java` |
 | Gradle | 8.11.1 via `gradle/wrapper/gradle-wrapper.properties` |
 | Gradle binary SHA-256 | `f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6` |
-| Android Gradle Plugin | 8.9.1 |
+| Android Gradle Plugin | 8.10.0 |
 | Kotlin and Compose compiler plugin | 2.2.10 |
 | Android compile/target SDK | 35 |
 | Android build tools | 35.0.0 |
