@@ -66,10 +66,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Keep the Activity and its composition alive until a local write settles. */
+/** Explicit in-app Back owns navigation while a draft or write is active. */
 @Composable
-internal fun BlockSystemBackWhileBusy(busy: Boolean) {
-    BackHandler(enabled = busy) { }
+internal fun BlockSystemBackWhenUnsafe(enabled: Boolean) {
+    BackHandler(enabled = enabled) { }
 }
 
 private enum class Step {
@@ -99,7 +99,12 @@ internal fun AloeilApp(repository: ReadingRepository) {
     var message by remember { mutableStateOf<Int?>(null) }
     var valueError by remember { mutableStateOf<Int?>(null) }
 
-    BlockSystemBackWhileBusy(busy)
+    val editingDraft = step in setOf(
+        Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW,
+        Step.CORRECT_CHOICE, Step.CORRECT_EYE, Step.CORRECT_VALUE, Step.CORRECT_NOTE,
+        Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE,
+    )
+    BlockSystemBackWhenUnsafe(busy || editingDraft)
 
     LaunchedEffect(Unit) {
         try {
