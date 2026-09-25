@@ -81,12 +81,24 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Stop before touching the database if key deletion fails. A later database error
- * can still leave an unreadable store; the recovery screen reports that possibility.
+/** Distinguishes a failed database reset from key cleanup after deletion. */
+internal class RecoveryResetFailure(val databaseDeleted: Boolean, cause: Exception) :
+    Exception(cause)
+
+/** Keep the key if deleting the database fails. A key cleanup failure after
+ * successful deletion is reported separately so the UI never implies no data changed.
  */
 internal fun resetUnreadableLocalStore(deleteKey: () -> Unit, deleteDatabase: () -> Unit) {
-    deleteKey()
-    deleteDatabase()
+    try {
+        deleteDatabase()
+    } catch (failure: Exception) {
+        throw RecoveryResetFailure(databaseDeleted = false, cause = failure)
+    }
+    try {
+        deleteKey()
+    } catch (failure: Exception) {
+        throw RecoveryResetFailure(databaseDeleted = true, cause = failure)
+    }
 }
 
 /** Explicit in-app Back owns navigation while a draft or write is active. */
@@ -476,6 +488,13 @@ internal fun AloeilApp(
                                 try {
                                     resetUnreadableStore?.invoke()
                                         ?: error("Recovery reset is unavailable")
+                                } catch (failure: RecoveryResetFailure) {
+                                    message = if (failure.databaseDeleted) {
+                                        R.string.recovery_key_cleanup_error
+                                    } else {
+                                        R.string.recovery_reset_error
+                                    }
+                                    step = Step.RECOVERY
                                 } catch (_: Exception) {
                                     message = R.string.recovery_reset_error
                                     step = Step.RECOVERY
