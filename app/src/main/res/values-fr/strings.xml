@@ -147,6 +147,7 @@
     <string name="csv_chooser_opened">Choisissez un destinataire dans la feuille système. Aloeil ne confirme pas la livraison.</string>
     <string name="csv_load_error">Impossible de préparer la liste des mesures. Réessayez.</string>
     <string name="csv_write_error">Impossible d’écrire le CSV. Si un fichier partiel a été créé, supprimez-le avant de réessayer.</string>
+    <string name="csv_write_interrupted">L’enregistrement du CSV a été interrompu. Le fichier choisi est peut-être incomplet ; supprimez-le et enregistrez une nouvelle copie.</string>
     <string name="csv_share_error">Impossible d’ouvrir le choix de partage. Rien n’a été envoyé.</string>
     <string name="csv_cache_disclosure">Le choix de partage utilise un CSV temporaire en texte clair dans le cache privé d’Aloeil. Aloeil programme sa suppression après une heure ; vous pouvez le supprimer plus tôt une fois lu par le destinataire. Les copies faites par l’application destinataire restent hors d’Aloeil.</string>
     <string name="csv_clear_cache">Supprimer le CSV temporaire de ce téléphone</string>
@@ -161,5 +162,5 @@
     <string name="recovery_confirm_reset">Supprimer et réinitialiser</string>
     <string name="recovery_reset_error">La réinitialisation a été interrompue. Les mesures locales sont peut-être déjà illisibles ou supprimées. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
     <string name="recovery_key_cleanup_error">Les mesures locales ont été supprimées, mais la clé de chiffrement n’a pas pu être effacée. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
-    <string name="recovery_draft_discarded">Un brouillon non enregistré et illisible a été supprimé. Vos mesures enregistrées restent disponibles.</string>
+    <string name="recovery_draft_discarded">Un brouillon non enregistré et illisible a été supprimé. Les mesures déjà enregistrées ont été conservées.</string>
 </resources>

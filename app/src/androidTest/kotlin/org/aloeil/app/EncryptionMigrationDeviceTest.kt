@@ -28,7 +28,6 @@ import org.aloeil.app.data.SealedPayload
 import org.aloeil.app.data.Sitting
 import org.aloeil.app.data.SittingPayloadCodec
 import org.aloeil.app.data.SittingRow
-import org.aloeil.app.data.UnreadableLocalStoreException
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -150,7 +149,7 @@ class EncryptionMigrationDeviceTest {
     }
 
     @Test
-    fun onlyCorruptDraftIsPreservedForExplicitRecovery() = runBlocking {
+    fun onlyCorruptDraftIsDiscardedAndStaysGoneAfterReopen() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
         val cipher = AndroidKeystoreReadingCipher("aloeil-test-only-draft-" + UUID.randomUUID())
@@ -164,9 +163,10 @@ class EncryptionMigrationDeviceTest {
             }
             db.readings().saveDraft(DraftRow(nonce = draft.nonce, ciphertext = damaged))
             val repo = ReadingRepository(db.readings(), cipher)
-            check(runCatching { repo.verifyReadable() }.exceptionOrNull()
-                is UnreadableLocalStoreException)
-            check(db.readings().draft()?.ciphertext?.contentEquals(damaged) == true)
+            check(repo.verifyReadable())
+            check(db.readings().draft() == null)
+            check(repo.recoverDraft() == null)
+            check(!ReadingRepository(db.readings(), cipher).verifyReadable())
         } finally {
             db.close()
             cipher.deleteKeyForRecovery()

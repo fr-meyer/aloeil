@@ -148,6 +148,7 @@
     <string name="csv_chooser_opened">Choose a recipient in the system sheet. Delivery is not confirmed by Aloeil.</string>
     <string name="csv_load_error">Could not prepare the reading list. Try again.</string>
     <string name="csv_write_error">Could not write the CSV. If a partial file was created, delete it before retrying.</string>
+    <string name="csv_write_interrupted">The CSV save was interrupted. The selected file may be incomplete; delete it and save a new copy.</string>
     <string name="csv_share_error">Could not open the share chooser. Nothing was sent.</string>
     <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Aloeil schedules its deletion after one hour; you can clear it sooner once the recipient has read it. Copies made by the receiving app remain outside Aloeil.</string>
     <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
@@ -162,5 +163,5 @@
     <string name="recovery_confirm_reset">Delete local data and reset</string>
     <string name="recovery_reset_error">The reset was interrupted. Local readings may already be unreadable or deleted. No backup was imported. Try again or leave the app.</string>
     <string name="recovery_key_cleanup_error">Local readings were deleted, but the encryption key could not be cleared. No backup was imported. Try again or leave the app.</string>
-    <string name="recovery_draft_discarded">An unreadable unsaved draft was removed. Your saved readings remain available.</string>
+    <string name="recovery_draft_discarded">An unreadable unsaved draft was removed. Any saved readings were kept.</string>
 </resources>
