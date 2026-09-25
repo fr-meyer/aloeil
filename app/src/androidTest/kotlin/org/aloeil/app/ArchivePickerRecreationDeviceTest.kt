@@ -1,7 +1,10 @@
 package org.aloeil.app
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Activity
 import android.content.Context
+import android.os.Bundle
+import android.widget.TextView
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -33,7 +36,7 @@ class ArchivePickerRecreationDeviceTest {
         }
         fun pickerActive(): Boolean = runCatching {
             val owner = automation.rootInActiveWindow?.packageName?.toString()
-            owner != null && owner != context.packageName
+            owner == InstrumentationRegistry.getInstrumentation().context.packageName
         }.getOrDefault(false)
         fun cancelAfterRecreation(returnLabel: Int) {
             compose.waitUntil(timeoutMillis = 15_000) { pickerActive() }
@@ -56,5 +59,13 @@ class ArchivePickerRecreationDeviceTest {
         compose.onNode(hasSetTextAction()).performTextInput("synthetic-recreation-only")
         tap(R.string.archive_choose_file)
         cancelAfterRecreation(R.string.archive_choose_file)
+    }
+}
+
+/** A cancelable document picker supplied only by the instrumentation APK. */
+class SyntheticDocumentPickerActivity : Activity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(TextView(this).apply { text = "Synthetic document picker" })
     }
 }
