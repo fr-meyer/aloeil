@@ -41,12 +41,15 @@ public final class SyntheticCsvProvider extends ContentProvider {
 
     @Override
     public String getType(Uri uri) {
-        return "text/csv";
+        return "export.archive".equals(uri.getLastPathSegment())
+                ? "application/octet-stream" : "text/csv";
     }
 
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        File file = new File(Objects.requireNonNull(getContext()).getCacheDir(), "synthetic-csv-save.csv");
+        File file = new File(Objects.requireNonNull(getContext()).getCacheDir(),
+                "export.archive".equals(uri.getLastPathSegment())
+                        ? "synthetic-archive-save.bin" : "synthetic-csv-save.csv");
         if ("r".equals(mode)) {
             return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
         }

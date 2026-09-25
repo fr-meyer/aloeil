@@ -65,6 +65,7 @@ class ArchiveBackDuringTransferDeviceTest {
             tap(R.string.archive_create)
             compose.onNode(hasSetTextAction()).performTextInput("synthetic-passphrase-only")
             tap(R.string.archive_choose_destination)
+            // Snapshot decryption runs before the document picker opens.
             check(enteredRead.await(10, TimeUnit.SECONDS))
             compose.onNode(hasText(context.getString(R.string.archive_choose_destination)))
                 .assertIsNotEnabled()
