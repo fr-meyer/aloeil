@@ -2,6 +2,7 @@ package org.aloeil.app
 
 import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +48,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<Int?>(null) }
     var result by remember { mutableStateOf<Int?>(null) }
+    var pendingSaveUri by rememberSaveable { mutableStateOf<String?>(null) }
     var hasShareFile by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -60,36 +63,41 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         }.onSuccess { (data, previousShare) ->
             snapshot = data
             hasShareFile = previousShare
+        }.onFailure {
+            pendingSaveUri = null
+            busy = false
+            error = R.string.csv_load_error
         }
-            .onFailure { error = R.string.csv_load_error }
+    }
+
+    // Save only the URI across Activity recreation. Rebuild the CSV from the
+    // repository after the snapshot has loaded; never save plaintext CSV in state.
+    LaunchedEffect(pendingSaveUri, snapshot != null) {
+        val selected = pendingSaveUri ?: return@LaunchedEffect
+        val data = snapshot ?: return@LaunchedEffect
+        busy = true
+        error = null
+        val saved = runCatching {
+            withContext(Dispatchers.IO) {
+                val stream = context.contentResolver.openOutputStream(Uri.parse(selected), "wt")
+                    ?: throw IllegalStateException("Cannot open CSV destination")
+                OutputStreamWriter(stream, Charsets.UTF_8).buffered().use { writer ->
+                    CsvExport.write(data.first, data.second, writer)
+                }
+            }
+        }.isSuccess
+        pendingSaveUri = null
+        busy = false
+        if (saved) result = R.string.csv_saved else error = R.string.csv_write_error
     }
 
     val createDocument = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(CsvExport.mimeType),
     ) { uri ->
-        val data = snapshot
-        if (uri == null) {
-            result = null
-            error = null
-        } else if (data == null) {
-            error = R.string.csv_write_error
-        } else {
-            busy = true
-            error = null
-            scope.launch {
-                val saved = runCatching {
-                    withContext(Dispatchers.IO) {
-                        val stream = context.contentResolver.openOutputStream(uri, "wt")
-                            ?: throw IllegalStateException("Cannot open CSV destination")
-                        OutputStreamWriter(stream, Charsets.UTF_8).buffered().use { writer ->
-                            CsvExport.write(data.first, data.second, writer)
-                        }
-                    }
-                }.isSuccess
-                busy = false
-                if (saved) result = R.string.csv_saved else error = R.string.csv_write_error
-            }
-        }
+        result = null
+        error = null
+        pendingSaveUri = uri?.toString()
+        busy = uri != null
     }
 
     fun share() {

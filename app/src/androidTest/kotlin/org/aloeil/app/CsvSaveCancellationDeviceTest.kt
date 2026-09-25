@@ -39,6 +39,24 @@ class CsvSaveCancellationDeviceTest {
             automation.rootInActiveWindow?.packageName?.toString() ==
                 instrumentation.context.packageName
         }
+        var originalActivity = 0
+        compose.activityRule.scenario.onActivity { activity ->
+            originalActivity = System.identityHashCode(activity)
+            activity.recreate()
+        }
+        compose.waitUntil(timeoutMillis = 15_000) {
+            runCatching {
+                var recreated = false
+                compose.activityRule.scenario.onActivity { activity ->
+                    recreated = System.identityHashCode(activity) != originalActivity
+                }
+                recreated
+            }.getOrDefault(false)
+        }
+        compose.waitUntil(timeoutMillis = 15_000) {
+            automation.rootInActiveWindow?.packageName?.toString() ==
+                instrumentation.context.packageName
+        }
         val choose = automation.rootInActiveWindow
             ?.findAccessibilityNodeInfosByText("Select synthetic CSV")
             ?.firstOrNull { it.isClickable }
@@ -46,6 +64,8 @@ class CsvSaveCancellationDeviceTest {
         compose.waitUntil(timeoutMillis = 15_000) {
             compose.onAllNodes(saved).fetchSemanticsNodes().isNotEmpty()
         }
+        val savedFile = java.io.File(instrumentation.context.cacheDir, "synthetic-csv-save.csv")
+        check(savedFile.isFile && savedFile.readText().contains("sitting"))
         tap(R.string.csv_save)
         compose.waitUntil(timeoutMillis = 15_000) {
             automation.rootInActiveWindow?.packageName?.toString() ==

@@ -52,6 +52,7 @@ class MissingKeyRecoveryDeviceTest {
             compose.setContent {
                 AloeilApp(unreadable, resetUnreadableStore = {
                     confirmedResets.incrementAndGet()
+                    throw IllegalStateException("synthetic reset failure")
                 })
             }
             fun tap(id: Int) {
@@ -69,9 +70,33 @@ class MissingKeyRecoveryDeviceTest {
             tap(R.string.recovery_prepare_reset)
             tap(R.string.recovery_confirm_reset)
             compose.waitUntil(timeoutMillis = 5_000) { confirmedResets.get() == 1 }
+            compose.waitUntil(timeoutMillis = 5_000) {
+                compose.onAllNodes(hasText(context.getString(R.string.recovery_reset_error)))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            runBlocking { check(db.readings().allReadings().size == 1) }
         } finally {
             db.close()
         }
+    }
+
+    @Test
+    fun failedKeyDeletionNeverStartsDatabaseDeletion() {
+        val calls = mutableListOf<String>()
+        val failure = IllegalStateException("synthetic key failure")
+        val thrown = runCatching {
+            resetUnreadableLocalStore(
+                deleteKey = { calls += "key"; throw failure },
+                deleteDatabase = { calls += "database" },
+            )
+        }.exceptionOrNull()
+        check(thrown === failure)
+        check(calls == listOf("key"))
+        resetUnreadableLocalStore(
+            deleteKey = { calls += "key" },
+            deleteDatabase = { calls += "database" },
+        )
+        check(calls == listOf("key", "key", "database"))
     }
 
     @Test
