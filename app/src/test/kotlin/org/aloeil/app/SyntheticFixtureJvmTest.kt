@@ -71,6 +71,17 @@ object SyntheticFixtureJvmTest {
         check(runCatching {
             ArchiveCodec.encode(bundle, "x".repeat(ArchiveCodec.MAX_PASSPHRASE_LENGTH + 1).toCharArray())
         }.isFailure)
+        val longIdSuffix = "x".repeat(59_980)
+        val oversized = ArchiveBundle(
+            readings = emptyList(),
+            sittings = List(280) { index ->
+                Sitting("synthetic-$index-$longIdSuffix", 1_700_000_000_000L, null)
+            },
+            versions = emptyList(),
+            operations = emptyList(),
+        )
+        val overflow = runCatching { ArchiveCodec.encode(oversized, passphrase) }.exceptionOrNull()
+        check(overflow is IllegalArgumentException && overflow.message == "Archive is too large")
         val archive = ArchiveCodec.encode(bundle, passphrase)
         check(ArchiveCodec.decode(archive, passphrase) == bundle)
         // Fixed synthetic v2 archive preserves the prior revision and operation ID.
