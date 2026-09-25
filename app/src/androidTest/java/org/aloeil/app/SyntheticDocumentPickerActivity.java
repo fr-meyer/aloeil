@@ -12,13 +12,17 @@ public final class SyntheticDocumentPickerActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        boolean csv = "text/csv".equals(getIntent().getType());
+        boolean archive = "application/octet-stream".equals(getIntent().getType());
         if (Intent.ACTION_CREATE_DOCUMENT.equals(getIntent().getAction())
-                && "text/csv".equals(getIntent().getType())) {
+                && (csv || archive)) {
             Button choose = new Button(this);
-            choose.setText("Select synthetic CSV");
+            choose.setText(csv ? "Select synthetic CSV" : "Select synthetic archive");
             choose.setOnClickListener(view -> {
                 Intent result = new Intent();
-                result.setData(Uri.parse("content://org.aloeil.app.test.syntheticcsv/export.csv"));
+                result.setData(Uri.parse(csv
+                        ? "content://org.aloeil.app.test.syntheticcsv/export.csv"
+                        : "content://org.aloeil.app.test.syntheticcsv/export.archive"));
                 result.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 setResult(RESULT_OK, result);
                 finish();
