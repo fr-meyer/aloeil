@@ -2,6 +2,8 @@ package org.aloeil.app
 
 import android.accessibilityservice.AccessibilityService
 import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.content.Context
 import android.os.Bundle
 import android.widget.TextView
@@ -17,6 +19,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.aloeil.app.data.CsvExport
 
 /** Picker cancellation after Activity recreation must return to a usable archive screen. */
 @RunWith(AndroidJUnit4::class)
@@ -77,8 +80,24 @@ class ArchivePickerRecreationDeviceTest {
 
 /** A cancelable document picker supplied only by the instrumentation APK. */
 class SyntheticDocumentPickerActivity : Activity() {
+    companion object {
+        private var csvRequests = 0
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.action == Intent.ACTION_CREATE_DOCUMENT && intent.type == CsvExport.mimeType) {
+            csvRequests += 1
+            if (csvRequests == 1) {
+                setResult(
+                    RESULT_OK,
+                    Intent().setData(Uri.parse("content://org.aloeil.app.test.syntheticcsv/export.csv"))
+                        .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION),
+                )
+                finish()
+                return
+            }
+        }
         setContentView(TextView(this).apply { text = "Synthetic document picker" })
     }
 }

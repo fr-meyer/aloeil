@@ -68,9 +68,12 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         ActivityResultContracts.CreateDocument(CsvExport.mimeType),
     ) { uri ->
         val data = snapshot
-        if (uri != null && data == null) {
+        if (uri == null) {
+            result = null
+            error = null
+        } else if (data == null) {
             error = R.string.csv_write_error
-        } else if (uri != null && data != null) {
+        } else {
             busy = true
             error = null
             scope.launch {
@@ -93,6 +96,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         val data = snapshot ?: return
         busy = true
         error = null
+        result = null
         scope.launch {
             val file = runCatching {
                 withContext(Dispatchers.IO) {
@@ -147,7 +151,11 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         Text(stringResource(R.string.csv_backup_reminder))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
-                onClick = { createDocument.launch(CsvExport.fileName) },
+                onClick = {
+                    result = null
+                    error = null
+                    createDocument.launch(CsvExport.fileName)
+                },
                 enabled = !busy,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.csv_save)) }
