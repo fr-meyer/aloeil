@@ -14,6 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,7 +38,6 @@ import org.aloeil.app.data.CsvExport
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingRepository
 import org.aloeil.app.data.Sitting
-import java.io.OutputStreamWriter
 
 /** CSV is plain text. The user reviews its scope before choosing a file or recipient. */
 @Composable
@@ -45,11 +45,15 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<Pair<List<Reading>, List<Sitting>>?>(null) }
-    var busy by remember { mutableStateOf(false) }
+    var pendingSaveUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeSaveId by rememberSaveable { mutableStateOf<String?>(null) }
+    val saveState by csvSaveJob.state.collectAsState()
+    var busy by remember { mutableStateOf(pendingSaveUri != null || activeSaveId != null) }
     var error by remember { mutableStateOf<Int?>(null) }
     var result by remember { mutableStateOf<Int?>(null) }
-    var pendingSaveUri by rememberSaveable { mutableStateOf<String?>(null) }
     var hasShareFile by remember { mutableStateOf(false) }
+
+    BlockSystemBackWhenUnsafe(busy)
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -65,30 +69,49 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
             hasShareFile = previousShare
         }.onFailure {
             pendingSaveUri = null
-            busy = false
+            if (activeSaveId == null) busy = false
             error = R.string.csv_load_error
         }
     }
 
-    // Save only the URI across Activity recreation. Rebuild the CSV from the
-    // repository after the snapshot has loaded; never save plaintext CSV in state.
+    // Save only the destination and job ID across Activity recreation. The
+    // process-owned job writes the loaded snapshot exactly once.
     LaunchedEffect(pendingSaveUri, snapshot != null) {
         val selected = pendingSaveUri ?: return@LaunchedEffect
         val data = snapshot ?: return@LaunchedEffect
+        pendingSaveUri = null
         busy = true
         error = null
-        val saved = runCatching {
-            withContext(Dispatchers.IO) {
-                val stream = context.contentResolver.openOutputStream(Uri.parse(selected), "wt")
-                    ?: throw IllegalStateException("Cannot open CSV destination")
-                OutputStreamWriter(stream, Charsets.UTF_8).buffered().use { writer ->
-                    CsvExport.write(data.first, data.second, writer)
+        activeSaveId = runCatching {
+            csvSaveJob.start(context, Uri.parse(selected), data.first, data.second)
+        }.getOrElse {
+            busy = false
+            error = R.string.csv_write_error
+            null
+        }
+    }
+
+    LaunchedEffect(activeSaveId, saveState) {
+        val id = activeSaveId ?: return@LaunchedEffect
+        when (val state = saveState) {
+            is CsvSaveState.Writing -> if (state.id == id) busy = true
+            is CsvSaveState.Finished -> if (state.id == id) {
+                activeSaveId = null
+                busy = false
+                if (state.saved) {
+                    error = null
+                    result = R.string.csv_saved
+                } else {
+                    result = null
+                    error = R.string.csv_write_error
                 }
             }
-        }.isSuccess
-        pendingSaveUri = null
-        busy = false
-        if (saved) result = R.string.csv_saved else error = R.string.csv_write_error
+            else -> {
+                activeSaveId = null
+                busy = false
+                error = R.string.csv_write_interrupted
+            }
+        }
     }
 
     val createDocument = rememberLauncherForActivityResult(
