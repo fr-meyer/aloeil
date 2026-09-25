@@ -159,4 +159,5 @@
     <string name="recovery_confirm_body">이 작업은 기록, 임시 저장 내용, 삭제 표시를 포함한 이 휴대전화의 Aloeil 데이터베이스를 영구적으로 삭제합니다. 다른 곳에 저장한 백업 파일은 삭제하지 않습니다. 초기화 후 “백업 또는 복원”에서 암호화된 백업을 가져오세요.</string>
     <string name="recovery_confirm_reset">로컬 데이터 삭제 및 초기화</string>
     <string name="recovery_reset_error">초기화가 중단되었습니다. 로컬 측정값을 이미 읽을 수 없거나 삭제되었을 수 있습니다. 가져온 백업은 없습니다. 다시 시도하거나 앱을 종료하세요.</string>
+    <string name="recovery_key_cleanup_error">로컬 측정값은 삭제되었지만 암호화 키를 지울 수 없었습니다. 가져온 백업은 없습니다. 다시 시도하거나 앱을 종료하세요.</string>
 </resources>
