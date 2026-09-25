@@ -157,7 +157,7 @@ internal fun AloeilApp(
 
     LaunchedEffect(Unit) {
         try {
-            withContext(Dispatchers.IO) { repository.verifyReadable() }
+            val discardedDraft = withContext(Dispatchers.IO) { repository.verifyReadable() }
             val recovered = withContext(Dispatchers.IO) { repository.recoverDraft() }
             if (recovered != null) {
                 val (draft, committed) = recovered
@@ -185,6 +185,7 @@ internal fun AloeilApp(
                     sittingId = open.id
                     hasOpenSitting = true
                 }
+                if (discardedDraft) message = R.string.recovery_draft_discarded
                 step = when {
                     csvReturnPending -> Step.CSV_EXPORT
                     archiveReturnPending -> Step.ARCHIVE
