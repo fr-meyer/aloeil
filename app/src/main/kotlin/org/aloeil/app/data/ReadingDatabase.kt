@@ -103,7 +103,8 @@ interface ReadingDao {
      * A crash before commit keeps every old row and key; a crash after commit can retry cleanup.
      */
     @Transaction
-    suspend fun migrateLegacyEncryption(cipher: AndroidKeystoreReadingCipher) {
+    suspend fun migrateLegacyEncryption(cipher: AndroidKeystoreReadingCipher): Boolean {
+        var discardedDraft = false
         fun upgraded(payload: SealedPayload, aad: ByteArray): SealedPayload? {
             try {
                 cipher.open(payload, aad)
@@ -144,14 +145,23 @@ interface ReadingDao {
             val sealed = try {
                 upgraded(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft())
             } catch (_: AEADBadTagException) {
+                // Neither key authenticates this unsaved checkpoint. Remove it
+                // before the legacy key is retired, in the same transaction.
+                require(clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1)
+                discardedDraft = true
                 null
             } catch (_: MissingReadingKeyException) {
+                // A genuinely missing key may still make the only draft recoverable
+                // from a separate backup; leave the row for normal recovery handling.
                 null
             } catch (_: IllegalArgumentException) {
+                require(clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1)
+                discardedDraft = true
                 null
             }
             sealed?.let { saveDraft(row.copy(nonce = it.nonce, ciphertext = it.ciphertext)) }
         }
+        return discardedDraft
     }
 
     @Query("SELECT * FROM sittings")

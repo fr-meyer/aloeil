@@ -149,6 +149,32 @@ class EncryptionMigrationDeviceTest {
     }
 
     @Test
+    fun corruptLegacyDraftAloneIsDiscardedBeforeLegacyKeyRetirement() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val suffix = UUID.randomUUID().toString()
+        val oldAlias = "aloeil-test-old-$suffix"
+        val cipher = AndroidKeystoreReadingCipher("aloeil-test-new-$suffix", oldAlias)
+        try {
+            val draft = DraftCheckpoint("sit", "reading", "EYE", Eye.LEFT, "", "heading")
+            val legacy = legacySeal(oldAlias, DraftCodec.encode(draft))
+            val damaged = legacy.ciphertext.clone().apply {
+                this[0] = (this[0].toInt() xor 1).toByte()
+            }
+            db.readings().saveDraft(DraftRow(nonce = legacy.nonce, ciphertext = damaged))
+            val repo = ReadingRepository(db.readings(), cipher)
+            check(repo.verifyReadable())
+            check(db.readings().draft() == null)
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            check(!store.containsAlias(oldAlias))
+            check(!ReadingRepository(db.readings(), cipher).verifyReadable())
+        } finally {
+            db.close()
+            cipher.deleteKeyForRecovery()
+        }
+    }
+
+    @Test
     fun onlyCorruptDraftIsDiscardedAndStaysGoneAfterReopen() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
