@@ -70,13 +70,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             AloeilApp(repository, resetUnreadableStore = {
                 withContext(Dispatchers.IO) {
-                    ReadingDatabase.resetUnreadableStore(appContext)
-                    cipher.deleteKeyForRecovery()
+                    resetUnreadableLocalStore(
+                        deleteKey = cipher::deleteKeyForRecovery,
+                        deleteDatabase = { ReadingDatabase.resetUnreadableStore(appContext) },
+                    )
                 }
                 recreate()
             })
         }
     }
+}
+
+/** Stop before touching the database if key deletion fails. A later database error
+ * can still leave an unreadable store; the recovery screen reports that possibility.
+ */
+internal fun resetUnreadableLocalStore(deleteKey: () -> Unit, deleteDatabase: () -> Unit) {
+    deleteKey()
+    deleteDatabase()
 }
 
 /** Explicit in-app Back owns navigation while a draft or write is active. */
@@ -101,6 +111,7 @@ internal fun AloeilApp(
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.LOADING) }
     var archiveReturnPending by rememberSaveable { mutableStateOf(false) }
+    var csvReturnPending by rememberSaveable { mutableStateOf(false) }
     var sittingId by remember { mutableStateOf("") }
     var readingId by remember { mutableStateOf("") }
     var eye by remember { mutableStateOf<Eye?>(null) }
@@ -111,7 +122,7 @@ internal fun AloeilApp(
     var selectedSitting by remember { mutableStateOf<Sitting?>(null) }
     var fromHistory by remember { mutableStateOf(false) }
     var historyReturnToFinished by remember { mutableStateOf(false) }
-    var csvReturnStep by remember { mutableStateOf(Step.START) }
+    var csvReturnStep by rememberSaveable { mutableStateOf(Step.START) }
     var captureSittingId by remember { mutableStateOf("") }
     var hasOpenSitting by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
@@ -128,6 +139,8 @@ internal fun AloeilApp(
     LaunchedEffect(step) {
         if (step == Step.ARCHIVE) archiveReturnPending = true
         else if (step != Step.LOADING) archiveReturnPending = false
+        if (step == Step.CSV_EXPORT) csvReturnPending = true
+        else if (step != Step.LOADING) csvReturnPending = false
     }
 
     LaunchedEffect(Unit) {
@@ -160,7 +173,11 @@ internal fun AloeilApp(
                     sittingId = open.id
                     hasOpenSitting = true
                 }
-                step = if (archiveReturnPending) Step.ARCHIVE else Step.START
+                step = when {
+                    csvReturnPending -> Step.CSV_EXPORT
+                    archiveReturnPending -> Step.ARCHIVE
+                    else -> Step.START
+                }
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
