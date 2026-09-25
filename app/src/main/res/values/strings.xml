@@ -62,7 +62,7 @@
     <string name="archive_intro">Readings stay on this phone. Aloeil does not upload them automatically. The file provider you choose may sync your encrypted backup.</string>
     <string name="archive_create">Create encrypted backup</string>
     <string name="archive_restore">Restore from backup</string>
-    <string name="archive_export_explain">Choose a passphrase of at least 12 characters. Keep it separately; the file cannot be restored without it.</string>
+    <string name="archive_export_explain">Choose a passphrase of at least 12 characters and keep it separately; the file cannot be restored without it. Create a new backup file and keep your previous backup until you verify the new one.</string>
     <string name="archive_passphrase">Backup passphrase</string>
     <string name="archive_choose_destination">Choose where to save</string>
     <string name="archive_export_done">Encrypted backup saved</string>
