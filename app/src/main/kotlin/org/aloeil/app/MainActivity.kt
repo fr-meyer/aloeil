@@ -70,13 +70,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             AloeilApp(repository, resetUnreadableStore = {
                 withContext(Dispatchers.IO) {
-                    ReadingDatabase.resetUnreadableStore(appContext)
-                    cipher.deleteKeyForRecovery()
+                    resetUnreadableLocalStore(
+                        deleteKey = cipher::deleteKeyForRecovery,
+                        deleteDatabase = { ReadingDatabase.resetUnreadableStore(appContext) },
+                    )
                 }
                 recreate()
             })
         }
     }
+}
+
+/** Stop before touching the database if key deletion fails. A later database error
+ * can still leave an unreadable store; the recovery screen reports that possibility.
+ */
+internal fun resetUnreadableLocalStore(deleteKey: () -> Unit, deleteDatabase: () -> Unit) {
+    deleteKey()
+    deleteDatabase()
 }
 
 /** Explicit in-app Back owns navigation while a draft or write is active. */
