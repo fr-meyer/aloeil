@@ -34,13 +34,12 @@ fun filterHistory(
     val invalid = (fromText.isNotBlank() && from == null) ||
         (toText.isNotBlank() && to == null) ||
         (from != null && to != null && from.isAfter(to))
-    if (invalid) return HistoryFilterResult(readings, true)
     return HistoryFilterResult(
         readings.filter { reading ->
             (eye == null || reading.eye == eye) &&
-                (from == null || !readingLocalDate(reading).isBefore(from)) &&
-                (to == null || !readingLocalDate(reading).isAfter(to))
+                (invalid || from == null || !readingLocalDate(reading).isBefore(from)) &&
+                (invalid || to == null || !readingLocalDate(reading).isAfter(to))
         }.sortedWith(compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id }),
-        false,
+        invalid,
     )
 }
