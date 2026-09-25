@@ -40,7 +40,20 @@ class ArchivePickerRecreationDeviceTest {
         }.getOrDefault(false)
         fun cancelAfterRecreation(returnLabel: Int) {
             compose.waitUntil(timeoutMillis = 15_000) { pickerActive() }
-            compose.activityRule.scenario.recreate()
+            var originalActivity = 0
+            compose.activityRule.scenario.onActivity { activity ->
+                originalActivity = System.identityHashCode(activity)
+                activity.recreate()
+            }
+            compose.waitUntil(timeoutMillis = 15_000) {
+                runCatching {
+                    var recreated = false
+                    compose.activityRule.scenario.onActivity { activity ->
+                        recreated = System.identityHashCode(activity) != originalActivity
+                    }
+                    recreated
+                }.getOrDefault(false)
+            }
             compose.waitUntil(timeoutMillis = 15_000) { pickerActive() }
             check(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
             val target = hasText(context.getString(returnLabel)) and hasClickAction()
