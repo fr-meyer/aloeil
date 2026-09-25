@@ -46,12 +46,27 @@ object ArchiveCodec {
     private const val iterations = 210_000
     private val random = SecureRandom()
 
+    private class BoundedPlainBuffer : ByteArrayOutputStream() {
+        override fun write(b: Int) {
+            require(size() < maxBytes) { "Archive is too large" }
+            super.write(b)
+        }
+
+        override fun write(b: ByteArray, off: Int, len: Int) {
+            require(len <= maxBytes - size()) { "Archive is too large" }
+            super.write(b, off, len)
+        }
+
+        fun wipe() { buf.fill(0) }
+    }
+
     fun encode(bundle: ArchiveBundle, passphrase: CharArray): ByteArray {
         require(passphrase.size in MIN_PASSPHRASE_LENGTH..MAX_PASSPHRASE_LENGTH) {
             "Export passphrase length is invalid"
         }
         validate(bundle)
-        val plain = ByteArrayOutputStream().also { bytes ->
+        val bytes = BoundedPlainBuffer()
+        val plain = try {
             DataOutputStream(bytes).use { out ->
                 out.writeInt(bundle.readings.size)
                 bundle.readings.forEach { out.writeReadingV3(it) }
@@ -80,14 +95,16 @@ object ArchiveCodec {
                     out.writeLong(0L) // Reserved v4 field; deletion time is never retained.
                 }
             }
-        }.toByteArray()
-        require(plain.size <= maxBytes) { "Archive is too large" }
+            bytes.toByteArray()
+        } finally {
+            bytes.wipe()
+        }
         val salt = ByteArray(16).also(random::nextBytes)
         val nonce = ByteArray(12).also(random::nextBytes)
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
-        cipher.updateAAD(magicV4)
         val encrypted = try {
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
+            cipher.updateAAD(magicV4)
             cipher.doFinal(plain)
         } finally {
             plain.fill(0)
