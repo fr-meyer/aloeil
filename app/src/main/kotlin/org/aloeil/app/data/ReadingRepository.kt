@@ -149,7 +149,12 @@ class ReadingRepository(
         val current = decodeSitting(stored)
         if (current.finishedAtMillis != null) return true
         val sealed = cipher.seal(SittingPayloadCodec.encode(current.copy(finishedAtMillis = maxOf(now(), current.startedAtMillis))), ReadingAad.sitting(id))
-        return dao.updateSitting(stored.copy(nonce = sealed.nonce, ciphertext = sealed.ciphertext)) == 1
+        if (dao.updateSittingIfUnchanged(
+                id, stored.nonce, stored.ciphertext, sealed.nonce, sealed.ciphertext,
+            ) == 1) return true
+        // Another finisher may have committed first. Treat that as the same success
+        // without overwriting its chosen finish time.
+        return dao.sitting(id)?.let(::decodeSitting)?.finishedAtMillis != null
     }
 
     suspend fun saveDraft(draft: DraftCheckpoint) = draftMutex.withLock {

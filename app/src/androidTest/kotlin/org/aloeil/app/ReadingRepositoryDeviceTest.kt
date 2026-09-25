@@ -7,6 +7,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.security.SecureRandom
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -138,6 +140,33 @@ class ReadingRepositoryDeviceTest {
         check(runCatching { repo.startSitting("synthetic-third") }.isFailure)
         check(repo.allSittings().single().id == winner)
         check(repo.openSitting()?.id == winner)
+    }
+
+    @Test
+    fun concurrentFinishPreservesFirstCommittedTimestamp() = runBlocking {
+        val enteredSeal = CountDownLatch(1)
+        val releaseSeal = CountDownLatch(1)
+        val delayedCipher = object : ReadingCipher {
+            override fun seal(plaintext: ByteArray, aad: ByteArray): SealedPayload {
+                enteredSeal.countDown()
+                check(releaseSeal.await(30, TimeUnit.SECONDS))
+                return cipher.seal(plaintext, aad)
+            }
+            override fun open(payload: SealedPayload, aad: ByteArray): ByteArray =
+                cipher.open(payload, aad)
+        }
+        val first = ReadingRepository(db.readings(), delayedCipher, { "UTC" }, { time + 100 })
+        val second = ReadingRepository(db.readings(), cipher, { "UTC" }, { time + 200 })
+        second.startSitting("synthetic-sitting")
+        val pending = async(Dispatchers.Default) { first.finishSitting("synthetic-sitting") }
+        try {
+            check(enteredSeal.await(30, TimeUnit.SECONDS))
+            check(second.finishSitting("synthetic-sitting"))
+        } finally {
+            releaseSeal.countDown()
+        }
+        check(pending.await())
+        check(second.allSittings().single().finishedAtMillis == time + 200)
     }
 
     @Test
