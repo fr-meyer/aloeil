@@ -30,8 +30,10 @@ class ReadingRepository(
     private fun pendingRevision(readingId: String, revision: Long, dueAt: Long): OutboxRow =
         OutboxRow(UUID.randomUUID().toString(), readingId, revision, 0, dueAt)
 
-    /** Verify persisted encrypted rows before the UI permits any new writes or imports. */
-    suspend fun verifyReadable() {
+    /** Verify encrypted rows before writes or imports. Returns true if a corrupt,
+     * unsaved draft was discarded after confirming saved readings are readable.
+     */
+    suspend fun verifyReadable(): Boolean {
         try {
             if (cipher is AndroidKeystoreReadingCipher) {
                 dao.migrateLegacyEncryption(cipher)
@@ -51,27 +53,39 @@ class ReadingRepository(
                 ReadingPayloadCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext),
                     ReadingAad.version(row.readingId, row.revision)))
             }
-            // A malformed draft alone can be skipped while valid saved rows remain usable.
-            dao.draft()?.let { row ->
-                try {
-                    DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft()))
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (missing: MissingReadingKeyException) {
-                    throw missing
-                } catch (_: AEADBadTagException) {
-                    // A corrupt draft alone does not hide valid saved rows.
-                } catch (_: IOException) {
-                    // The normal draft-recovery path reports a malformed checkpoint.
-                } catch (_: IllegalArgumentException) {
-                    // The normal draft-recovery path reports invalid draft fields.
-                }
-            }
+            // A malformed draft is disposable only after all saved rows passed.
+            // Clear the exact damaged row so recoverDraft and later launches can proceed.
+            return verifyDraftOrDiscard(snapshot.readings.isNotEmpty())
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             throw UnreadableLocalStoreException(error)
         }
+    }
+
+    private suspend fun verifyDraftOrDiscard(savedReadingsRemain: Boolean): Boolean {
+        repeat(3) {
+            val row = dao.draft() ?: return false
+            try {
+                DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft()))
+                return false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (missing: MissingReadingKeyException) {
+                throw missing
+            } catch (_: AEADBadTagException) {
+                // Authentication failed; a bad draft must not block saved facts.
+            } catch (_: IOException) {
+                // The authenticated draft payload is malformed.
+            } catch (_: IllegalArgumentException) {
+                // The authenticated draft fields are invalid.
+            }
+            if (!savedReadingsRemain) {
+                throw IllegalStateException("The only unsaved reading is unreadable")
+            }
+            if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return true
+        }
+        throw IllegalStateException("Draft changed repeatedly during verification")
     }
 
     suspend fun record(

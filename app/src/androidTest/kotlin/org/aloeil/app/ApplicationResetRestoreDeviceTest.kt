@@ -43,7 +43,7 @@ class ApplicationResetRestoreDeviceTest {
             cipher.deleteKeyForRecovery()
             val fresh = ReadingDatabase.open(context)
             val restored = ReadingRepository(fresh.readings(), AndroidKeystoreReadingCipher())
-            check(restored.verifyReadable() == Unit)
+            check(!restored.verifyReadable())
             check(restored.all().isEmpty())
             check(restored.importArchive(archive, passphrase) == 1)
             check(restored.all().single().value == "12.3")
