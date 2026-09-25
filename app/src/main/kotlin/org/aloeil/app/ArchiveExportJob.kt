@@ -24,6 +24,13 @@ internal class ArchiveExportJob(
 ) {
     private val mutableState = MutableStateFlow<ArchiveWriteState>(ArchiveWriteState.Idle)
     val state: StateFlow<ArchiveWriteState> = mutableState
+    private var activeBytes: ByteArray? = null
+
+    /** A disposed screen may still hold a stale reference after transfer of ownership. */
+    @Synchronized
+    fun scrubUnlessOwned(bytes: ByteArray) {
+        if (activeBytes !== bytes) bytes.fill(0)
+    }
 
     @Synchronized
     fun start(context: Context, uri: Uri, bytes: ByteArray): String {
@@ -31,6 +38,7 @@ internal class ArchiveExportJob(
             "An archive write is already running"
         }
         val id = UUID.randomUUID().toString()
+        activeBytes = bytes
         mutableState.value = ArchiveWriteState.Writing(id)
         scope.launch {
             var saved = false
@@ -42,8 +50,11 @@ internal class ArchiveExportJob(
             } catch (_: Exception) {
                 // The screen reports the failed destination; never report success.
             } finally {
-                bytes.fill(0)
-                mutableState.value = ArchiveWriteState.Finished(id, saved)
+                synchronized(this@ArchiveExportJob) {
+                    bytes.fill(0)
+                    activeBytes = null
+                    mutableState.value = ArchiveWriteState.Finished(id, saved)
+                }
             }
         }
         return id
