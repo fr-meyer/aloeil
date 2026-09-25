@@ -12,7 +12,8 @@ permissions:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -33,5 +34,27 @@ jobs:
         with:
           packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
-      - name: Run JVM unit tests
-        run: ./gradlew --no-daemon :app:testSyntheticDebugUnitTest
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run JVM and Android database tests
+        run: ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+
+      - name: Build synthetic device-validation APK and checksum
+        run: |
+          ./gradlew --no-daemon :app:assembleDebug
+          cd app/build/outputs/apk/debug
+          sha256sum app-debug.apk > app-debug.apk.sha256
+
+      - name: Upload synthetic device-validation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: aloeil-synthetic-validation-debug
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 14

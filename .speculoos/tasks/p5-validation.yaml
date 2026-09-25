@@ -1,0 +1,35 @@
+id: p5-validation
+title: Validate accessibility, privacy, and data integrity
+summary: Exercise synthetic end-to-end capture and privacy checks, then record representative-device acceptance before a private pilot.
+status: in-progress
+branch: aloeil/p5-validation
+base_branch: dev
+dependencies:
+  - p2-local-first-data-recovery
+  - p4-consented-export-sharing
+scope:
+  - synthetic capture, correction, undo, deletion, restart, migration, and restore tests
+  - installed-app permission and backup-policy checks
+  - English, French, and Korean accessibility and large-text checks
+  - intended-phone and non-Samsung validation evidence
+  - residual SQLite metadata acceptance and recovery drills
+non_goals:
+  - real readings before intended-user consent, clinical advice, cloud hosting, or production telemetry
+acceptance:
+  - Exact-head JVM and API 30 emulator suites pass.
+  - The installed app has no Internet permission, automatic Android backup, or public sharing provider.
+  - The intended phone and a non-Samsung configuration pass the documented accessibility, locale, backup, restore, share, and rollback checklist with synthetic data.
+  - The intended user explicitly accepts or changes the residual metadata and backup/passphrase plan before P6.
+write_paths:
+  - app/
+  - docs/validation/
+  - .speculoos/manifest.yaml
+  - .speculoos/surfaces/github.yaml
+  - .speculoos/tasks/p5-validation.yaml
+validation:
+  - ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest
+  - git diff --check
+executor: codex-only
+branch_plan: publish the GCP-authored stacked PR to dev; exact-head review and representative-device acceptance precede merge
+private_data_scan: required before publication
+publish_authority: operator-approved implementation go; P6 real readings require intended-user consent
