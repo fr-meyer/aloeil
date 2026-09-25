@@ -81,6 +81,7 @@
     <string name="archive_write_selected_file">선택한 백업 파일에 저장</string>
     <string name="archive_review_selected_file">선택한 백업 파일 검토</string>
     <string name="archive_write_error">백업을 저장하지 못했습니다. 파일이 생성되었다면 다시 시도하기 전에 삭제하세요.</string>
+    <string name="archive_write_interrupted">백업 저장이 중단되었습니다. 선택한 파일이 불완전할 수 있습니다. 해당 파일을 삭제하고 새 백업을 만드세요.</string>
     <string name="archive_export_error">암호화된 백업을 준비하지 못했습니다. 측정값은 이 휴대전화에 남아 있습니다.</string>
     <string name="archive_read_error">파일 또는 암호를 확인할 수 없습니다. 복원된 측정값은 없습니다.</string>
     <string name="archive_restore_error">백업을 복원하지 못했습니다. 이 휴대전화의 기존 측정값은 유지되었습니다.</string>

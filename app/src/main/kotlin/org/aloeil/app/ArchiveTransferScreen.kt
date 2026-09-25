@@ -13,6 +13,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,11 +55,13 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     var step by rememberSaveable { mutableStateOf(TransferStep.CHOOSE) }
     var pendingExportUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingImportUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeExportId by rememberSaveable { mutableStateOf<String?>(null) }
+    val archiveWriteState by archiveExportJob.state.collectAsState()
     var passphrase by remember { mutableStateOf("") }
     var archiveBytes by remember { mutableStateOf<ByteArray?>(null) }
     var preview by remember { mutableStateOf<ArchivePreview?>(null) }
     var restoredCount by remember { mutableStateOf(0) }
-    var busy by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(activeExportId != null) }
     var error by remember { mutableStateOf<Int?>(null) }
 
     BlockSystemBackWhenUnsafe(busy)
@@ -78,26 +81,41 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
         }
     }
 
+    // The writer owns the encrypted bytes. Its application scope outlives this
+    // screen, while the saved job ID lets a recreated screen show the final result.
+    LaunchedEffect(activeExportId, archiveWriteState) {
+        val id = activeExportId ?: return@LaunchedEffect
+        when (val state = archiveWriteState) {
+            is ArchiveWriteState.Writing -> if (state.id == id) busy = true
+            is ArchiveWriteState.Finished -> if (state.id == id) {
+                activeExportId = null
+                busy = false
+                if (state.saved) step = TransferStep.EXPORT_DONE
+                else {
+                    error = R.string.archive_write_error
+                    step = TransferStep.EXPORT
+                }
+            }
+            else -> {
+                activeExportId = null
+                busy = false
+                error = R.string.archive_write_interrupted
+                step = TransferStep.EXPORT
+            }
+        }
+    }
+
     fun writeArchive(uri: Uri, bytes: ByteArray) {
         busy = true
         error = null
-        scope.launch {
-            val saved = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                        output.write(bytes)
-                        output.flush()
-                    } ?: throw IllegalStateException("Cannot open backup destination")
-                }
-            }.isSuccess
+        activeExportId = runCatching {
+            archiveExportJob.start(context, uri, bytes)
+        }.getOrElse {
             bytes.fill(0)
             busy = false
-            if (saved) {
-                step = TransferStep.EXPORT_DONE
-            } else {
-                error = R.string.archive_write_error
-                step = TransferStep.EXPORT
-            }
+            error = R.string.archive_write_error
+            step = TransferStep.EXPORT
+            null
         }
     }
 

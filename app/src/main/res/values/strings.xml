@@ -82,6 +82,7 @@
     <string name="archive_write_selected_file">Write selected backup file</string>
     <string name="archive_review_selected_file">Review selected backup file</string>
     <string name="archive_write_error">The backup could not be written. If a file was created, delete it before retrying.</string>
+    <string name="archive_write_interrupted">The backup write was interrupted. The selected file may be incomplete; delete it and create a new backup.</string>
     <string name="archive_export_error">The encrypted backup could not be prepared. Your readings are still on this phone.</string>
     <string name="archive_read_error">The file or passphrase could not be verified. Nothing was restored.</string>
     <string name="archive_restore_error">The backup could not be restored. Readings already on this phone were kept.</string>
