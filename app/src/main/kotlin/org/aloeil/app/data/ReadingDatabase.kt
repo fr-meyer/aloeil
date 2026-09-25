@@ -163,6 +163,19 @@ interface ReadingDao {
     @Update
     suspend fun updateSitting(row: SittingRow): Int
 
+    /** Only the first finish wins; a concurrent caller must not replace its timestamp. */
+    @Query(
+        "UPDATE sittings SET nonce = :newNonce, ciphertext = :newCiphertext " +
+            "WHERE id = :id AND nonce = :oldNonce AND ciphertext = :oldCiphertext",
+    )
+    suspend fun updateSittingIfUnchanged(
+        id: String,
+        oldNonce: ByteArray,
+        oldCiphertext: ByteArray,
+        newNonce: ByteArray,
+        newCiphertext: ByteArray,
+    ): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveDraft(row: DraftRow)
 
