@@ -12,13 +12,13 @@ project:
 current_task:
   id: p2-local-first-data-recovery
   issue: null
-  pull_request: null
+  pull_request: https://github.com/fr-meyer/aloeil/pull/4
   project_item: null
-  branch: aloeil/p2-github-actions-ci
+  branch: aloeil/p2-local-first-data-recovery
   status: in-progress
   project_status: In Progress
 notes:
   - Repository source and synthetic fixtures are public; real readings are forbidden.
   - Initial repository bootstrap uses the constrained Mergeguez broker.
   - Future feature work targets dev through reviewed pull requests.
-  - GitHub Actions is the approved builder; full Room and backup work remains in P2.
+  - GitHub Actions runs synthetic JVM and API 30 emulator tests; P2 validation and privacy decisions remain.

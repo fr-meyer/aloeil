@@ -6,19 +6,20 @@ repository:
   upstream: null
   fork: fr-meyer/aloeil
   base_branch: dev
-  working_branch: aloeil/p2-github-actions-ci
+  working_branch: aloeil/p2-local-first-data-recovery
   default_branch: main
 status:
   phase: implementation-in-progress
   pret_a_coder: ready
   blocker_summary:
-    - GitHub Actions builder approved; full Room/backup still remaining
+    - Representative-device accessibility and fresh-profile recovery validation remain
+    - Residual SQLite metadata privacy decision remains
 builder:
   provider: github-actions
   workflow: .github/workflows/ci.yml
   jdk: eclipse-temurin-17-lts
   gradle_wrapper: 8.11.1
-  emulator: forbidden-in-unit-test-workflow
+  emulator: api-30-managed-device-in-ci
 publication_policy:
   repository_visibility: public
   license: Apache-2.0
@@ -67,11 +68,11 @@ surfaces:
     file: .speculoos/surfaces/github.yaml
   github_pull_request:
     enabled: true
-    status: none-active
+    status: open
     base_branch: dev
-    head_branch: null
+    head_branch: aloeil/p2-local-first-data-recovery
     default_branch: main
-    pull_request: null
+    pull_request: https://github.com/fr-meyer/aloeil/pull/4
     head_sha: null
   vibe_kanban:
     enabled: planned
