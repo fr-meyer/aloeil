@@ -30,8 +30,8 @@ class ReadingRepository(
     private fun pendingRevision(readingId: String, revision: Long, dueAt: Long): OutboxRow =
         OutboxRow(UUID.randomUUID().toString(), readingId, revision, 0, dueAt)
 
-    /** Verify encrypted rows before writes or imports. Returns true if a corrupt,
-     * unsaved draft was discarded after confirming saved readings are readable.
+    /** Verify encrypted rows before writes or imports. Returns true if a corrupt
+     * unsaved draft was discarded after checking the saved rows, if any.
      */
     suspend fun verifyReadable(): Boolean {
         try {
@@ -55,7 +55,7 @@ class ReadingRepository(
             }
             // A malformed draft is disposable only after all saved rows passed.
             // Clear the exact damaged row so recoverDraft and later launches can proceed.
-            return verifyDraftOrDiscard(snapshot.readings.isNotEmpty())
+            return verifyDraftOrDiscard()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
@@ -63,7 +63,7 @@ class ReadingRepository(
         }
     }
 
-    private suspend fun verifyDraftOrDiscard(savedReadingsRemain: Boolean): Boolean {
+    private suspend fun verifyDraftOrDiscard(): Boolean {
         repeat(3) {
             val row = dao.draft() ?: return false
             try {
@@ -79,9 +79,6 @@ class ReadingRepository(
                 // The authenticated draft payload is malformed.
             } catch (_: IllegalArgumentException) {
                 // The authenticated draft fields are invalid.
-            }
-            if (!savedReadingsRemain) {
-                throw IllegalStateException("The only unsaved reading is unreadable")
             }
             if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return true
         }

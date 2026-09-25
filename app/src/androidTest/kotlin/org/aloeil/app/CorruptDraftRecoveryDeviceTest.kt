@@ -39,6 +39,11 @@ class CorruptDraftRecoveryDeviceTest {
                 ))
             }
             compose.setContent { AloeilApp(repo) }
+            compose.waitUntil(timeoutMillis = 10_000) {
+                compose.onAllNodes(hasText(context.getString(R.string.recovery_draft_discarded)))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            runBlocking { check(db.readings().draft() == null) }
             fun tap(id: Int) {
                 val label = context.getString(id)
                 val target = hasText(label) and hasClickAction()
