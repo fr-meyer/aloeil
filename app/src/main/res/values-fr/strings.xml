@@ -159,4 +159,5 @@
     <string name="recovery_confirm_body">Cette action supprime définitivement la base Aloeil de ce téléphone, y compris les relevés, brouillons et marqueurs de suppression. Elle ne supprime pas les sauvegardes enregistrées ailleurs. Après la réinitialisation, choisissez « Sauvegarder ou restaurer » pour importer une archive chiffrée.</string>
     <string name="recovery_confirm_reset">Supprimer et réinitialiser</string>
     <string name="recovery_reset_error">La réinitialisation a été interrompue. Les mesures locales sont peut-être déjà illisibles ou supprimées. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
+    <string name="recovery_key_cleanup_error">Les mesures locales ont été supprimées, mais la clé de chiffrement n’a pas pu être effacée. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
 </resources>

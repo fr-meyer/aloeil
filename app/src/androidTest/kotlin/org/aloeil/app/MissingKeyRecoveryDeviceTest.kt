@@ -51,8 +51,12 @@ class MissingKeyRecoveryDeviceTest {
             val confirmedResets = AtomicInteger(0)
             compose.setContent {
                 AloeilApp(unreadable, resetUnreadableStore = {
-                    confirmedResets.incrementAndGet()
-                    throw IllegalStateException("synthetic reset failure")
+                    val attempt = confirmedResets.incrementAndGet()
+                    if (attempt == 1) throw IllegalStateException("synthetic reset failure")
+                    throw RecoveryResetFailure(
+                        databaseDeleted = true,
+                        cause = IllegalStateException("synthetic key cleanup failure"),
+                    )
                 })
             }
             fun tap(id: Int) {
@@ -75,28 +79,43 @@ class MissingKeyRecoveryDeviceTest {
                     .fetchSemanticsNodes().isNotEmpty()
             }
             runBlocking { check(db.readings().allReadings().size == 1) }
+            tap(R.string.recovery_prepare_reset)
+            tap(R.string.recovery_confirm_reset)
+            compose.waitUntil(timeoutMillis = 5_000) {
+                confirmedResets.get() == 2 &&
+                    compose.onAllNodes(hasText(context.getString(R.string.recovery_key_cleanup_error)))
+                        .fetchSemanticsNodes().isNotEmpty()
+            }
         } finally {
             db.close()
         }
     }
 
     @Test
-    fun failedKeyDeletionNeverStartsDatabaseDeletion() {
+    fun databaseDeletionFailureKeepsKeyAndKeyFailureReportsPartialReset() {
         val calls = mutableListOf<String>()
-        val failure = IllegalStateException("synthetic key failure")
-        val thrown = runCatching {
+        val databaseFailure = IllegalStateException("synthetic database failure")
+        val beforeDeletion = runCatching {
             resetUnreadableLocalStore(
-                deleteKey = { calls += "key"; throw failure },
+                deleteKey = { calls += "key" },
+                deleteDatabase = { calls += "database"; throw databaseFailure },
+            )
+        }.exceptionOrNull() as? RecoveryResetFailure
+        check(beforeDeletion?.databaseDeleted == false)
+        check(beforeDeletion?.cause === databaseFailure)
+        check(calls == listOf("database"))
+
+        calls.clear()
+        val keyFailure = IllegalStateException("synthetic key failure")
+        val afterDeletion = runCatching {
+            resetUnreadableLocalStore(
+                deleteKey = { calls += "key"; throw keyFailure },
                 deleteDatabase = { calls += "database" },
             )
-        }.exceptionOrNull()
-        check(thrown === failure)
-        check(calls == listOf("key"))
-        resetUnreadableLocalStore(
-            deleteKey = { calls += "key" },
-            deleteDatabase = { calls += "database" },
-        )
-        check(calls == listOf("key", "key", "database"))
+        }.exceptionOrNull() as? RecoveryResetFailure
+        check(afterDeletion?.databaseDeleted == true)
+        check(afterDeletion?.cause === keyFailure)
+        check(calls == listOf("database", "key"))
     }
 
     @Test
