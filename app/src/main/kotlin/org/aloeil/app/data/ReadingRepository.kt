@@ -35,8 +35,9 @@ class ReadingRepository(
      */
     suspend fun verifyReadable(): Boolean {
         try {
+            var discardedDuringMigration = false
             if (cipher is AndroidKeystoreReadingCipher) {
-                dao.migrateLegacyEncryption(cipher)
+                discardedDuringMigration = dao.migrateLegacyEncryption(cipher)
                 cipher.deleteLegacyKeyAfterMigration()
             }
             val snapshot = dao.archiveSnapshot()
@@ -55,7 +56,8 @@ class ReadingRepository(
             }
             // A malformed draft is disposable only after all saved rows passed.
             // Clear the exact damaged row so recoverDraft and later launches can proceed.
-            return verifyDraftOrDiscard()
+            val discardedAfterMigration = verifyDraftOrDiscard()
+            return discardedDuringMigration || discardedAfterMigration
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {

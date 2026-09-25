@@ -23,9 +23,10 @@ class StartupRecoveryDeviceTest {
         val resets = AtomicInteger()
         compose.activityRule.scenario.onActivity { activity ->
             activity.setContent {
-                AloeilStartup(Result.failure(IllegalStateException("Synthetic open failure"))) {
-                    resets.incrementAndGet()
-                }
+                AloeilStartup(
+                    Result.failure(IllegalStateException("Synthetic open failure")),
+                    resetUnreadableStore = { resets.incrementAndGet(); Unit },
+                )
             }
         }
         compose.onNode(hasText(context.getString(R.string.recovery_unreadable_title)))
