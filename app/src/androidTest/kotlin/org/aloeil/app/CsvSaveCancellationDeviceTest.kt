@@ -3,6 +3,7 @@ package org.aloeil.app
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityNodeInfo
 import android.content.Context
+import android.net.Uri
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -64,8 +65,10 @@ class CsvSaveCancellationDeviceTest {
         compose.waitUntil(timeoutMillis = 15_000) {
             compose.onAllNodes(saved).fetchSemanticsNodes().isNotEmpty()
         }
-        val savedFile = java.io.File(instrumentation.context.cacheDir, "synthetic-csv-save.csv")
-        check(savedFile.isFile && savedFile.readText().contains("sitting"))
+        val csvUri = Uri.parse("content://org.aloeil.app.test.syntheticcsv/export.csv")
+        val savedContent = context.contentResolver.openInputStream(csvUri)
+            ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+        check(savedContent?.contains("sitting") == true)
         tap(R.string.csv_save)
         compose.waitUntil(timeoutMillis = 15_000) {
             automation.rootInActiveWindow?.packageName?.toString() ==

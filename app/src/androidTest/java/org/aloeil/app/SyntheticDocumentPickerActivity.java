@@ -19,7 +19,7 @@ public final class SyntheticDocumentPickerActivity extends Activity {
             choose.setOnClickListener(view -> {
                 Intent result = new Intent();
                 result.setData(Uri.parse("content://org.aloeil.app.test.syntheticcsv/export.csv"));
-                result.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                result.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 setResult(RESULT_OK, result);
                 finish();
             });

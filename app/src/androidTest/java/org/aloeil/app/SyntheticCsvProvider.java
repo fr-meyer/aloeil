@@ -24,6 +24,9 @@ public final class SyntheticCsvProvider extends ContentProvider {
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         File file = new File(Objects.requireNonNull(getContext()).getCacheDir(), "synthetic-csv-save.csv");
+        if ("r".equals(mode)) {
+            return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
+        }
         return ParcelFileDescriptor.open(
                 file,
                 ParcelFileDescriptor.MODE_CREATE | ParcelFileDescriptor.MODE_TRUNCATE
