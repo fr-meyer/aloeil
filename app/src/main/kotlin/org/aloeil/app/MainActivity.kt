@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -68,6 +70,7 @@ class MainActivity : ComponentActivity() {
             val database = ReadingDatabase.open(appContext)
             ReadingRepository(database.readings(), AndroidKeystoreReadingCipher())
         }
+        val captureState = ViewModelProvider(this)[CaptureUiState::class.java]
         setContent {
             AloeilStartup(repositoryResult, resetUnreadableStore = {
                 withContext(Dispatchers.IO) {
@@ -76,8 +79,9 @@ class MainActivity : ComponentActivity() {
                         deleteDatabase = { ReadingDatabase.resetUnreadableStore(appContext) },
                     )
                 }
+                captureState.resetForRecovery()
                 recreate()
-            })
+            }, captureState = captureState)
         }
     }
 }
@@ -88,10 +92,11 @@ class MainActivity : ComponentActivity() {
 internal fun AloeilStartup(
     repositoryResult: Result<ReadingRepository>,
     resetUnreadableStore: suspend () -> Unit,
+    captureState: CaptureUiState? = null,
 ) {
     val repository = repositoryResult.getOrNull()
     if (repository != null) {
-        AloeilApp(repository, resetUnreadableStore)
+        AloeilApp(repository, resetUnreadableStore, captureState)
     } else {
         StartupRecoveryScreen(resetUnreadableStore)
     }
@@ -186,7 +191,7 @@ internal fun BlockSystemBackWhenUnsafe(enabled: Boolean) {
     BackHandler(enabled = enabled) { }
 }
 
-private enum class Step {
+internal enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
@@ -194,26 +199,68 @@ private enum class Step {
     RECOVERY, RECOVERY_CONFIRM,
 }
 
+/** Retains current capture input through Activity recreation without saving plaintext in Bundle. */
+internal class CaptureUiState : ViewModel() {
+    val stepState = mutableStateOf(Step.LOADING)
+    val sittingIdState = mutableStateOf("")
+    val readingIdState = mutableStateOf("")
+    val eyeState = mutableStateOf<Eye?>(null)
+    val valueState = mutableStateOf("")
+    val rangeStateState = mutableStateOf<RangeState?>(null)
+    val noteState = mutableStateOf("")
+    val savedState = mutableStateOf<Reading?>(null)
+    val selectedSittingState = mutableStateOf<Sitting?>(null)
+    val fromHistoryState = mutableStateOf(false)
+    val historyReturnToFinishedState = mutableStateOf(false)
+    val captureSittingIdState = mutableStateOf("")
+    val hasOpenSittingState = mutableStateOf(false)
+    var initialized = false
+
+    fun resetForRecovery() {
+        initialized = false
+        stepState.value = Step.LOADING
+        sittingIdState.value = ""
+        readingIdState.value = ""
+        eyeState.value = null
+        valueState.value = ""
+        rangeStateState.value = null
+        noteState.value = ""
+        savedState.value = null
+        selectedSittingState.value = null
+        fromHistoryState.value = false
+        historyReturnToFinishedState.value = false
+        captureSittingIdState.value = ""
+        hasOpenSittingState.value = false
+    }
+
+    override fun onCleared() {
+        resetForRecovery()
+        super.onCleared()
+    }
+}
+
 @Composable
 internal fun AloeilApp(
     repository: ReadingRepository,
     resetUnreadableStore: (suspend () -> Unit)? = null,
+    captureState: CaptureUiState? = null,
 ) {
     val scope = rememberCoroutineScope()
-    var step by remember { mutableStateOf(Step.LOADING) }
+    val state = captureState ?: remember { CaptureUiState() }
+    var step by state.stepState
     var archiveReturnPending by rememberSaveable { mutableStateOf(false) }
-    var sittingId by remember { mutableStateOf("") }
-    var readingId by remember { mutableStateOf("") }
-    var eye by remember { mutableStateOf<Eye?>(null) }
-    var value by remember { mutableStateOf("") }
-    var rangeState by remember { mutableStateOf<RangeState?>(null) }
-    var note by remember { mutableStateOf("") }
-    var saved by remember { mutableStateOf<Reading?>(null) }
-    var selectedSitting by remember { mutableStateOf<Sitting?>(null) }
-    var fromHistory by remember { mutableStateOf(false) }
-    var historyReturnToFinished by remember { mutableStateOf(false) }
-    var captureSittingId by remember { mutableStateOf("") }
-    var hasOpenSitting by remember { mutableStateOf(false) }
+    var sittingId by state.sittingIdState
+    var readingId by state.readingIdState
+    var eye by state.eyeState
+    var value by state.valueState
+    var rangeState by state.rangeStateState
+    var note by state.noteState
+    var saved by state.savedState
+    var selectedSitting by state.selectedSittingState
+    var fromHistory by state.fromHistoryState
+    var historyReturnToFinished by state.historyReturnToFinishedState
+    var captureSittingId by state.captureSittingIdState
+    var hasOpenSitting by state.hasOpenSittingState
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Int?>(null) }
     var valueError by remember { mutableStateOf<Int?>(null) }
@@ -231,6 +278,7 @@ internal fun AloeilApp(
     }
 
     LaunchedEffect(Unit) {
+        if (state.initialized) return@LaunchedEffect
         try {
             val discardedDraft = withContext(Dispatchers.IO) { repository.verifyReadable() }
             val recovered = withContext(Dispatchers.IO) { repository.recoverDraft() }
@@ -278,6 +326,7 @@ internal fun AloeilApp(
             fromHistory = false
             step = Step.START
         }
+        state.initialized = true
     }
 
     LaunchedEffect(step, sittingId, readingId, eye, value, rangeState, note, fromHistory, busy) {
