@@ -70,7 +70,9 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     // A recreated picker result keeps only the chosen URI and asks for the secret again.
     val currentArchiveBytes = rememberUpdatedState(archiveBytes)
     DisposableEffect(Unit) {
-        onDispose { currentArchiveBytes.value?.fill(0) }
+        onDispose {
+            currentArchiveBytes.value?.let(archiveExportJob::scrubUnlessOwned)
+        }
     }
     LaunchedEffect(step, archiveBytes) {
         if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null) {

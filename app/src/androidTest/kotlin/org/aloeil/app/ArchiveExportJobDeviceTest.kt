@@ -36,6 +36,9 @@ class ArchiveExportJobDeviceTest {
             val context = ApplicationProvider.getApplicationContext<Context>()
             val id = job.start(context, Uri.parse("content://synthetic/backup"), bytes)
             runBlocking { withTimeout(10_000) { started.await() } }
+            // Model the disposed screen's stale buffer reference while the job owns it.
+            job.scrubUnlessOwned(bytes)
+            check(bytes.all { it == 7.toByte() })
             var originalActivity = 0
             compose.activityRule.scenario.onActivity { activity ->
                 originalActivity = System.identityHashCode(activity)

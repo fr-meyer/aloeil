@@ -61,7 +61,7 @@
     <string name="archive_intro">Vos mesures restent sur ce téléphone. Aloeil ne les envoie pas automatiquement. Le fournisseur de fichiers choisi peut synchroniser votre sauvegarde chiffrée.</string>
     <string name="archive_create">Créer une sauvegarde chiffrée</string>
     <string name="archive_restore">Restaurer une sauvegarde</string>
-    <string name="archive_export_explain">Choisissez un mot de passe de 12 caractères ou plus. Conservez-le séparément : sans lui, le fichier ne peut pas être restauré.</string>
+    <string name="archive_export_explain">Choisissez une phrase secrète d’au moins 12 caractères et conservez-la séparément ; sans elle, le fichier ne peut pas être restauré. Créez un nouveau fichier et gardez l’ancienne sauvegarde jusqu’à vérification de la nouvelle.</string>
     <string name="archive_passphrase">Mot de passe de sauvegarde</string>
     <string name="archive_choose_destination">Choisir où enregistrer</string>
     <string name="archive_export_done">Sauvegarde chiffrée enregistrée</string>
