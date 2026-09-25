@@ -56,12 +56,14 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     var pendingExportUri by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingImportUri by rememberSaveable { mutableStateOf<String?>(null) }
     var activeExportId by rememberSaveable { mutableStateOf<String?>(null) }
+    var activeImportId by rememberSaveable { mutableStateOf<String?>(null) }
     val archiveWriteState by archiveExportJob.state.collectAsState()
+    val archiveImportState by archiveImportJob.state.collectAsState()
     var passphrase by remember { mutableStateOf("") }
     var archiveBytes by remember { mutableStateOf<ByteArray?>(null) }
     var preview by remember { mutableStateOf<ArchivePreview?>(null) }
-    var restoredCount by remember { mutableStateOf(0) }
-    var busy by remember { mutableStateOf(activeExportId != null) }
+    var restoredCount by rememberSaveable { mutableStateOf(0) }
+    var busy by remember { mutableStateOf(activeExportId != null || activeImportId != null) }
     var error by remember { mutableStateOf<Int?>(null) }
 
     BlockSystemBackWhenUnsafe(busy)
@@ -71,11 +73,13 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     val currentArchiveBytes = rememberUpdatedState(archiveBytes)
     DisposableEffect(Unit) {
         onDispose {
-            currentArchiveBytes.value?.let(archiveExportJob::scrubUnlessOwned)
+            currentArchiveBytes.value?.let { bytes ->
+                if (!archiveImportJob.owns(bytes)) archiveExportJob.scrubUnlessOwned(bytes)
+            }
         }
     }
-    LaunchedEffect(step, archiveBytes) {
-        if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null) {
+    LaunchedEffect(step, archiveBytes, activeImportId) {
+        if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null && activeImportId == null) {
             preview = null
             passphrase = ""
             error = R.string.archive_reenter_passphrase
@@ -103,6 +107,30 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 busy = false
                 error = R.string.archive_write_interrupted
                 step = TransferStep.EXPORT
+            }
+        }
+    }
+
+    LaunchedEffect(activeImportId, archiveImportState) {
+        val id = activeImportId ?: return@LaunchedEffect
+        when (val state = archiveImportState) {
+            is ArchiveImportState.Importing -> if (state.id == id) busy = true
+            is ArchiveImportState.Finished -> if (state.id == id) {
+                busy = false
+                if (state.success) {
+                    restoredCount = state.added ?: 0
+                    step = TransferStep.IMPORT_DONE
+                } else {
+                    error = R.string.archive_restore_error
+                    step = TransferStep.IMPORT
+                }
+                activeImportId = null
+            }
+            else -> {
+                busy = false
+                error = R.string.archive_import_interrupted
+                step = TransferStep.IMPORT
+                activeImportId = null
             }
         }
     }
@@ -236,31 +264,21 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     fun restore() {
         val bytes = archiveBytes ?: return
+        val secret = passphrase.toCharArray()
+        archiveBytes = null
+        passphrase = ""
+        preview = null
         busy = true
         error = null
-        scope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    val secret = passphrase.toCharArray()
-                    try {
-                        repository.importArchive(bytes, secret)
-                    } finally {
-                        secret.fill('\u0000')
-                    }
-                }
-            }
+        activeImportId = runCatching {
+            archiveImportJob.start(bytes, secret, repository::importArchive)
+        }.getOrElse {
             bytes.fill(0)
-            archiveBytes = null
-            passphrase = ""
-            preview = null
+            secret.fill('\u0000')
             busy = false
-            result.onSuccess { added ->
-                restoredCount = added
-                step = TransferStep.IMPORT_DONE
-            }.onFailure {
-                error = R.string.archive_restore_error
-                step = TransferStep.IMPORT
-            }
+            error = R.string.archive_restore_error
+            step = TransferStep.IMPORT
+            null
         }
     }
 
@@ -340,7 +358,10 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                         Text(stringResource(R.string.archive_deleted_markers, counts.deletedCount))
                     }
                 }
-                Text(stringResource(R.string.archive_restore_explain))
+                Text(stringResource(
+                    if (activeImportId == null) R.string.archive_restore_explain
+                    else R.string.archive_importing,
+                ))
                 TransferButton(R.string.archive_confirm_restore, busy) { restore() }
                 TransferSecondary(R.string.back, busy) {
                     archiveBytes?.fill(0)
