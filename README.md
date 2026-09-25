@@ -21,7 +21,7 @@ See [the approved product and privacy baseline](docs/product-privacy-baseline.md
 
 ## Project status
 
-CI bootstrap is in progress on GitHub Actions; the repository still contains no health data.
+The Android GitHub Actions builder is merged into dev. P2 local data and recovery are in progress; the repository contains no real health data.
 
 ## License
 
