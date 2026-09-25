@@ -185,6 +185,10 @@ interface ReadingDao {
     @Query("DELETE FROM draft_checkpoint WHERE id = 1")
     suspend fun clearDraft()
 
+    /** Do not delete a newer checkpoint written while verification was running. */
+    @Query("DELETE FROM draft_checkpoint WHERE id = 1 AND nonce = :nonce AND ciphertext = :ciphertext")
+    suspend fun clearDraftIfUnchanged(nonce: ByteArray, ciphertext: ByteArray): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertReading(row: ReadingRow)
 

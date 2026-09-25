@@ -28,6 +28,7 @@ import org.aloeil.app.data.SealedPayload
 import org.aloeil.app.data.Sitting
 import org.aloeil.app.data.SittingPayloadCodec
 import org.aloeil.app.data.SittingRow
+import org.aloeil.app.data.UnreadableLocalStoreException
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -131,17 +132,44 @@ class EncryptionMigrationDeviceTest {
             db.readings().saveDraft(DraftRow(nonce = draft.nonce, ciphertext = damaged))
 
             val repo = ReadingRepository(db.readings(), newCipher)
-            repo.verifyReadable()
+            check(repo.verifyReadable())
             check(repo.all().single().value == "12.3")
-            check(db.readings().draft()!!.ciphertext.contentEquals(damaged))
+            check(db.readings().draft() == null)
+            check(repo.recoverDraft() == null)
             val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
             check(!store.containsAlias(oldAlias))
-            // The old key is gone, yet the same corrupt draft still cannot hide saved data.
-            repo.verifyReadable()
-            check(repo.all().single().value == "12.3")
+            // Reopening after migration must not retry the discarded checkpoint.
+            val reopened = ReadingRepository(db.readings(), newCipher)
+            check(!reopened.verifyReadable())
+            check(reopened.recoverDraft() == null)
+            check(reopened.all().single().value == "12.3")
         } finally {
             db.close()
             newCipher.deleteKeyForRecovery()
+        }
+    }
+
+    @Test
+    fun onlyCorruptDraftIsPreservedForExplicitRecovery() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val cipher = AndroidKeystoreReadingCipher("aloeil-test-only-draft-" + UUID.randomUUID())
+        try {
+            val draft = cipher.seal(
+                DraftCodec.encode(DraftCheckpoint("sit", "first", "EYE", Eye.LEFT, "", "heading")),
+                ReadingAad.draft(),
+            )
+            val damaged = draft.ciphertext.clone().apply {
+                this[0] = (this[0].toInt() xor 1).toByte()
+            }
+            db.readings().saveDraft(DraftRow(nonce = draft.nonce, ciphertext = damaged))
+            val repo = ReadingRepository(db.readings(), cipher)
+            check(runCatching { repo.verifyReadable() }.exceptionOrNull()
+                is UnreadableLocalStoreException)
+            check(db.readings().draft()?.ciphertext?.contentEquals(damaged) == true)
+        } finally {
+            db.close()
+            cipher.deleteKeyForRecovery()
         }
     }
 
