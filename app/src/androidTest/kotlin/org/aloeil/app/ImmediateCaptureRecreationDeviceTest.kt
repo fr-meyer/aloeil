@@ -18,7 +18,7 @@ import org.junit.runner.RunWith
 /** An Activity recreation immediately after typing must retain current plaintext in memory. */
 @RunWith(AndroidJUnit4::class)
 class ImmediateCaptureRecreationDeviceTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule val compose = createAndroidComposeRule<SyntheticCaptureActivity>()
 
     @Test
     fun latestValueAndNoteSurviveWithoutWaitingForDraftCheckpoint() {
