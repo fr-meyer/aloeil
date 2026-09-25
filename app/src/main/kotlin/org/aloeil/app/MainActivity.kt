@@ -64,19 +64,98 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val appContext = applicationContext
-        val database = ReadingDatabase.open(appContext)
-        val cipher = AndroidKeystoreReadingCipher()
-        val repository = ReadingRepository(database.readings(), cipher)
+        val repositoryResult = runCatching {
+            val database = ReadingDatabase.open(appContext)
+            ReadingRepository(database.readings(), AndroidKeystoreReadingCipher())
+        }
         setContent {
-            AloeilApp(repository, resetUnreadableStore = {
+            AloeilStartup(repositoryResult, resetUnreadableStore = {
                 withContext(Dispatchers.IO) {
                     resetUnreadableLocalStore(
-                        deleteKey = cipher::deleteKeyForRecovery,
+                        deleteKey = { AndroidKeystoreReadingCipher().deleteKeyForRecovery() },
                         deleteDatabase = { ReadingDatabase.resetUnreadableStore(appContext) },
                     )
                 }
                 recreate()
             })
+        }
+    }
+}
+
+
+/** Database construction can fail before repository verification starts. Keep reset available. */
+@Composable
+internal fun AloeilStartup(
+    repositoryResult: Result<ReadingRepository>,
+    resetUnreadableStore: suspend () -> Unit,
+) {
+    val repository = repositoryResult.getOrNull()
+    if (repository != null) {
+        AloeilApp(repository, resetUnreadableStore)
+    } else {
+        StartupRecoveryScreen(resetUnreadableStore)
+    }
+}
+
+@Composable
+private fun StartupRecoveryScreen(resetUnreadableStore: suspend () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var confirming by rememberSaveable { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<Int?>(null) }
+    BackHandler(enabled = confirming || busy) {
+        if (!busy) confirming = false
+    }
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (confirming) {
+                    Heading(R.string.recovery_confirm_title)
+                    Text(stringResource(R.string.recovery_confirm_body))
+                    Action(R.string.recovery_confirm_reset, busy) {
+                        busy = true
+                        scope.launch {
+                            try {
+                                resetUnreadableStore()
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: RecoveryResetFailure) {
+                                message = if (failure.databaseDeleted) {
+                                    R.string.recovery_key_cleanup_error
+                                } else {
+                                    R.string.recovery_reset_error
+                                }
+                                confirming = false
+                            } catch (_: Exception) {
+                                message = R.string.recovery_reset_error
+                                confirming = false
+                            } finally {
+                                busy = false
+                            }
+                        }
+                    }
+                    Secondary(R.string.back, busy) { confirming = false }
+                } else {
+                    Heading(R.string.recovery_unreadable_title)
+                    Text(stringResource(R.string.recovery_unreadable_body))
+                    Text(stringResource(R.string.recovery_keep_backup))
+                    Action(R.string.recovery_prepare_reset, busy) {
+                        message = null
+                        confirming = true
+                    }
+                }
+                message?.let {
+                    Text(
+                        stringResource(it),
+                        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
         }
     }
 }
