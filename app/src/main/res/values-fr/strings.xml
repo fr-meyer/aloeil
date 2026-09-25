@@ -81,6 +81,7 @@
     <string name="archive_write_selected_file">Enregistrer dans le fichier choisi</string>
     <string name="archive_review_selected_file">Vérifier la sauvegarde choisie</string>
     <string name="archive_write_error">Impossible de créer la sauvegarde. Si un fichier a été créé, supprimez-le avant de réessayer.</string>
+    <string name="archive_write_interrupted">L’écriture de la sauvegarde a été interrompue. Le fichier choisi est peut-être incomplet ; supprimez-le et créez une nouvelle sauvegarde.</string>
     <string name="archive_export_error">Impossible de préparer la sauvegarde chiffrée. Vos mesures restent sur ce téléphone.</string>
     <string name="archive_read_error">Impossible de vérifier le fichier ou le mot de passe. Aucune mesure restaurée.</string>
     <string name="archive_restore_error">Impossible de restaurer la sauvegarde. Les mesures déjà sur ce téléphone ont été conservées.</string>
