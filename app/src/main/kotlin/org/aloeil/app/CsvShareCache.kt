@@ -11,6 +11,16 @@ import android.provider.Settings
 import java.io.File
 import java.util.UUID
 import java.io.OutputStreamWriter
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.aloeil.app.data.CsvExport
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.Sitting
@@ -55,11 +65,18 @@ internal object CsvShareCache {
             nowElapsed < issuedElapsed || nowElapsed - issuedElapsed >= RETENTION_MILLIS
     }
 
-    fun cleanupExpired(context: Context) {
-        directory(context).listFiles()?.filter { it.isFile && isExpired(context, it) }
-            ?.forEach { check(it.delete()) { "Temporary CSV could not be removed" } }
+    @Synchronized
+    fun cleanupExpired(context: Context, shouldContinue: () -> Boolean = { true }) {
+        if (!shouldContinue()) return
+        directory(context).listFiles()?.forEach { file ->
+            if (!shouldContinue()) return
+            if (file.isFile && isExpired(context, file)) {
+                check(file.delete() || !file.exists()) { "Temporary CSV could not be removed" }
+            }
+        }
     }
 
+    @Synchronized
     fun clearAll(context: Context) {
         directory(context).listFiles()?.forEach { check(it.isFile && it.delete()) }
     }
@@ -123,13 +140,45 @@ internal object CsvShareCache {
 
 /** Android can run this job after the chooser and app screen have both closed, including after reboot. */
 class CsvShareCleanupJobService : JobService() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val running = mutableMapOf<Int, Job>()
+
     override fun onStartJob(params: JobParameters): Boolean {
-        Thread {
-            val retry = runCatching { CsvShareCache.cleanupExpired(this) }.isFailure
-            jobFinished(params, retry)
-        }.start()
+        running.remove(params.jobId)?.cancel()
+        val worker = scope.launch(start = CoroutineStart.LAZY) {
+            val retry = try {
+                withContext(Dispatchers.IO) {
+                    val workerContext = coroutineContext
+                    CsvShareCache.cleanupExpired(this@CsvShareCleanupJobService) {
+                        workerContext.isActive
+                    }
+                }
+                false
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                true
+            }
+            // JobScheduler callbacks and this completion run on Main. A stopped
+            // invocation is removed before cancellation and must never finish a replacement.
+            if (running[params.jobId] === coroutineContext[Job]) {
+                running.remove(params.jobId)
+                jobFinished(params, retry)
+            }
+        }
+        running[params.jobId] = worker
+        worker.start()
         return true
     }
 
-    override fun onStopJob(params: JobParameters): Boolean = true
+    override fun onStopJob(params: JobParameters): Boolean {
+        running.remove(params.jobId)?.cancel()
+        return true
+    }
+
+    override fun onDestroy() {
+        running.clear()
+        scope.cancel()
+        super.onDestroy()
+    }
 }

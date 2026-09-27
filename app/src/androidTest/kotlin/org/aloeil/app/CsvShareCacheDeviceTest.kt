@@ -2,9 +2,11 @@ package org.aloeil.app
 
 import android.app.job.JobScheduler
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.io.File
 import java.io.FileNotFoundException
 import android.os.SystemClock
 import org.junit.Test
@@ -13,6 +15,29 @@ import org.junit.runner.RunWith
 /** A cancelled chooser leaves no screen callback, so cleanup must already be scheduled. */
 @RunWith(AndroidJUnit4::class)
 class CsvShareCacheDeviceTest {
+    @Test
+    fun stoppedCleanupLeavesRemainingFilesForRetry() {
+        val base = ApplicationProvider.getApplicationContext<Context>()
+        val context = object : ContextWrapper(base) {
+            override fun getCacheDir() = File(base.cacheDir, "synthetic-cleanup-stop")
+        }
+        val folder = CsvShareCache.directory(context)
+        check(folder.isDirectory || folder.mkdirs())
+        val files = (1..3).map { File(folder, "synthetic-expired-$it.csv").apply { writeText("synthetic") } }
+        try {
+            var polls = 0
+            // Permit entry and one deletion, then model cancellation before the next file.
+            CsvShareCache.cleanupExpired(context) { ++polls <= 2 }
+            check(files.count { it.exists() } == 2)
+            CsvShareCache.cleanupExpired(context)
+            check(files.none { it.exists() })
+            // Another cleanup invocation must accept an already-removed file set.
+            CsvShareCache.cleanupExpired(context)
+        } finally {
+            files.forEach { it.delete() }
+        }
+    }
+
     @Test
     fun cancelledChooserStillHasPersistedCleanupAndExpiredUriCannotBeRead() {
         val context = ApplicationProvider.getApplicationContext<Context>()
