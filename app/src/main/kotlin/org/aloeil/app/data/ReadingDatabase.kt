@@ -107,7 +107,7 @@ interface ReadingDao {
         var discardedDraft = false
         fun upgraded(payload: SealedPayload, aad: ByteArray): SealedPayload? {
             try {
-                cipher.open(payload, aad)
+                cipher.open(payload, aad).fill(0)
                 return null
             } catch (_: AEADBadTagException) {
                 // An old authenticated payload has no AAD. It is read only during migration.
@@ -115,7 +115,11 @@ interface ReadingDao {
                 // The new key may not exist yet when opening an old database.
             }
             val clear = cipher.openLegacy(payload)
-            return cipher.seal(clear, aad)
+            return try {
+                cipher.seal(clear, aad)
+            } finally {
+                clear.fill(0)
+            }
         }
         allReadings().forEach { row ->
             upgraded(
