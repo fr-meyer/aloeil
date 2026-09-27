@@ -22,6 +22,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /** Physical Tab inserted whitespace and trapped keyboard users in the numeric field. */
+@OptIn(androidx.compose.ui.test.ExperimentalTestApi::class)
 @RunWith(AndroidJUnit4::class)
 class KeyboardNavigationDeviceTest {
     @get:Rule val compose = createComposeRule()
