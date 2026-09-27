@@ -1,7 +1,10 @@
 package org.aloeil.app
 
 import android.os.Bundle
+import android.graphics.Color
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.lifecycle.ViewModel
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -65,6 +69,7 @@ import org.aloeil.app.data.restoredDraftStep
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prepareAloeilWindow()
         val appContext = applicationContext
         val repositoryResult = runCatching {
             val database = ReadingDatabase.open(appContext)
@@ -84,6 +89,13 @@ class MainActivity : ComponentActivity() {
             }, captureState = captureState)
         }
     }
+}
+
+
+/** Aloeil uses a light surface, including when the phone uses its dark theme. */
+internal fun ComponentActivity.prepareAloeilWindow() {
+    val lightBars = SystemBarStyle.light(Color.TRANSPARENT, Color.BLACK)
+    enableEdgeToEdge(statusBarStyle = lightBars, navigationBarStyle = lightBars)
 }
 
 
@@ -114,7 +126,7 @@ private fun StartupRecoveryScreen(resetUnreadableStore: suspend () -> Unit) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
-                modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
@@ -607,6 +619,7 @@ internal fun AloeilApp(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .safeDrawingPadding()
                     .verticalScroll(rememberScrollState())
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),

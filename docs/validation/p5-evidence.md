@@ -17,7 +17,9 @@ The automated suite cannot prove that a particular phone, screen reader, file pr
 
 ## Synthetic device build handoff
 
-For the representative-device checks, download `aloeil-synthetic-validation-debug` from the successful GitHub Actions CI run for the exact PR head under test. The artifact contains the debug APK and its SHA-256 checksum and expires after 14 days. Compare the APK checksum before installing it on the test device, and record the run URL, commit SHA, device model, Android version and locale in the acceptance notes. The debug APK is a test build, not a release build.
+For the representative-device checks, download `aloeil-synthetic-validation-debug` from the successful GitHub Actions CI run for the exact PR head under test. The artifact contains the debug APK, its matching instrumentation-test APK, and SHA-256 checksums and expires after 14 days. Compare the APK checksum before installing it on the test device, and record the run URL, commit SHA, device model, Android version and locale in the acceptance notes. The debug APK is a test build, not a release build.
+
+The matching instrumentation APK can run the synthetic suite on an authorized USB-connected phone. Run it only on a fresh test installation: recovery fixtures reset Aloeil app data. Remove the test APK afterward so its synthetic picker/provider cannot affect normal file selection. Passing instrumentation still does not prove TalkBack speech, an actual file provider, or intended-user acceptance.
 
 Use labelled synthetic readings throughout the checklist. Keep pass/fail notes and reproduction steps, without reading values or personal health data. A new commit requires a new run and a new device acceptance record.
 
