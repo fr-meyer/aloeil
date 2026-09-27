@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -55,7 +56,7 @@ class EyeBackNavigationDeviceTest {
     }
 
     @Test
-    fun eyeCorrectionCanReturnToCorrectionChoiceWithoutSaving() {
+    fun abandonedEyeCorrectionDoesNotChangeEyeDuringValueCorrection() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
         try {
@@ -90,6 +91,19 @@ class EyeBackNavigationDeviceTest {
             runBlocking {
                 val saved = repo.all().single()
                 check(saved.eye == Eye.LEFT && saved.revision == 1L)
+            }
+            tap(R.string.correct_value)
+            compose.onNode(hasSetTextAction()).performTextReplacement("13.1")
+            tap(R.string.continue_action)
+            tap(R.string.save_correction)
+            compose.waitUntil(timeoutMillis = 10_000) {
+                compose.onAllNodes(hasText(context.getString(R.string.correction_saved)))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            runBlocking {
+                val corrected = repo.all().single()
+                check(corrected.eye == Eye.LEFT && corrected.value == "13.1")
+                check(corrected.revision == 2L)
             }
         } finally {
             db.close()

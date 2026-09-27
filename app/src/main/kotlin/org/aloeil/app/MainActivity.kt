@@ -447,6 +447,17 @@ internal fun AloeilApp(
         }
     }
 
+    fun chooseCorrection(nextStep: Step) {
+        val current = saved ?: return
+        // Starting a different correction discards edits abandoned with Back.
+        eye = current.eye
+        value = current.value
+        rangeState = current.rangeState
+        note = current.note.orEmpty()
+        valueError = null
+        step = nextStep
+    }
+
     fun saveCorrection() {
         val current = saved ?: return
         val selected = eye ?: return
@@ -463,7 +474,7 @@ internal fun AloeilApp(
                             repository.correctNote(operationId, current.id, current.revision, note)
                         Step.CORRECT_REVIEW_VALUE ->
                             if (rangeState == null) {
-                                repository.correct(operationId, current.id, current.revision, selected, value)
+                                repository.correct(operationId, current.id, current.revision, current.eye, value)
                             } else {
                                 repository.correctRange(operationId, current.id, current.revision, rangeState!!)
                             }
@@ -779,9 +790,9 @@ internal fun AloeilApp(
                     }
                     Step.CORRECT_CHOICE -> {
                         Heading(R.string.choose_correction)
-                        Action(R.string.correct_eye, busy) { step = Step.CORRECT_EYE }
-                        Secondary(R.string.correct_value, busy) { step = Step.CORRECT_VALUE }
-                        Secondary(R.string.correct_note, busy) { step = Step.CORRECT_NOTE }
+                        Action(R.string.correct_eye, busy) { chooseCorrection(Step.CORRECT_EYE) }
+                        Secondary(R.string.correct_value, busy) { chooseCorrection(Step.CORRECT_VALUE) }
+                        Secondary(R.string.correct_note, busy) { chooseCorrection(Step.CORRECT_NOTE) }
                         Secondary(R.string.back, busy) { if (!busy) abandonCorrection() }
                     }
                     Step.CORRECT_NOTE -> {

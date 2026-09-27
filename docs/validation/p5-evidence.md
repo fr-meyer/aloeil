@@ -44,3 +44,5 @@ Before any real reading: the intended user must separately consent to collection
 Save start race: CSV, encrypted export and restore consult the process-owned StateFlow value before interpreting Idle as process interruption. The held CSV provider regression asserts that saving remains disabled and no interruption message appears before and after Activity recreation.
 
 CSV cleanup cancellation: JobScheduler stop cancels the owned coroutine, cleanup checks cancellation between deletions, and completion is gated by the active job identity on Main. A stopped-cleanup regression leaves the remaining files for retry and verifies repeated cleanup is harmless.
+
+Abandoned correction regression: changing eye, going Back, then correcting a numeric value preserves the saved eye. Each newly chosen correction resets fields from the committed reading; numeric correction also uses the committed eye. Real Galaxy Tab and Shift+Tab passed at Samsung maximum 2.0x; Compose key tests explicitly establish keyboard input mode before direct key injection.
