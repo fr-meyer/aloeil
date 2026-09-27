@@ -91,7 +91,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     // screen, while the saved job ID lets a recreated screen show the final result.
     LaunchedEffect(activeExportId, archiveWriteState) {
         val id = activeExportId ?: return@LaunchedEffect
-        when (val state = archiveWriteState) {
+        // The collected snapshot can lag behind start(); the owner is authoritative.
+        when (val state = archiveExportJob.state.value) {
             is ArchiveWriteState.Writing -> if (state.id == id) busy = true
             is ArchiveWriteState.Finished -> if (state.id == id) {
                 activeExportId = null
@@ -113,7 +114,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     LaunchedEffect(activeImportId, archiveImportState) {
         val id = activeImportId ?: return@LaunchedEffect
-        when (val state = archiveImportState) {
+        // Idle is an interruption only when the process-owned job is actually Idle.
+        when (val state = archiveImportJob.state.value) {
             is ArchiveImportState.Importing -> if (state.id == id) busy = true
             is ArchiveImportState.Finished -> if (state.id == id) {
                 busy = false

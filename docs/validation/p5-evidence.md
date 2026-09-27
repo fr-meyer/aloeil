@@ -40,3 +40,5 @@ Use labelled synthetic readings on the intended Android phone and at least one n
 ## P6 private-pilot gate
 
 Before any real reading: the intended user must separately consent to collection on their phone, accept the local storage and residual metadata model, understand where an encrypted backup and passphrase will be kept, and choose whether and with whom to share a CSV. Their own device must pass the checklist above. A small private pilot can then test actual usability; capture feedback without putting readings in repository, CI, public issues, logs or the GCP server. Release is blocked until pilot findings are resolved and a new exact-head validation record passes.
+
+Save start race: CSV, encrypted export and restore consult the process-owned StateFlow value before interpreting Idle as process interruption. The held CSV provider regression asserts that saving remains disabled and no interruption message appears before and after Activity recreation.

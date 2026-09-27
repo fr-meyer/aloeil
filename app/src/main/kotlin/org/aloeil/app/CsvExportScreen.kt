@@ -93,7 +93,9 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
 
     LaunchedEffect(activeSaveId, saveState) {
         val id = activeSaveId ?: return@LaunchedEffect
-        when (val state = saveState) {
+        // Collection may still expose the pre-start Idle snapshot in this frame.
+        // start() publishes synchronously; consult the owner before reporting interruption.
+        when (val state = csvSaveJob.state.value) {
             is CsvSaveState.Writing -> if (state.id == id) busy = true
             is CsvSaveState.Finished -> if (state.id == id) {
                 activeSaveId = null

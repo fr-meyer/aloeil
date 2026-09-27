@@ -4,6 +4,8 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityNodeInfo
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -69,6 +71,11 @@ class CsvSaveCancellationDeviceTest {
                 context.contentResolver.call(csvUri, "waiting", null, null)
                     ?.getBoolean("waiting") == true
             }
+            // The start frame must not turn a held write into an interruption.
+            compose.onNode(hasText(context.getString(R.string.csv_save)) and hasClickAction())
+                .assertIsNotEnabled()
+            compose.onNode(hasText(context.getString(R.string.csv_write_interrupted)))
+                .assertDoesNotExist()
             check(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
             compose.waitUntil(timeoutMillis = 10_000) {
                 compose.onAllNodes(hasText(context.getString(R.string.csv_disclosure)))
@@ -95,6 +102,10 @@ class CsvSaveCancellationDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.csv_disclosure)))
                         .fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onNode(hasText(context.getString(R.string.csv_save)) and hasClickAction())
+                .assertIsNotEnabled()
+            compose.onNode(hasText(context.getString(R.string.csv_write_interrupted)))
+                .assertDoesNotExist()
         } finally {
             context.contentResolver.call(csvUri, "release", null, null)
         }
