@@ -1029,7 +1029,7 @@ private fun ValueField(
         supportingText = { Text(stringResource(error ?: R.string.reading_hint)) },
         isError = error != null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
 }
 
@@ -1048,7 +1048,7 @@ private fun NoteField(note: String, onChange: (String) -> Unit) {
         label = { Text(stringResource(R.string.note_label)) },
         supportingText = { Text(stringResource(R.string.note_hint)) },
         minLines = 2,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
 }
 

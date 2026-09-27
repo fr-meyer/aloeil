@@ -404,7 +404,7 @@ private fun PassphraseField(value: String, onChange: (String) -> Unit) {
         label = { Text(stringResource(R.string.archive_passphrase)) },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
 }
 

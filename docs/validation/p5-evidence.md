@@ -7,6 +7,7 @@ Status: in progress. All automated fixtures are synthetic. A passing emulator ru
 | Area | Test or inspection | Required result |
 | --- | --- | --- |
 | Capture and integrity | `CaptureFlowDeviceTest`, `ReadingRepositoryDeviceTest` | Start, save, correct, undo, and confirmed delete preserve only the intended current fact; transactions, revisions, tombstones, retries, interruption and restart do not duplicate or resurrect data. |
+| Keyboard navigation | `KeyboardNavigationDeviceTest` | Tab and Shift+Tab reach adjacent controls without changing numeric, note or passphrase input; verify the actual device at its maximum font setting. |
 | Saved history | `HistoryRestartDeviceTest`, history JVM fixtures | A saved and finished reading is selectable after reopening the database; eye/date filters and graph/list transformations retain exact facts. |
 | Backup and restore | Repository device tests and synthetic archive fixtures | Fresh-profile restore, v1–v4 compatibility, wrong passphrase, malformed archive, duplicate and deleted IDs, and history preservation follow the documented rules. |
 | Export and sharing | Synthetic CSV JVM fixtures and UI inspection | CSV escaping, formula protection, date and eye fields, preview, deliberate save/share, and temporary content access follow the documented rules. |
