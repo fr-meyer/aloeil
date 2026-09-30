@@ -18,9 +18,21 @@ is supplied. This unsigned build check does not produce an installable signed
 release, prove a signing identity, or authorize distribution. Existing test gates,
 the 45-minute job budget and lint's default failure behavior remain in force.
 
-Room is configured to export compiler-generated JSON to `app/schemas`, but the
-workflow does not retain those files and no generated schema JSON is tracked.
-These describe database structure rather than reading values. The
+Room exports compiler-generated JSON to `app/schemas`. CI 195 at `277845d`
+passed the test and release checks, but retained only debug APK/checksum files;
+its KSP log entries do not prove that schema JSON survived the discarded runner.
+The schema-retention addition removes only the current generated `3.json`, then
+forces `:app:kspReleaseKotlin` with Gradle build-cache reuse and KSP incremental
+processing disabled. It copies the resulting bytes without editing them into
+`aloeil-room-schema-v3`, alongside a SHA-256 checksum and run/attempt, actual
+checkout/tree, PR head/base, generation-command and source-input provenance.
+The three explicit artifact paths expire after 14 days. The unchanged tests,
+unsigned release checks and debug artifact upload still run; no release APK is
+uploaded. The added KSP pass reruns its dependencies within the same 45-minute
+budget. Its actual cost and generated output still need a successful new-head CI.
+No generated schema JSON is tracked yet. These files describe database structure
+rather than reading values; artifact retention does not complete baseline review
+or reconstruct versions 1 and 2. The
 [schema retention handoff](../validation/p5-evidence.md#release-validation-follow-ups)
 records the remaining evidence work without inventing a generated baseline.
 

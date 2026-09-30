@@ -102,9 +102,12 @@ The automated suite cannot prove that a particular phone, screen reader, file pr
 
 The partial PR 9 model response identified two nonblocking evidence gaps:
 debug-only CI and missing tracked Room schema JSON. It did not complete or approve
-the combined PR. PR 9 at `68d25dcdf629a7fb005912d58d602eb7c619afa1` has successful
-debug/JVM/API-30 CI; the release assembly/lint addition is separate preparation
-and has not run at that head.
+the combined PR. CI 195 at PR 9 head
+`277845d0d6a56afc708c367effedf64363c9a5b6` passed Kotlin/JVM, 71 API-30 tests,
+unsigned release assembly and release lint. Its actual checkout `b336b1f` has the
+same tree as that head. It retained debug APK/checksum files only, so it does not
+close the compiler-generated schema retention gap. This evidence is specific to
+that head; the schema-retention workflow addition still needs its own CI.
 
 Before a release claim, obtain a successful `:app:assembleRelease :app:lintRelease`
 run alongside the existing synthetic suites at the new exact candidate head.
@@ -117,14 +120,24 @@ The existing device tests construct version-1 and version-2 databases and check
 their migrations to version 3. They provide migration evidence without claiming
 a compiler-generated historical schema inventory.
 
-Schema retention remains a compiler-evidence handoff. On a separately validated
-Android build, capture the generated `org.aloeil.app.data.ReadingDatabase/3.json`
-before its runner is discarded, record the exact build/run provenance, and retain
-the reviewed compiler output in version control. Check its database version and
-table/index definitions against the unchanged source. If CI is used to capture
-that baseline, its artifact path and Gradle cache/input/output handling must first
-be validated; an upload alone does not prove fresh compiler generation. The
-current workflow does not upload schemas, and no snapshot is fabricated here.
+Schema retention remains a compiler-evidence handoff. The workflow addition
+removes only `app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`, then runs
+`./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin`.
+The deliberate regeneration avoids accepting an old file or cached task output
+as a new compiler export. It fails on missing/invalid JSON, a database version
+other than 3, missing identity/entities, or an event/checkout SHA mismatch. It
+retains the original JSON bytes, checksum and selected provenance in the separate
+14-day `aloeil-room-schema-v3` artifact; no reading data or database file is used.
+
+After a successful new-head run, verify the artifact ID/digest and expiry, its
+`3.json.sha256`, run/attempt and actual checkout/tree against the Actions log and
+GitHub commit metadata. For a PR, also match the recorded source head/base to the
+exact candidate and merge parents. Confirm the generation command ran successfully
+without `UP-TO-DATE` or `FROM-CACHE` for `:app:kspReleaseKotlin`, and match all four
+source-input hashes to that checkout. Check database version, identity and
+table/index definitions against the unchanged source before retaining the reviewed
+compiler output in version control. Artifact upload alone is not that review.
+No compiler JSON is generated locally or fabricated by this preparation.
 Current compilation cannot recreate versions 1 and 2: recover those from their
 matching historical source/toolchain only if a separate historical-schema check
 is undertaken. Never fabricate snapshots or change a database version to obtain

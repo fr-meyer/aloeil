@@ -65,3 +65,57 @@ jobs:
             app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk.sha256
           if-no-files-found: error
           retention-days: 14
+
+      - name: Regenerate and record compiler-generated Room v3 schema
+        run: |
+          set -euo pipefail
+          rm -f app/schemas/org.aloeil.app.data.ReadingDatabase/3.json
+          ./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+
+          schema_path = pathlib.Path("app/schemas/org.aloeil.app.data.ReadingDatabase/3.json")
+          payload = schema_path.read_bytes()
+          schema = json.loads(payload)
+          database = schema["database"]
+          if database["version"] != 3 or not database["identityHash"] or not database["entities"]:
+              raise ValueError("Expected the compiler-generated ReadingDatabase v3 schema")
+          digest = hashlib.sha256(payload).hexdigest()
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if checkout != os.environ["GITHUB_SHA"]:
+              raise ValueError("Checkout does not match this Actions event")
+          event = json.loads(pathlib.Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          pr = event.get("pull_request")
+          inputs = ["app/src/main/kotlin/org/aloeil/app/data/ReadingDatabase.kt", "app/build.gradle.kts",
+                    "gradle/libs.versions.toml", "gradle/wrapper/gradle-wrapper.properties"]
+          provenance = {
+              "run_url": f'{os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "checkout_sha": checkout,
+              "checkout_tree": subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"], text=True).strip(),
+              "head_sha": pr["head"]["sha"] if pr else checkout,
+              "base_sha": pr["base"]["sha"] if pr else None,
+              "schema_path": str(schema_path), "schema_sha256": digest,
+              "database_version": database["version"], "identity_hash": database["identityHash"],
+              "table_names": sorted(entity["tableName"] for entity in database["entities"]),
+              "generation_command": "./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin",
+              "source_sha256": {path: hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest() for path in inputs},
+          }
+          output = pathlib.Path("app/build/room-schema-evidence")
+          output.mkdir(parents=True, exist_ok=True)
+          (output / "3.json").write_bytes(payload)
+          (output / "3.json.sha256").write_text(f"{digest}  3.json\n")
+          (output / "provenance.json").write_text(json.dumps(provenance, indent=2) + "\n")
+          print(f"Retained compiler schema v3: {digest}; checkout: {checkout}")
+          PY
+
+      - name: Upload compiler-generated Room v3 schema evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: aloeil-room-schema-v3
+          path: |
+            app/build/room-schema-evidence/3.json
+            app/build/room-schema-evidence/3.json.sha256
+            app/build/room-schema-evidence/provenance.json
+          if-no-files-found: error
+          retention-days: 14
