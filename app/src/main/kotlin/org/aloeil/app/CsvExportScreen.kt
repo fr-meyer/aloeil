@@ -50,7 +50,8 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     val saveState by csvSaveJob.state.collectAsState()
     var busy by remember { mutableStateOf(pendingSaveUri != null || activeSaveId != null) }
     var error by remember { mutableStateOf<Int?>(null) }
-    var result by remember { mutableStateOf<Int?>(null) }
+    // Keep only the non-sensitive message resource ID, never CSV contents, in saved state.
+    var result by rememberSaveable { mutableStateOf<Int?>(null) }
     var hasShareFile by remember { mutableStateOf(false) }
 
     BlockSystemBackWhenUnsafe(busy)
@@ -74,7 +75,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         }
     }
 
-    // Save only the destination and job ID across Activity recreation. The
+    // Save the destination, job ID and non-sensitive feedback across Activity recreation. The
     // process-owned job writes the loaded snapshot exactly once.
     LaunchedEffect(pendingSaveUri, snapshot != null) {
         val selected = pendingSaveUri ?: return@LaunchedEffect
@@ -182,6 +183,8 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
             }
         }
         Text(stringResource(R.string.csv_backup_reminder))
+        // Explain the plaintext cache before the first chooser opens, even when it is empty.
+        Text(stringResource(R.string.csv_cache_disclosure))
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 onClick = {
@@ -198,7 +201,6 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             ) { Text(stringResource(R.string.csv_share)) }
             if (hasShareFile) {
-                Text(stringResource(R.string.csv_cache_disclosure))
                 OutlinedButton(
                     onClick = {
                         busy = true

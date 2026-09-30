@@ -151,7 +151,7 @@
     <string name="csv_write_error">CSV를 쓰지 못했습니다. 일부 파일이 생성되었다면 다시 시도하기 전에 삭제하세요.</string>
     <string name="csv_write_interrupted">CSV 저장이 중단되었습니다. 선택한 파일이 불완전할 수 있습니다. 해당 파일을 삭제하고 새 사본을 저장하세요.</string>
     <string name="csv_share_error">공유 화면을 열지 못했습니다. 아무것도 전송되지 않았습니다.</string>
-    <string name="csv_cache_disclosure">공유 화면은 Aloeil의 비공개 캐시에 있는 임시 일반 텍스트 CSV를 사용합니다. Aloeil은 한 시간 후 삭제를 예약합니다. 수신 앱이 읽은 뒤에는 더 일찍 삭제할 수 있습니다. 수신 앱이 만든 사본은 Aloeil에서 삭제할 수 없습니다.</string>
+    <string name="csv_cache_disclosure">공유하면 Aloeil의 비공개 캐시에 암호화되지 않은 임시 CSV가 생성됩니다. 공유 화면을 취소해도 즉시 삭제되지는 않습니다. Aloeil은 한 시간 후 삭제를 예약하지만 Android가 정리를 지연할 수 있습니다. 취소한 뒤 또는 수신 앱이 읽은 뒤 여기서 삭제할 수 있습니다. 수신 앱이 만든 사본은 Aloeil에서 삭제할 수 없습니다.</string>
     <string name="csv_clear_cache">이 휴대전화의 임시 CSV 삭제</string>
     <string name="csv_cache_cleared">이 휴대전화의 임시 CSV 파일이 삭제되었습니다.</string>
     <string name="csv_cache_error">임시 CSV 파일을 삭제하지 못했습니다. 다시 시도하세요.</string>

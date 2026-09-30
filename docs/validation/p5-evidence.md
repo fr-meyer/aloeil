@@ -2,6 +2,66 @@
 
 Status: in progress. All automated fixtures are synthetic. A passing emulator run is evidence for the tested build only; it is not a representative-device or intended-user acceptance.
 
+## Current operational status — 2026-09-30
+
+PR 7 baseline is `4d076cbae4a1d95d81f2ee5127739d685821b12a`.
+Signed 0.1.0 was installed on the intended phone on 2026-09-28. On
+2026-09-30 the owner confirmed restoration of the original encrypted archive,
+then confirmed phone security cleanup complete. The temporary USB keep-awake
+setting was independently restored to its recorded original value and read back.
+No readings, passphrase, archive contents or device identifier are recorded here.
+
+Earlier PR 7 preparation notes saying “no signed install” describe an earlier
+point in that session; this local record supersedes that operational status.
+The remote PR has not been edited. Owner-reported recovery is not an independent
+comparison of every historical record and does not certify a new patch build.
+The already-confirmed phone restoration and cleanup need no repeat phone session.
+
+The local CSV follow-up corrects the one-hour cache documentation, explains the
+cache before first sharing, preserves non-sensitive save feedback through Activity
+recreation, and adds synthetic review/transfer coverage at 2× EN/FR/KO.
+History date/load errors now expose assertive live-region semantics. These
+semantics do not validate physical TalkBack gestures, pronunciation, or spoken
+announcement cadence. The changed build still requires its own exact-head tests;
+the prior passing CI remains evidence for the unchanged baseline only.
+
+Local checks for this follow-up: `git diff --check` passed; Python XML parsing
+passed for all nine resource/manifest XML files; EN/FR/KO resource IDs and
+positional-format placeholders matched (with the intentional `app_name`
+fallback), and all 23 string references in the new test exist. Kotlin compilation,
+JVM fixtures and instrumentation have not run on this patch: this Mac has only
+JDK 8, no Android SDK and no Gradle distribution/dependency cache. The project
+requires JDK 17, Gradle 8.11.1, SDK/build-tools 35 and an API-30 test emulator.
+No toolchain was downloaded. Run the existing CI command in a separately
+authorized environment before considering this patch validated:
+
+```sh
+./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+```
+
+## Remaining intended-user acceptance — no health values required
+
+Record only pass/fail and wording or navigation feedback; do not collect readings,
+archives, passphrases or screenshots of personal history.
+
+1. Confirm comfortable eye selection, device-range wording, entry/correction and
+   History/filter/detail navigation with the intended tonometer workflow.
+2. On a separate synthetic test profile, check readable/reachable controls at large
+   text, including History, archive and CSV screens. If TalkBack is used, assess
+   physical gestures, pronunciation and announcement cadence separately from
+   automated semantic checks.
+3. Accept the storage boundary: payloads are encrypted, but SQLite IDs, counts,
+   revisions, tombstone IDs and retry timing remain visible metadata. The current
+   build relies on the phone lock; a separate app lock is future scope.
+4. Confirm the chosen encrypted-backup location and separate passphrase custody,
+   without disclosing either secret or file contents. Recovery is already
+   owner-confirmed; another restore is not required for this checklist.
+5. Understand that CSV is plaintext, chooser cancellation does not erase its cache
+   immediately, scheduled cleanup can be delayed, and local clearing cannot revoke
+   recipient/provider copies. Sharing remains a deliberate choice.
+6. Obtain separate consent before a new private pilot, replica or new CSV recipient.
+   Resolve pilot feedback before merge/release; restoration alone is not that consent.
+
 ## Automated evidence to record at the exact pull-request head
 
 | Area | Test or inspection | Required result |
@@ -10,7 +70,8 @@ Status: in progress. All automated fixtures are synthetic. A passing emulator ru
 | Keyboard navigation | `KeyboardNavigationDeviceTest` | Tab and Shift+Tab reach adjacent controls without changing numeric, note or passphrase input; verify the actual device at its maximum font setting. |
 | Saved history | `HistoryRestartDeviceTest`, history JVM fixtures | A saved and finished reading is selectable after reopening the database; eye/date filters and graph/list transformations retain exact facts. |
 | Backup and restore | Repository device tests and synthetic archive fixtures | Fresh-profile restore, v1–v4 compatibility, wrong passphrase, malformed archive, duplicate and deleted IDs, and history preservation follow the documented rules. |
-| Export and sharing | Synthetic CSV JVM fixtures and UI inspection | CSV escaping, formula protection, date and eye fields, preview, deliberate save/share, and temporary content access follow the documented rules. |
+| Export and sharing | Synthetic CSV JVM fixtures, `CsvSaveCancellationDeviceTest`, `ReviewTransferLocaleDeviceTest` and UI inspection | CSV escaping, formula protection, date/eye fields, disclosure before first share, synthetic cancel/clear states, completed-save recreation and subsequent cancellation follow the documented rules. |
+| Review/transfer accessibility | `ReviewTransferLocaleDeviceTest` | At 2× EN/FR/KO on a narrow viewport: History filters/detail, archive password/error and CSV actions are reachable; targets meet 48 dp; errors/results expose appropriate live regions. This does not certify speech or physical gestures. |
 | Installed privacy | `InstalledPrivacyDeviceTest` | Merged app has no Internet permission and no automatic Android backup; share provider is private and grants only temporary URI access. |
 | Build | GitHub Actions API 30 managed emulator and JVM suite | All tests pass on the exact PR head; record run URL and head SHA before claiming a gate. |
 

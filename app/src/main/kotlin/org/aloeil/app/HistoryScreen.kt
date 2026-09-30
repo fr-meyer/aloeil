@@ -25,6 +25,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -73,7 +75,8 @@ internal fun HistoryScreen(
     Text(stringResource(R.string.history_title), modifier = Modifier.semantics { heading() },
         style = MaterialTheme.typography.headlineMedium)
     if (loadError) {
-        Text(stringResource(R.string.history_load_error), color = MaterialTheme.colorScheme.error)
+        Text(stringResource(R.string.history_load_error), color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
         Secondary(R.string.back, false, onBack)
         return
     }
@@ -122,7 +125,8 @@ internal fun HistoryScreen(
     )
     val filtered = filterHistory(all, eye, fromText, toText)
     if (filtered.invalidDate) {
-        Text(stringResource(R.string.history_invalid_date), color = MaterialTheme.colorScheme.error)
+        Text(stringResource(R.string.history_invalid_date), color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
     }
     Text(stringResource(R.string.history_count, filtered.readings.size))
     if (filtered.readings.isEmpty()) {
