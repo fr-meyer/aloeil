@@ -5,6 +5,14 @@ Status: in progress. All automated fixtures are synthetic. A passing emulator ru
 ## Current operational status — 2026-09-30
 
 PR 7 baseline is `4d076cbae4a1d95d81f2ee5127739d685821b12a`.
+The CSV follow-up in [PR 8](https://github.com/fr-meyer/aloeil/pull/8) is
+`70ec1ce1859d606359a0d2306f1b0f70dd405d0d`, a 12-file delta over that baseline.
+[PR 9](https://github.com/fr-meyer/aloeil/pull/9) is the combined user-authored
+candidate to `dev`, on `aloeil/p5-csv-usability`. It retains the original commit
+history, while PRs 7 and 8 remain intact as source evidence. Its initial published
+application tree is the same as the tested CSV follow-up; publication metadata
+and each later head require their own CI and exact-base/head review evidence.
+
 Signed 0.1.0 was installed on the intended phone on 2026-09-28. On
 2026-09-30 the owner confirmed restoration of the original encrypted archive,
 then confirmed phone security cleanup complete. The temporary USB keep-awake
@@ -12,28 +20,41 @@ setting was independently restored to its recorded original value and read back.
 No readings, passphrase, archive contents or device identifier are recorded here.
 
 Earlier PR 7 preparation notes saying “no signed install” describe an earlier
-point in that session; this local record supersedes that operational status.
-The remote PR has not been edited. Owner-reported recovery is not an independent
+point in that session; this record supersedes that operational status.
+The source PRs have not been edited. Owner-reported recovery is not an independent
 comparison of every historical record and does not certify a new patch build.
 The already-confirmed phone restoration and cleanup need no repeat phone session.
 
-The local CSV follow-up corrects the one-hour cache documentation, explains the
+The CSV follow-up corrects the one-hour cache documentation, explains the
 cache before first sharing, preserves non-sensitive save feedback through Activity
 recreation, and adds synthetic review/transfer coverage at 2× EN/FR/KO.
 History date/load errors now expose assertive live-region semantics. These
 semantics do not validate physical TalkBack gestures, pronunciation, or spoken
-announcement cadence. The changed build still requires its own exact-head tests;
-the prior passing CI remains evidence for the unchanged baseline only.
+announcement cadence. The follow-up has its own successful automated evidence
+below; those results do not certify physical-device or intended-user acceptance.
 
 Local checks for this follow-up: `git diff --check` passed; Python XML parsing
 passed for all nine resource/manifest XML files; EN/FR/KO resource IDs and
 positional-format placeholders matched (with the intentional `app_name`
-fallback), and all 23 string references in the new test exist. Kotlin compilation,
-JVM fixtures and instrumentation have not run on this patch: this Mac has only
-JDK 8, no Android SDK and no Gradle distribution/dependency cache. The project
-requires JDK 17, Gradle 8.11.1, SDK/build-tools 35 and an API-30 test emulator.
-No toolchain was downloaded. Run the existing CI command in a separately
-authorized environment before considering this patch validated:
+fallback), and all 23 string references in the new test exist.
+
+[Android CI run 36673921277](https://github.com/fr-meyer/aloeil/actions/runs/36673921277),
+attempt 1, passed for PR 8 head `70ec1ce1859d606359a0d2306f1b0f70dd405d0d`.
+The actual `refs/pull/8/merge` checkout was
+`98f225fce0aba4d8a5edbc01e1330b4f68bd379e`, whose tree
+`dd6a3857c900544df293487a4c0976970b793278` equals that head's tree.
+Kotlin compilation and the synthetic JVM task passed; the API-30 console recorded
+71 tests starting and finishing, and the workflow completed successfully. No
+individual JUnit report was uploaded, so this count comes from the console and
+workflow result. The workflow also uploaded the matching synthetic debug APKs
+and checksums. No artifact was downloaded or installed on the owner's phone.
+
+Android tests did not run locally: this Mac has JDK 8, no Android SDK and no Gradle
+distribution/dependency cache. The unchanged GitHub workflow supplies JDK 17,
+Gradle 8.11.1, SDK/build-tools 35 and the API-30 emulator. No local toolchain was
+downloaded. For every new candidate head, record the new workflow run and actual
+merge checkout; earlier green results are evidence for their recorded head only.
+The existing CI command is:
 
 ```sh
 ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect

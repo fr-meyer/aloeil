@@ -6,7 +6,7 @@ repository:
   upstream: null
   fork: fr-meyer/aloeil
   base_branch: dev
-  working_branch: aloeil/p5-validation
+  working_branch: aloeil/p5-csv-usability
   default_branch: main
 status:
   phase: implementation-in-progress
@@ -70,9 +70,9 @@ surfaces:
     enabled: true
     status: open
     base_branch: dev
-    head_branch: aloeil/p5-validation
+    head_branch: aloeil/p5-csv-usability
     default_branch: main
-    pull_request: https://github.com/fr-meyer/aloeil/pull/7
+    pull_request: https://github.com/fr-meyer/aloeil/pull/9
     head_sha: null
   vibe_kanban:
     enabled: planned
