@@ -152,7 +152,7 @@
     <string name="csv_write_error">Could not write the CSV. If a partial file was created, delete it before retrying.</string>
     <string name="csv_write_interrupted">The CSV save was interrupted. The selected file may be incomplete; delete it and save a new copy.</string>
     <string name="csv_share_error">Could not open the share chooser. Nothing was sent.</string>
-    <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Aloeil schedules its deletion after one hour; you can clear it sooner once the recipient has read it. Copies made by the receiving app remain outside Aloeil.</string>
+    <string name="csv_cache_disclosure">Sharing creates a temporary plain-text CSV in Aloeil’s private cache. Canceling the chooser does not delete it immediately. Aloeil schedules deletion after one hour; Android may delay cleanup. You can clear it here after canceling or once the recipient has read it. Aloeil cannot delete copies made by the receiving app.</string>
     <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
     <string name="csv_cache_cleared">Temporary CSV files cleared from this phone.</string>
     <string name="csv_cache_error">Could not clear the temporary CSV files. Try again.</string>
