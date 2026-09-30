@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Aloeil</string>
+    <string name="app_name" translatable="false">Aloeil</string>
     <string name="start_sitting">Start a sitting</string>
     <string name="resume_sitting">Resume the sitting</string>
     <string name="sitting_in_progress">Sitting in progress</string>
