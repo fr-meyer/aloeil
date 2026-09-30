@@ -106,8 +106,9 @@ the combined PR. CI 195 at PR 9 head
 `277845d0d6a56afc708c367effedf64363c9a5b6` passed Kotlin/JVM, 71 API-30 tests,
 unsigned release assembly and release lint. Its actual checkout `b336b1f` has the
 same tree as that head. It retained debug APK/checksum files only, so it does not
-close the compiler-generated schema retention gap. This evidence is specific to
-that head; the schema-retention workflow addition still needs its own CI.
+close the compiler-generated schema retention gap. CI 196 subsequently passed
+on `51192faec1b4799acf320d9ff1d420a62178eee4`, including 71 API-30 tests, unsigned
+release/lint and the new schema capture. Each result is specific to its own head.
 
 Before a release claim, obtain a successful `:app:assembleRelease :app:lintRelease`
 run alongside the existing synthetic suites at the new exact candidate head.
@@ -115,12 +116,14 @@ Do not suppress lint failures to obtain a green result. Unsigned release assembl
 checks build inputs; it does not validate signing, installation or physical use.
 
 `ReadingDatabase` currently has `version = 3` and `exportSchema = true`; KSP writes
-schemas to `app/schemas`. No generated schema JSON is currently tracked.
+schemas to `app/schemas`. The genuine version-3 compiler JSON from CI 196 is now
+retained unchanged in
+[`app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`](../../app/schemas/org.aloeil.app.data.ReadingDatabase/3.json).
 The existing device tests construct version-1 and version-2 databases and check
 their migrations to version 3. They provide migration evidence without claiming
 a compiler-generated historical schema inventory.
 
-Schema retention remains a compiler-evidence handoff. The workflow addition
+The workflow's compiler-evidence capture
 removes only `app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`, then runs
 `./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin`.
 The deliberate regeneration avoids accepting an old file or cached task output
@@ -137,7 +140,27 @@ without `UP-TO-DATE` or `FROM-CACHE` for `:app:kspReleaseKotlin`, and match all 
 source-input hashes to that checkout. Check database version, identity and
 table/index definitions against the unchanged source before retaining the reviewed
 compiler output in version control. Artifact upload alone is not that review.
-No compiler JSON is generated locally or fabricated by this preparation.
+CI 196's genuine compiler output has passed those checks. The schema artifact
+`11091932575` contains only `3.json`, `3.json.sha256` and `provenance.json`; its ZIP
+SHA-256 is `8ca2e7b0533a2215b3e07c54904954f328746f38e867d47c47a8a361dc616f2c`.
+The unchanged JSON is 7,359 bytes with SHA-256
+`97905c7f7f5b0c496ae45b8fba2a01d5fd60ebf95abf8fce2afaebe26662be9a`
+and Room identity `195835d8eb5b2ca7f8900f94d406a576`. Its
+[origin record](room-schema-v3-provenance.json) is copied byte-for-byte from the
+artifact. It identifies run `36704919379`/attempt 1, source head `51192fa`, and
+actual merge checkout `915ed82e793cd39f06dd8645454372c88b5d49f0`; that checkout's
+tree `974f97b3d5e0b22df4b95530155fa25207c4c1b2` matches the source head. The
+forced KSP invocation executed without `UP-TO-DATE`/`FROM-CACHE` and succeeded in
+20 seconds. The full CI job passed in 9m53s.
+
+The four source-input hashes match that tree. All seven entities, exact table/index
+DDL, field affinities/nullability/defaults, primary keys, absence of foreign keys,
+and the ordinary ascending outbox index were checked against source annotations
+and empty in-memory SQLite structure. No reading rows or device database were
+opened. These files preserve compiler output; no JSON was generated locally or
+reconstructed from an APK. Their provenance records the origin build, rather than
+claiming a future commit generated its own baseline. The baseline-retention
+candidate needs its own CI and complete exact-base/head named review.
 Current compilation cannot recreate versions 1 and 2: recover those from their
 matching historical source/toolchain only if a separate historical-schema check
 is undertaken. Never fabricate snapshots or change a database version to obtain
@@ -149,8 +172,8 @@ The repository's pinned Room version remains unchanged; no newer Room API or
 dependency from that guide is adopted here. No later head is validated until it
 has its own CI, independent review and complete exact-base/head named-review
 evidence, including inspection of raw coverage and findings. Shared reviewer
-repair remains a dependency; the currently tested PR head stays unchanged during
-this preparation.
+repair remains a dependency; publishing compiler evidence does not waive that
+gate.
 
 ## Synthetic device build handoff
 

@@ -29,10 +29,15 @@ checkout/tree, PR head/base, generation-command and source-input provenance.
 The three explicit artifact paths expire after 14 days. The unchanged tests,
 unsigned release checks and debug artifact upload still run; no release APK is
 uploaded. The added KSP pass reruns its dependencies within the same 45-minute
-budget. Its actual cost and generated output still need a successful new-head CI.
-No generated schema JSON is tracked yet. These files describe database structure
-rather than reading values; artifact retention does not complete baseline review
-or reconstruct versions 1 and 2. The
+budget. CI 196 at `51192fa` passed all existing gates and completed the extra KSP
+pass in 20 seconds; the full job took 9m53s. Its verified v3 compiler JSON is
+retained unchanged at `app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`,
+with the exact artifact-origin record in
+`docs/validation/room-schema-v3-provenance.json`. The seven tables, columns,
+primary keys and outbox index match the unchanged source; checksum/source hashes
+and the actual merge checkout/tree were verified. This is schema structure only,
+with no reading rows. The newly retained baseline still needs its own candidate
+CI and complete named review; versions 1 and 2 were not reconstructed. The
 [schema retention handoff](../validation/p5-evidence.md#release-validation-follow-ups)
 records the remaining evidence work without inventing a generated baseline.
 
