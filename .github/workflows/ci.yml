@@ -43,6 +43,9 @@ jobs:
       - name: Run JVM and Android database tests
         run: ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 
+      - name: Compile unsigned release and run release lint
+        run: ./gradlew --no-daemon :app:assembleRelease :app:lintRelease
+
       - name: Build synthetic device-validation APK and checksum
         run: |
           ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest

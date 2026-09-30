@@ -98,6 +98,47 @@ archives, passphrases or screenshots of personal history.
 
 The automated suite cannot prove that a particular phone, screen reader, file provider, or caregiver workflow works. Record every failed check with reproduction steps and the corrected exact-head build. Do not store screenshots, logs, archives, or CSV files containing real readings in GitHub or CI.
 
+## Release validation follow-ups
+
+The partial PR 9 model response identified two nonblocking evidence gaps:
+debug-only CI and missing tracked Room schema JSON. It did not complete or approve
+the combined PR. PR 9 at `68d25dcdf629a7fb005912d58d602eb7c619afa1` has successful
+debug/JVM/API-30 CI; the release assembly/lint addition is separate preparation
+and has not run at that head.
+
+Before a release claim, obtain a successful `:app:assembleRelease :app:lintRelease`
+run alongside the existing synthetic suites at the new exact candidate head.
+Do not suppress lint failures to obtain a green result. Unsigned release assembly
+checks build inputs; it does not validate signing, installation or physical use.
+
+`ReadingDatabase` currently has `version = 3` and `exportSchema = true`; KSP writes
+schemas to `app/schemas`. No generated schema JSON is currently tracked.
+The existing device tests construct version-1 and version-2 databases and check
+their migrations to version 3. They provide migration evidence without claiming
+a compiler-generated historical schema inventory.
+
+Schema retention remains a compiler-evidence handoff. On a separately validated
+Android build, capture the generated `org.aloeil.app.data.ReadingDatabase/3.json`
+before its runner is discarded, record the exact build/run provenance, and retain
+the reviewed compiler output in version control. Check its database version and
+table/index definitions against the unchanged source. If CI is used to capture
+that baseline, its artifact path and Gradle cache/input/output handling must first
+be validated; an upload alone does not prove fresh compiler generation. The
+current workflow does not upload schemas, and no snapshot is fabricated here.
+Current compilation cannot recreate versions 1 and 2: recover those from their
+matching historical source/toolchain only if a separate historical-schema check
+is undertaken. Never fabricate snapshots or change a database version to obtain
+one. No migration, entity, storage behavior, dependency or signing change is
+needed for this preparation.
+
+Android documents [compiler export and version-control retention](https://developer.android.com/training/data-storage/room/migrating-db-versions#export-schemas).
+The repository's pinned Room version remains unchanged; no newer Room API or
+dependency from that guide is adopted here. No later head is validated until it
+has its own CI, independent review and complete exact-base/head named-review
+evidence, including inspection of raw coverage and findings. Shared reviewer
+repair remains a dependency; the currently tested PR head stays unchanged during
+this preparation.
+
 ## Synthetic device build handoff
 
 For the representative-device checks, download `aloeil-synthetic-validation-debug` from the successful GitHub Actions CI run for the exact PR head under test. The artifact contains the debug APK, its matching instrumentation-test APK, and SHA-256 checksums and expires after 14 days. Compare the APK checksum before installing it on the test device, and record the run URL, commit SHA, device model, Android version and locale in the acceptance notes. The debug APK is a test build, not a release build.
