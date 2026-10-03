@@ -36,6 +36,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.ArchiveCodec
+import org.aloeil.app.data.ArchiveMaterializationLimitException
 import org.aloeil.app.data.ArchivePreview
 import org.aloeil.app.data.BoundedArchiveBuffer
 import org.aloeil.app.data.ReadingRepository
@@ -46,6 +47,9 @@ private enum class TransferStep {
 }
 
 private const val MAX_ARCHIVE_FILE_BYTES = 16 * 1024 * 1024 + 64
+
+internal fun archiveErrorMessage(error: Throwable, fallback: Int): Int =
+    if (error is ArchiveMaterializationLimitException) R.string.archive_capacity_error else fallback
 
 /** Production disposal effect; transfer owners retain their buffers until completion. */
 @Composable
@@ -133,7 +137,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     restoredCount = state.added ?: 0
                     step = TransferStep.IMPORT_DONE
                 } else {
-                    error = R.string.archive_restore_error
+                    error = if (state.capacityExceeded) R.string.archive_capacity_error
+                        else R.string.archive_restore_error
                     step = TransferStep.IMPORT
                 }
                 activeImportId = null
@@ -190,7 +195,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 step = TransferStep.IMPORT_PREVIEW
             }.onFailure {
                 passphrase = ""
-                error = R.string.archive_read_error
+                error = archiveErrorMessage(it, R.string.archive_read_error)
                 step = TransferStep.IMPORT
             }
         }
@@ -270,7 +275,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     pendingExportUri = null
                     writeArchive(Uri.parse(selected), bytes)
                 }
-            }.onFailure { error = R.string.archive_export_error }
+            }.onFailure { error = archiveErrorMessage(it, R.string.archive_export_error) }
         }
     }
 
@@ -391,14 +396,17 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 TransferButton(R.string.archive_done, busy, onBack)
             }
         }
-        error?.let { id ->
-            Text(
-                stringResource(id),
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+        error?.let { ArchiveErrorFeedback(it) }
     }
+}
+
+@Composable
+internal fun ArchiveErrorFeedback(message: Int) {
+    Text(
+        stringResource(message),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 @Composable

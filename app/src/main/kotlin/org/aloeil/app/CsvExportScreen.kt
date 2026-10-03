@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.CsvExport
@@ -53,26 +54,39 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     // Keep only the non-sensitive message resource ID, never CSV contents, in saved state.
     var result by rememberSaveable { mutableStateOf<Int?>(null) }
     var hasShareFile by remember { mutableStateOf(false) }
+    val cacheChanges by CsvShareCache.changes.collectAsState()
 
     BlockSystemBackWhenUnsafe(busy)
 
     LaunchedEffect(Unit) {
         runCatching {
             withContext(Dispatchers.IO) {
-                CsvShareCache.cleanupExpired(context)
-                val previousShare = CsvShareCache.directory(context).listFiles()
-                    ?.any { it.isFile } == true
-                if (previousShare) CsvShareCache.ensureScheduled(context)
-                repository.currentFactsSnapshot() to previousShare
+                repository.currentFactsSnapshot()
             }
-        }.onSuccess { (data, previousShare) ->
-            snapshot = data
-            hasShareFile = previousShare
+        }.onSuccess {
+            snapshot = it
         }.onFailure {
+            if (it is CancellationException) throw it
             pendingSaveUri = null
             if (activeSaveId == null) busy = false
             error = R.string.csv_load_error
         }
+    }
+
+    LaunchedEffect(cacheChanges) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                CsvShareCache.cleanupExpired(context)
+                if (CsvShareCache.hasFiles(context)) CsvShareCache.ensureScheduled(context)
+                CsvShareCache.hasFiles(context)
+            }
+        }.onSuccess { hasShareFile = it }
+            .onFailure {
+                if (it is CancellationException) throw it
+                // Keep the clear action available even when cleanup or scheduling fails.
+                hasShareFile = true
+                error = R.string.csv_cache_error
+            }
     }
 
     // Save the destination, job ID and non-sensitive feedback across Activity recreation. The
@@ -132,37 +146,34 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
         error = null
         result = null
         scope.launch {
-            val file = runCatching {
-                withContext(Dispatchers.IO) {
-                    CsvShareCache.writeShare(context, data.first, data.second)
-                }
-            }.getOrNull()
-            if (file == null) {
-                error = R.string.csv_share_error
-            } else {
-                val opened = runCatching {
-                    val uri = FileProvider.getUriForFile(
-                        context, "org.aloeil.app.fileprovider", file,
-                    )
-                    val send = Intent(Intent.ACTION_SEND).apply {
-                        type = CsvExport.mimeType
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        clipData = ClipData.newRawUri("", uri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    context.startActivity(Intent.createChooser(
-                        send, context.getString(R.string.csv_choose_recipient),
-                    ))
-                }.isSuccess
+            try {
+                val opened = prepareAndOpenCsvShare(
+                    write = { CsvShareCache.writeShare(context, data.first, data.second) },
+                    remove = { CsvShareCache.remove(context, it) },
+                    open = { file ->
+                        val uri = FileProvider.getUriForFile(
+                            context, "org.aloeil.app.fileprovider", file,
+                        )
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = CsvExport.mimeType
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            clipData = ClipData.newRawUri("", uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(
+                            send, context.getString(R.string.csv_choose_recipient),
+                        ))
+                    },
+                )
                 if (opened) {
                     hasShareFile = true
                     result = R.string.csv_chooser_opened
                 } else {
-                    file.delete()
                     error = R.string.csv_share_error
                 }
+            } finally {
+                busy = false
             }
-            busy = false
         }
     }
 
@@ -213,6 +224,7 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
                             busy = false
                             if (cleared) {
                                 hasShareFile = false
+                                error = null
                                 result = R.string.csv_cache_cleared
                             } else {
                                 error = R.string.csv_cache_error

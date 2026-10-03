@@ -8,12 +8,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.aloeil.app.data.ArchiveMaterializationLimitException
 
 /** Owns a restore buffer and passphrase until the transaction completes. */
 internal sealed interface ArchiveImportState {
     data object Idle : ArchiveImportState
     data class Importing(val id: String) : ArchiveImportState
-    data class Finished(val id: String, val added: Int?, val success: Boolean) : ArchiveImportState
+    data class Finished(
+        val id: String,
+        val added: Int?,
+        val success: Boolean,
+        val capacityExceeded: Boolean = false,
+    ) : ArchiveImportState
 }
 
 internal class ArchiveImportJob(private val scope: CoroutineScope) {
@@ -39,11 +45,14 @@ internal class ArchiveImportJob(private val scope: CoroutineScope) {
         scope.launch {
             var added: Int? = null
             var success = false
+            var capacityExceeded = false
             try {
                 added = importOperation(bytes, passphrase)
                 success = true
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (_: ArchiveMaterializationLimitException) {
+                capacityExceeded = true
             } catch (_: Exception) {
                 // The screen reports a failed restore; the database transaction rolls back.
             } finally {
@@ -51,7 +60,7 @@ internal class ArchiveImportJob(private val scope: CoroutineScope) {
                     bytes.fill(0)
                     passphrase.fill('\u0000')
                     activeBytes = null
-                    mutableState.value = ArchiveImportState.Finished(id, added, success)
+                    mutableState.value = ArchiveImportState.Finished(id, added, success, capacityExceeded)
                 }
             }
         }

@@ -31,8 +31,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.Eye
+import org.aloeil.app.data.HistoryFilterResult
 import org.aloeil.app.data.RangeState
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.ReadingRepository
@@ -44,6 +47,72 @@ import java.time.Instant
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+
+internal data class HistoryDisplayResult(
+    val filtered: HistoryFilterResult,
+    /** Null means the graph's existing 2,000-numeric-reading limit was exceeded. */
+    val numericReadings: List<Reading>?,
+)
+
+/** Keep the shared eye/date rules, with bounded cancellation points during CPU work. */
+internal suspend fun historyForDisplay(
+    readings: List<Reading>,
+    eye: Eye?,
+    fromText: String,
+    toText: String,
+): HistoryDisplayResult = withContext(Dispatchers.Default) {
+    val worker = currentCoroutineContext()
+    worker.ensureActive()
+    val invalidDate = filterHistory(emptyList(), eye, fromText, toText).invalidDate
+    val matches = ArrayList<Reading>()
+    var offset = 0
+    while (offset < readings.size) {
+        worker.ensureActive()
+        val end = offset + minOf(256, readings.size - offset)
+        matches.addAll(filterHistory(readings.subList(offset, end), eye, fromText, toText).readings)
+        offset = end
+    }
+    val order = compareByDescending<Reading> { it.recordedAtMillis }.thenByDescending { it.id }
+    matches.sortWith { before, after ->
+        worker.ensureActive()
+        order.compare(before, after)
+    }
+    val numeric = ArrayList<Reading>()
+    var graphLimitExceeded = false
+    for (reading in matches) {
+        worker.ensureActive()
+        if (reading.rangeState == null) {
+            if (numeric.size == 2000) {
+                graphLimitExceeded = true
+                break
+            }
+            numeric.add(reading)
+        }
+    }
+    worker.ensureActive()
+    HistoryDisplayResult(
+        HistoryFilterResult(matches, invalidDate),
+        if (graphLimitExceeded) null else numeric,
+    )
+}
+
+@Composable
+internal fun rememberHistoryDisplay(
+    readings: List<Reading>,
+    eye: Eye?,
+    fromText: String,
+    toText: String,
+): HistoryDisplayResult? {
+    // A new query has its own pending state; a cancelled old query cannot publish
+    // its count or rows into the new query, even while its worker is returning.
+    var result by remember(readings, eye, fromText, toText) {
+        mutableStateOf<HistoryDisplayResult?>(null)
+    }
+    LaunchedEffect(readings, eye, fromText, toText) {
+        result = historyForDisplay(readings, eye, fromText, toText)
+    }
+    return result
+}
 
 @Composable
 internal fun HistoryScreen(
@@ -57,9 +126,7 @@ internal fun HistoryScreen(
     var eye by remember { mutableStateOf<Eye?>(null) }
     var fromText by remember { mutableStateOf("") }
     var toText by remember { mutableStateOf("") }
-    var visibleCount by remember { mutableStateOf(50) }
-
-    LaunchedEffect(eye, fromText, toText) { visibleCount = 50 }
+    var visibleCount by remember(readings, eye, fromText, toText) { mutableStateOf(50) }
 
     LaunchedEffect(Unit) {
         runCatching {
@@ -113,7 +180,7 @@ internal fun HistoryScreen(
         label = { Text(stringResource(R.string.history_from_date)) },
         supportingText = { Text(stringResource(R.string.history_date_hint)) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
     OutlinedTextField(
         value = toText,
@@ -121,9 +188,15 @@ internal fun HistoryScreen(
         label = { Text(stringResource(R.string.history_to_date)) },
         supportingText = { Text(stringResource(R.string.history_date_hint)) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
-    val filtered = filterHistory(all, eye, fromText, toText)
+    val display = rememberHistoryDisplay(all, eye, fromText, toText)
+    if (display == null) {
+        Text(stringResource(R.string.loading))
+        Secondary(R.string.back, false, onBack)
+        return
+    }
+    val filtered = display.filtered
     if (filtered.invalidDate) {
         Text(stringResource(R.string.history_invalid_date), color = MaterialTheme.colorScheme.error,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
@@ -132,8 +205,9 @@ internal fun HistoryScreen(
     if (filtered.readings.isEmpty()) {
         Text(stringResource(R.string.history_no_match))
     } else {
-        if (filtered.readings.count { it.rangeState == null } <= 2000) {
-            ReadingGraph(filtered.readings)
+        val numeric = display.numericReadings
+        if (numeric != null) {
+            ReadingGraph(numeric, filtered.readings.size - numeric.size)
         } else {
             Text(stringResource(R.string.history_graph_limit))
         }
@@ -165,9 +239,7 @@ internal fun HistoryScreen(
 }
 
 @Composable
-private fun ReadingGraph(readings: List<Reading>) {
-    val numeric = readings.filter { it.rangeState == null }
-    val rangeCount = readings.size - numeric.size
+private fun ReadingGraph(numeric: List<Reading>, rangeCount: Int) {
     Text(stringResource(R.string.history_graph_title),
         modifier = Modifier.semantics { heading() },
         style = MaterialTheme.typography.titleLarge)

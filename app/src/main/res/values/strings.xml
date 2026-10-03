@@ -87,6 +87,7 @@
     <string name="archive_importing">Restoring encrypted backup…</string>
     <string name="archive_export_error">The encrypted backup could not be prepared. Your readings are still on this phone.</string>
     <string name="archive_read_error">The file or passphrase could not be verified. Nothing was restored.</string>
+    <string name="archive_capacity_error">This backup exceeds Aloeil’s current processing limit. Keep the original file. Your saved readings have not been changed.</string>
     <string name="archive_restore_error">The backup could not be restored. Readings already on this phone were kept.</string>
     <string name="range_state_explain">If the device showed a range message, choose the matching direction. Do not estimate a number.</string>
     <string name="below_range">Below device range</string>

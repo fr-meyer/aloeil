@@ -86,6 +86,7 @@
     <string name="archive_importing">암호화된 백업을 복원하는 중…</string>
     <string name="archive_export_error">암호화된 백업을 준비하지 못했습니다. 측정값은 이 휴대전화에 남아 있습니다.</string>
     <string name="archive_read_error">파일 또는 암호를 확인할 수 없습니다. 복원된 측정값은 없습니다.</string>
+    <string name="archive_capacity_error">이 백업은 Aloeil의 현재 처리 한도를 초과합니다. 원본 파일을 보관하세요. 저장된 측정값은 변경되지 않았습니다.</string>
     <string name="archive_restore_error">백업을 복원하지 못했습니다. 이 휴대전화의 기존 측정값은 유지되었습니다.</string>
     <string name="range_state_explain">기기에 측정 범위 메시지가 표시되었다면 해당 방향을 선택하세요. 숫자를 추정하지 마세요.</string>
     <string name="below_range">기기 측정 범위 미만</string>

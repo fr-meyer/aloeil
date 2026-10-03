@@ -86,6 +86,7 @@
     <string name="archive_importing">Restauration de la sauvegarde chiffrée…</string>
     <string name="archive_export_error">Impossible de préparer la sauvegarde chiffrée. Vos mesures restent sur ce téléphone.</string>
     <string name="archive_read_error">Impossible de vérifier le fichier ou le mot de passe. Aucune mesure restaurée.</string>
+    <string name="archive_capacity_error">Cette sauvegarde dépasse la limite de traitement actuelle d’Aloeil. Conservez le fichier d’origine. Vos mesures enregistrées restent inchangées.</string>
     <string name="archive_restore_error">Impossible de restaurer la sauvegarde. Les mesures déjà sur ce téléphone ont été conservées.</string>
     <string name="range_state_explain">Si l’appareil affiche une indication hors plage, choisissez le sens correspondant. N’estimez pas de nombre.</string>
     <string name="below_range">Sous la plage de l’appareil</string>

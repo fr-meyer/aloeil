@@ -3,6 +3,8 @@ package org.aloeil.app.data
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.io.EOFException
+import java.io.UTFDataFormatException
 import java.math.BigDecimal
 import java.nio.ByteBuffer
 import java.security.SecureRandom
@@ -32,6 +34,9 @@ data class ArchiveBundle(
     val deleted: List<DeletedReadingRow> = emptyList(),
 )
 
+/** Authenticated input exceeds the work policy; this does not certify its remaining contents. */
+class ArchiveMaterializationLimitException : IllegalArgumentException("Archive allocation budget exceeded")
+
 /** Authenticated portable backup. The Android Keystore key never leaves the phone. */
 object ArchiveCodec {
     const val MIN_PASSPHRASE_LENGTH = 12
@@ -43,6 +48,10 @@ object ArchiveCodec {
     private const val version = 4
     private const val maxBytes = 16 * 1024 * 1024
     private const val maxItems = 100_000
+    // Admission units count model constructions and UTF string fields, not heap bytes.
+    // A 100k-reading + 100k-sitting baseline costs at most 1.1m units, including
+    // notes. Dense correction/tombstone combinations can exceed this aggregate cap.
+    private const val maxMaterializationUnits = 16L * maxItems
     private const val headerBytes = 44
     private const val iterations = 210_000
     private val random = SecureRandom()
@@ -51,6 +60,7 @@ object ArchiveCodec {
         require(passphrase.size in MIN_PASSPHRASE_LENGTH..MAX_PASSPHRASE_LENGTH) {
             "Export passphrase length is invalid"
         }
+        checkExportMaterializationBudget(bundle)
         validate(bundle)
         val bytes = BoundedArchiveBuffer(maxBytes)
         return try {
@@ -127,7 +137,10 @@ object ArchiveCodec {
         return try {
             val result = when (archiveVersion) {
                 1 -> decodeLegacy(plain)
-                2, 3, 4 -> decodeStructured(plain, archiveVersion)
+                2, 3, 4 -> {
+                    preflightStructured(plain, archiveVersion)
+                    decodeStructured(plain, archiveVersion)
+                }
                 else -> error("Unsupported archive version")
             }
             validate(result, requireCompleteHistory = archiveVersion != 1)
@@ -176,6 +189,9 @@ object ArchiveCodec {
     }
 
     private fun readLegacyReadings(plain: ByteArray, stringValues: Boolean): List<Reading> {
+        // Preserve the historical string/integer fallback, but scan each candidate
+        // before allocating its list, decoded strings or generated sittings.
+        preflightLegacy(plain, stringValues)
         val input = DataInputStream(ByteArrayInputStream(plain))
         val readings = List(input.readCount()) {
             val id = input.readUTF()
@@ -193,6 +209,126 @@ object ArchiveCodec {
         }
         require(input.available() == 0) { "Unexpected legacy archive data" }
         return readings
+    }
+
+    private fun checkExportMaterializationBudget(bundle: ArchiveBundle) {
+        require(bundle.readings.size <= maxItems && bundle.sittings.size <= maxItems &&
+            bundle.versions.size <= maxItems && bundle.operations.size <= maxItems &&
+            bundle.deleted.size <= maxItems) { "Too many archive items" }
+        // v4: reading/version each constructs a payload and outer model, and reads
+        // six UTF fields without a note; other sections have one model + 1/2 UTFs.
+        val minimum = bundle.readings.size.toLong() * 8 + bundle.sittings.size.toLong() * 2 +
+            bundle.versions.size.toLong() * 8 + bundle.operations.size.toLong() * 3 +
+            bundle.deleted.size.toLong() * 2
+        if (minimum > maxMaterializationUnits) throw ArchiveMaterializationLimitException()
+        val withNotes = minimum + bundle.readings.count { it.note != null } +
+            bundle.versions.count { it.payload.note != null }
+        if (withNotes > maxMaterializationUnits) throw ArchiveMaterializationLimitException()
+    }
+
+    /** Scan authenticated bytes only. This creates no record lists or decoded strings.
+     * The explicit work cap narrows extreme multi-section admission; it is neither
+     * an object-size calculation nor a guarantee about an Android heap/provider.
+     */
+    private class Preflight(private val bytes: ByteArray) {
+        private var position = 0
+        private var units = 0L
+        private var utfCodeUnits = 0L
+
+        fun charge(amount: Long) {
+            units += amount
+            if (units > maxMaterializationUnits) throw ArchiveMaterializationLimitException()
+        }
+
+        private fun byte(): Int {
+            if (position == bytes.size) throw EOFException("Truncated archive")
+            return bytes[position++].toInt() and 255
+        }
+
+        fun count(modelUnits: Int): Int {
+            val value = (byte() shl 24) or (byte() shl 16) or (byte() shl 8) or byte()
+            require(value in 0..maxItems) { "Invalid archive item count" }
+            charge(value.toLong() * modelUnits)
+            return value
+        }
+
+        fun skip(length: Int) {
+            if (length > bytes.size - position) throw EOFException("Truncated archive")
+            position += length
+        }
+
+        fun boolean(): Boolean = byte() != 0
+
+        fun utf(maximumCharacters: Int = 65_535) {
+            charge(1)
+            val length = (byte() shl 8) or byte()
+            if (length > bytes.size - position) throw EOFException("Truncated archive string")
+            val end = position + length
+            var characters = 0
+            // Match DataInputStream's modified UTF acceptance, including its
+            // accepted noncanonical NUL/overlong forms; do not invent a new codec.
+            while (position < end) {
+                val first = bytes[position].toInt() and 255
+                val width = when {
+                    first <= 127 -> 1
+                    first in 192..223 -> 2
+                    first in 224..239 -> 3
+                    else -> throw UTFDataFormatException("Malformed archive string")
+                }
+                if (width > end - position) throw UTFDataFormatException("Malformed archive string")
+                for (offset in 1 until width) {
+                    if ((bytes[position + offset].toInt() and 192) != 128) {
+                        throw UTFDataFormatException("Malformed archive string")
+                    }
+                }
+                position += width
+                characters++
+            }
+            require(characters <= maximumCharacters) { "Archive string is too long" }
+            utfCodeUnits += characters
+            require(utfCodeUnits <= maxBytes.toLong()) { "Too much archive string data" }
+        }
+
+        fun payload(archiveVersion: Int) {
+            utf() // sitting ID
+            skip(8)
+            utf() // eye
+            utf(ReadingValue.MAX_LENGTH)
+            if (archiveVersion >= 3) {
+                utf() // range state
+                utf() // zone ID
+                if (boolean()) utf(1000)
+                if (boolean()) skip(16)
+            }
+        }
+
+        fun finished() {
+            require(position == bytes.size) { "Unexpected archive data" }
+        }
+    }
+
+    private fun preflightStructured(plain: ByteArray, archiveVersion: Int) {
+        val scan = Preflight(plain)
+        repeat(scan.count(2)) { scan.utf(); scan.payload(archiveVersion); scan.skip(8) }
+        repeat(scan.count(1)) { scan.utf(); scan.skip(8); if (scan.boolean()) scan.skip(8) }
+        repeat(scan.count(2)) { scan.utf(); scan.skip(8); scan.payload(archiveVersion) }
+        repeat(scan.count(1)) { scan.utf(); scan.utf(); scan.skip(8) }
+        if (archiveVersion >= 4) repeat(scan.count(1)) { scan.utf(); scan.skip(8) }
+        scan.finished()
+    }
+
+    private fun preflightLegacy(plain: ByteArray, stringValues: Boolean) {
+        val scan = Preflight(plain)
+        // Reserve one Reading and at most one generated Sitting per legacy row.
+        repeat(scan.count(2)) {
+            scan.utf(); scan.utf(); scan.skip(8); scan.utf()
+            if (stringValues) scan.utf() else {
+                scan.skip(4)
+                scan.charge(2) // numeric conversion and its result string
+            }
+            scan.skip(8)
+        }
+        scan.finished()
     }
 
     private fun validate(bundle: ArchiveBundle, requireCompleteHistory: Boolean = true) {

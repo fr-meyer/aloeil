@@ -21,6 +21,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.aloeil.app.data.CsvExport
 import org.aloeil.app.data.Reading
 import org.aloeil.app.data.Sitting
@@ -32,6 +34,12 @@ internal object CsvShareCache {
     private const val JOB_ID_MASK = 0x0FFFFFFF
     private const val DEADLINE_SLACK_MILLIS = 5L * 60 * 1000
 
+    // Only a non-sensitive invalidation counter. A recreated screen observes late writes too.
+    private val mutableChanges = MutableStateFlow(0L)
+    val changes: StateFlow<Long> = mutableChanges
+
+    private fun changed() { mutableChanges.value = mutableChanges.value + 1 }
+
     fun jobId(file: File): Int = JOB_ID_NAMESPACE or (file.name.hashCode() and JOB_ID_MASK)
 
     private val shareName = Regex(
@@ -39,6 +47,9 @@ internal object CsvShareCache {
     )
 
     fun directory(context: Context): File = File(context.cacheDir, "aloeil-share")
+
+    @Synchronized
+    fun hasFiles(context: Context): Boolean = directory(context).listFiles()?.any(File::isFile) == true
 
     fun bootCount(context: Context): Int = runCatching {
         Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1)
@@ -75,8 +86,7 @@ internal object CsvShareCache {
         directory(context).listFiles()?.forEach { file ->
             if (!shouldContinue()) return
             if (file.isFile && isExpired(context, file)) {
-                check(file.delete() || !file.exists()) { "Temporary CSV could not be removed" }
-                cancelDeletedFileCleanup(context, file, executingJobId)
+                remove(context, file, executingJobId)
             }
         }
     }
@@ -84,9 +94,17 @@ internal object CsvShareCache {
     @Synchronized
     fun clearAll(context: Context) {
         directory(context).listFiles()?.forEach { file ->
-            check(file.isFile && file.delete())
-            cancelDeletedFileCleanup(context, file)
+            check(file.isFile)
+            remove(context, file)
         }
+    }
+
+    /** Retire only this file's cleanup, and only after its absence is verified. */
+    @Synchronized
+    fun remove(context: Context, file: File, executingJobId: Int? = null) {
+        check(file.delete() || !file.exists()) { "Temporary CSV could not be removed" }
+        cancelDeletedFileCleanup(context, file, executingJobId)
+        changed()
     }
 
     private fun cancelDeletedFileCleanup(context: Context, file: File, executingJobId: Int? = null) {
@@ -119,6 +137,7 @@ internal object CsvShareCache {
     }
 
     /** Restore a missing cleanup after an interrupted write or an app upgrade. */
+    @Synchronized
     fun ensureScheduled(context: Context) {
         val scheduler = context.getSystemService(JobScheduler::class.java)
         directory(context).listFiles()?.filter(File::isFile)?.forEach { file ->
@@ -151,9 +170,11 @@ internal object CsvShareCache {
             check(scheduleFile(context, output))
             return output
         } catch (error: Exception) {
-            output.delete()
-            scheduler.cancel(jobId(output))
+            // Preserve the original write failure. If deletion fails, keep its persisted lease.
+            runCatching { remove(context, output) }.exceptionOrNull()?.let(error::addSuppressed)
             throw error
+        } finally {
+            changed()
         }
     }
 }
