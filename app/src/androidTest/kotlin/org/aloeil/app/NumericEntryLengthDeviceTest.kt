@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
@@ -61,15 +62,27 @@ class NumericEntryLengthDeviceTest {
                 activity.setContent { AloeilApp(repository, captureState = capture) }
             }
             owner = capture
-            val next = hasText(context.getString(R.string.continue_action)) and hasClickAction()
-            compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(next).fetchSemanticsNodes().isNotEmpty()
+            fun next() = hasText(compose.activity.getString(R.string.continue_action)) and hasClickAction()
+            fun lengthError() = hasText(compose.activity.getString(R.string.error_length))
+            fun waitForUi(phase: String, condition: () -> Boolean) {
+                try {
+                    compose.waitUntil(timeoutMillis = 10_000, condition = condition)
+                } catch (failure: ComposeTimeoutException) {
+                    // Only nonsensitive state/IDs; no synthetic or personal reading values.
+                    throw AssertionError("$phase: step=${capture.stepState.value}; " +
+                        "lengthError=${capture.valueErrorState.value == R.string.error_length}", failure)
+                }
             }
-            val queuedAdvance = compose.onNode(next).performScrollTo().fetchSemanticsNode()
+            compose.waitForIdle()
+            waitForUi("initial numeric Continue") {
+                compose.onAllNodes(next()).fetchSemanticsNodes().isNotEmpty()
+            }
+            val queuedAdvance = compose.onNode(next()).performScrollTo().fetchSemanticsNode()
                 .config[SemanticsActions.OnClick].action ?: error("Synthetic Continue action unavailable")
-            compose.onNode(hasSetTextAction()).performTextReplacement("1".repeat(ReadingValue.MAX_LENGTH + 1))
-            compose.onNode(hasText(context.getString(R.string.error_length))).assertExists()
-            compose.onNode(next).assertIsNotEnabled()
+            compose.onNode(hasSetTextAction()).performScrollTo()
+                .performTextReplacement("1".repeat(ReadingValue.MAX_LENGTH + 1))
+            compose.onNode(lengthError()).assertExists()
+            compose.onNode(next()).assertIsNotEnabled()
             compose.runOnIdle {
                 check(capture.valueState.value == "12.3")
                 queuedAdvance()
@@ -79,14 +92,22 @@ class NumericEntryLengthDeviceTest {
             compose.activityRule.scenario.recreate()
             compose.activityRule.scenario.onActivity { activity ->
                 check(ViewModelProvider(activity).get("synthetic-length-entry", CaptureUiState::class.java) === capture)
+                check(capture.stepState.value == inputStep)
+                check(capture.valueErrorState.value == R.string.error_length)
+                check(capture.valueState.value == "12.3")
                 activity.setContent { AloeilApp(repository, captureState = capture) }
             }
-            compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.error_length))).fetchSemanticsNodes().isNotEmpty()
+            waitForUi("recreated numeric editor") {
+                compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNode(next).assertIsNotEnabled()
+            // Scroll state is recreated too; bring the editor/supporting error into view.
+            compose.onNode(hasSetTextAction()).performScrollTo()
+            waitForUi("recreated length error") {
+                compose.onAllNodes(lengthError()).fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNode(next()).assertIsNotEnabled()
             compose.onNode(hasSetTextAction()).performTextReplacement("13.4")
-            compose.onNode(next).assertIsEnabled().performScrollTo().performClick()
+            compose.onNode(next()).assertIsEnabled().performScrollTo().performClick()
             compose.runOnIdle {
                 check(capture.valueErrorState.value == null)
                 check(capture.stepState.value == if (inputStep == Step.VALUE) Step.NOTE else Step.CORRECT_REVIEW_VALUE)
