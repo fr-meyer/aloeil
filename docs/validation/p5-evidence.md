@@ -249,7 +249,7 @@ Save start race: CSV, encrypted export and restore consult the process-owned Sta
 
 CSV cleanup cancellation: JobScheduler stop cancels the owned coroutine, cleanup checks cancellation between deletions, and completion is gated by the active job identity on Main. A stopped-cleanup regression leaves the remaining files for retry and verifies repeated cleanup is harmless.
 
-## Current review and local follow-up
+## Earlier review and local follow-up
 
 The [fresh named review](https://github.com/fr-meyer/aloeil/pull/9#pullrequestreview-5399588623)
 for head `7f02d94143e67ff99814729dd35adfd3ffa846f3` against base
@@ -297,3 +297,42 @@ must use the coordinated owner-approved route; no old claim is reopened or
 waived.
 
 Abandoned correction regression: changing eye, going Back, then correcting a numeric value preserves the saved eye. Each newly chosen correction resets fields from the committed reading; numeric correction also uses the committed eye. Real Galaxy Tab and Shift+Tab passed at Samsung maximum 2.0x; Compose key tests explicitly establish keyboard input mode before direct key injection.
+
+## Review of 7a41242 and prepared remediation
+
+[CI 200](https://github.com/fr-meyer/aloeil/actions/runs/37109230526) passed for
+`7a4124242cb13c482abbb72e8f0a1bd37e4fc8ff`: Android compilation, 105 synthetic
+API-30 tests starting/finishing, unsigned release assembly/lint and fresh KSP
+schema guards. The actual merge checkout
+`759a0fdc68baee117801852a05e8150b523ccd23` has that head's tree
+`9f15f99254a2d8e89a448009e0d377ed14516068`. Individual test XML was not retained.
+The [named review](https://github.com/fr-meyer/aloeil/pull/9#pullrequestreview-5399898993)
+completed with changes requested, 89/89 files in seven complete chunks and seven
+preserved findings. All seven native sessions and publication are terminal; this
+is full coverage evidence, not approval. Two assertion-import claims again
+contradict exact-head compilation and the member APIs described above.
+
+The prepared correction keeps Continue disabled after an oversized numeric edit
+until an accepted edit or explicit range selection clears the error, and guards
+an already queued action. Undo distinguishes storage failure from absent prior
+history. Synthetic regressions cover those states, retries and recreation.
+Archive recreation now exercises the same disposal effect used by the transfer
+screen, including owned-buffer preservation and unowned-buffer erasure. This
+does not simulate a real file picker or a complete restore-screen lifecycle.
+
+The test-only CSV provider restricts file/control access to its own UID or the
+expected target application's UID with a matching signature. Synthetic Binder
+tests exercise target access and rejection of an unrelated shell caller; no
+release provider or manifest permission is added. Repository and DAO decoding
+and resealing clear independently owned decrypted byte arrays in `finally`,
+including exceptions and cancellation. Tracked synthetic AES-GCM tests check
+zeroing and unchanged caller nonce, ciphertext and AAD. Immutable model strings
+remain in memory; this does not guarantee JVM heap erasure.
+
+These new regressions require their own exact-candidate Android CI and independent
+review. Existing CI 200 does not validate them. Database annotations, migrations,
+schema/version, cryptographic formats, dependencies, signing and actor policy
+remain unchanged. Complete exact-head named approval and representative-device
+and intended-user acceptance remain separate gates. No new phone access or
+installation is part of this remediation; the earlier user-confirmed S24
+restoration and security cleanup remain complete.

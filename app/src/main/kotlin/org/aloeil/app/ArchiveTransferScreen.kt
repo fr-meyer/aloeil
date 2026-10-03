@@ -47,6 +47,23 @@ private enum class TransferStep {
 
 private const val MAX_ARCHIVE_FILE_BYTES = 16 * 1024 * 1024 + 64
 
+/** Production disposal effect; transfer owners retain their buffers until completion. */
+@Composable
+internal fun ArchiveBufferCleanup(
+    bytes: ByteArray?,
+    importOwner: ArchiveImportJob = archiveImportJob,
+    exportOwner: ArchiveExportJob = archiveExportJob,
+) {
+    val currentBytes = rememberUpdatedState(bytes)
+    DisposableEffect(importOwner, exportOwner) {
+        onDispose {
+            currentBytes.value?.let { buffer ->
+                if (!importOwner.owns(buffer)) exportOwner.scrubUnlessOwned(buffer)
+            }
+        }
+    }
+}
+
 /** The Android document picker lets the user choose a destination; Aloeil has no upload permission. */
 @Composable
 internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> Unit) {
@@ -70,14 +87,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     // Never save the passphrase or archive bytes in Activity saved state.
     // A recreated picker result keeps only the chosen URI and asks for the secret again.
-    val currentArchiveBytes = rememberUpdatedState(archiveBytes)
-    DisposableEffect(Unit) {
-        onDispose {
-            currentArchiveBytes.value?.let { bytes ->
-                if (!archiveImportJob.owns(bytes)) archiveExportJob.scrubUnlessOwned(bytes)
-            }
-        }
-    }
+    ArchiveBufferCleanup(archiveBytes)
     LaunchedEffect(step, archiveBytes, activeImportId) {
         if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null && activeImportId == null) {
             preview = null

@@ -127,16 +127,47 @@ class CaptureRetryNavigationDeviceTest {
             owner = capture
             failOnce.set(true)
             tap(R.string.undo_correction)
-            waitFor(R.string.nothing_to_undo)
+            waitFor(R.string.error_storage)
             runBlocking { check(repository.all().single().revision == 2L) }
             tap(R.string.undo_correction)
             waitFor(R.string.undo_done)
-            compose.onNode(hasText(context.getString(R.string.nothing_to_undo))).assertDoesNotExist()
+            compose.onNode(hasText(context.getString(R.string.error_storage))).assertDoesNotExist()
             check(capture.messageState.value == null && !capture.busyState.value)
             runBlocking {
                 val current = repository.all().single()
                 check(current.revision == 3L && current.value == "12.3")
                 check(real.operationsForReading(current.id).size == 2)
+            }
+        } finally { dispose(owner); db.close() }
+    }
+
+    @Test
+    fun undoMissingPriorVersionShowsNoHistoryWithoutStorageError() {
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val real = db.readings()
+        val hidePrior = AtomicBoolean(false)
+        val dao = object : ReadingDao by real {
+            override suspend fun version(id: String, revision: Long): ReadingVersionRow? =
+                if (hidePrior.get()) null else real.version(id, revision)
+        }
+        val repository = ReadingRepository(dao, SyntheticCipher())
+        var owner: CaptureUiState? = null
+        try {
+            val corrected = runBlocking {
+                repository.startSitting("synthetic-no-undo-sitting")
+                val original = repository.record("synthetic-no-undo-reading", "synthetic-no-undo-sitting", Eye.LEFT, "12.3")
+                repository.correct("synthetic-no-undo-correction", original.id, 1, Eye.LEFT, "13.4")!!
+            }
+            val capture = attach(repository, corrected, Step.CORRECT_SAVED)
+            owner = capture
+            hidePrior.set(true)
+            tap(R.string.undo_correction)
+            waitFor(R.string.nothing_to_undo)
+            compose.onNode(hasText(context.getString(R.string.error_storage))).assertDoesNotExist()
+            compose.runOnIdle { check(capture.stepState.value == Step.CORRECT_SAVED && !capture.busyState.value) }
+            runBlocking {
+                check(repository.all().single().revision == 2L)
+                check(real.operationsForReading(corrected.id).size == 1)
             }
         } finally { dispose(owner); db.close() }
     }

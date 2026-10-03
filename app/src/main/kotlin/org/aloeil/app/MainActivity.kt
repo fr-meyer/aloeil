@@ -472,6 +472,7 @@ internal fun AloeilApp(
     }
 
     fun validateValue(): Boolean {
+        if (valueError == R.string.error_length) return false
         valueError = when (val result = ReadingValue.parse(value)) {
             is ReadingValueResult.Valid -> null
             is ReadingValueResult.Invalid -> when (result.reason) {
@@ -569,23 +570,22 @@ internal fun AloeilApp(
         busy = true
         message = null
         state.launchMutation {
-            val undone = try {
+            val result = captureMutationResult {
                 withContext(Dispatchers.IO) {
                     repository.undoCorrection(
                         current.id + ":undo:" + (current.revision + 1),
                         current.id, current.revision,
                     )
                 }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                null
             }
-            if (undone == null) {
-                message = R.string.nothing_to_undo
-            } else {
-                saved = undone
-                step = Step.UNDO_DONE
+            val undone = result.getOrNull()
+            when {
+                result.isFailure -> message = R.string.error_storage
+                undone == null -> message = R.string.nothing_to_undo
+                else -> {
+                    saved = undone
+                    step = Step.UNDO_DONE
+                }
             }
             busy = false
         }
@@ -807,7 +807,7 @@ internal fun AloeilApp(
                             rangeState = null
                             valueError = null
                         }, onTooLong = { valueError = R.string.error_length })
-                        Action(R.string.continue_action, busy) {
+                        Action(R.string.continue_action, busy || valueError == R.string.error_length) {
                             if (validateValue()) {
                                 rangeState = null
                                 step = if (step == Step.VALUE) Step.NOTE else Step.CORRECT_REVIEW_VALUE

@@ -18,6 +18,24 @@ data class ArchivePreview(
 class UnreadableLocalStoreException(cause: Throwable) :
     IllegalStateException("Local encrypted data cannot be read", cause)
 
+/** open must return independently owned storage, as the Android and synthetic ciphers do.
+ * Consume that result, then clear it even if decoding/resealing fails.
+ * The sealed payload and AAD belong to the caller and are never modified here.
+ * Decoded model strings remain in memory; this is not a guarantee of JVM heap erasure.
+ */
+internal inline fun <T> ReadingCipher.withDecryptedPayload(
+    payload: SealedPayload,
+    aad: ByteArray,
+    consume: (ByteArray) -> T,
+): T {
+    val clear = open(payload, aad)
+    return try {
+        consume(clear)
+    } finally {
+        clear.fill(0)
+    }
+}
+
 /** A save completes once Room commits the reading and its retryable outbox row. */
 class ReadingRepository(
     private val dao: ReadingDao,
@@ -234,7 +252,8 @@ class ReadingRepository(
     suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
         repeat(3) {
             val row = dao.draft() ?: return null
-            val draft = DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft()))
+            val draft = cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft(),
+                DraftCodec::decode)
             if (!draft.fromHistory) {
                 val sitting = dao.sitting(draft.sittingId)?.let(::decodeSitting)
                 if (sitting == null || sitting.finishedAtMillis != null) {
@@ -277,10 +296,8 @@ class ReadingRepository(
                 ArchivedVersion(
                     row.readingId,
                     row.revision,
-                    ReadingPayloadCodec.decode(
-                        cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                            ReadingAad.version(row.readingId, row.revision)),
-                    ),
+                    cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+                        ReadingAad.version(row.readingId, row.revision), ReadingPayloadCodec::decode),
                 )
             },
             operations = snapshot.operations.map {
@@ -378,10 +395,8 @@ class ReadingRepository(
     ): Reading? {
         require(expectedRevision > 1)
         val prior = dao.version(readingId, expectedRevision - 1) ?: return null
-        val priorPayload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(prior.nonce, prior.ciphertext),
-                ReadingAad.version(prior.readingId, prior.revision)),
-        )
+        val priorPayload = cipher.withDecryptedPayload(SealedPayload(prior.nonce, prior.ciphertext),
+            ReadingAad.version(prior.readingId, prior.revision), ReadingPayloadCodec::decode)
         return revise(operationId, readingId, expectedRevision) { priorPayload }
     }
 
@@ -402,10 +417,8 @@ class ReadingRepository(
         }
         val old = dao.reading(readingId) ?: return null
         if (old.revision != expectedRevision) return null
-        val oldPayload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(old.nonce, old.ciphertext),
-                ReadingAad.reading(old.id, old.revision, old.replicaConfirmedRevision)),
-        )
+        val oldPayload = cipher.withDecryptedPayload(SealedPayload(old.nonce, old.ciphertext),
+            ReadingAad.reading(old.id, old.revision, old.replicaConfirmedRevision), ReadingPayloadCodec::decode)
         val changed = transform(oldPayload)
         require(changed.sittingId == oldPayload.sittingId &&
             changed.recordedAtMillis == oldPayload.recordedAtMillis &&
@@ -451,16 +464,13 @@ class ReadingRepository(
         dao.acknowledgeReplica(id, revision, cipher)
 
     private fun decode(row: ReadingRow): Reading {
-        val payload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision)),
-        )
+        val payload = cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+            ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision), ReadingPayloadCodec::decode)
         return payload.asReading(row.id, row.revision, row.replicaConfirmedRevision)
     }
 
     private fun decodeSitting(row: SittingRow): Sitting =
-        SittingPayloadCodec.decode(
-            row.id,
-            cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)),
-        )
+        cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)) {
+            SittingPayloadCodec.decode(row.id, it)
+        }
 }

@@ -86,9 +86,9 @@ interface ReadingDao {
     @Transaction
     suspend fun insertOpenSitting(row: SittingRow, cipher: ReadingCipher) {
         val open = allSittings().map { stored ->
-            SittingPayloadCodec.decode(
-                stored.id, cipher.open(SealedPayload(stored.nonce, stored.ciphertext), ReadingAad.sitting(stored.id)),
-            )
+            cipher.withDecryptedPayload(SealedPayload(stored.nonce, stored.ciphertext), ReadingAad.sitting(stored.id)) {
+                SittingPayloadCodec.decode(stored.id, it)
+            }
         }.filter { it.finishedAtMillis == null }
         require(open.size <= 1) { "Multiple sittings are already open" }
         if (open.isNotEmpty()) {
@@ -219,9 +219,9 @@ interface ReadingDao {
         require(deletedReading(reading.id) == null) { "Reading ID was deleted" }
         this.reading(reading.id)?.let { return it }
         val linked = sitting(sittingId) ?: throw IllegalArgumentException("Sitting does not exist")
-        val state = SittingPayloadCodec.decode(
-            linked.id, cipher.open(SealedPayload(linked.nonce, linked.ciphertext), ReadingAad.sitting(linked.id)),
-        )
+        val state = cipher.withDecryptedPayload(SealedPayload(linked.nonce, linked.ciphertext), ReadingAad.sitting(linked.id)) {
+            SittingPayloadCodec.decode(linked.id, it)
+        }
         require(state.finishedAtMillis == null) { "Sitting is already finished" }
         insertReading(reading)
         insertOutbox(outbox)
@@ -357,9 +357,9 @@ interface ReadingDao {
                 incoming.id in survivingSittingIds
         }
         val localOpenIds = allSittings().map { row ->
-            SittingPayloadCodec.decode(
-                row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)),
-            )
+            cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)) {
+                SittingPayloadCodec.decode(row.id, it)
+            }
         }.filter { it.finishedAtMillis == null }.map { it.id }.toSet()
         val newOpenIds = sittingsToRestore.filter { (row, expected) ->
             expected.finishedAtMillis == null && sitting(row.id) == null
@@ -372,10 +372,8 @@ interface ReadingDao {
             if (existing == null) {
                 insertSitting(incoming)
             } else {
-                val decoded = SittingPayloadCodec.decode(
-                    existing.id,
-                    cipher.open(SealedPayload(existing.nonce, existing.ciphertext), ReadingAad.sitting(existing.id)),
-                )
+                val decoded = cipher.withDecryptedPayload(SealedPayload(existing.nonce, existing.ciphertext),
+                    ReadingAad.sitting(existing.id)) { SittingPayloadCodec.decode(existing.id, it) }
                 // A sitting may have been finished after the backup was made (or vice versa).
                 // Preserve this phone's state when the shared start is identical.
                 require(decoded.id == expected.id &&
@@ -391,22 +389,17 @@ interface ReadingDao {
             if (deletedReading(incoming.id) != null) return@forEachIndexed
             val existing = reading(incoming.id) ?: return@forEachIndexed
             val expected = expectedReadings[index]
-            val currentPayload = ReadingPayloadCodec.decode(
-                cipher.open(SealedPayload(existing.nonce, existing.ciphertext),
-                    ReadingAad.reading(existing.id, existing.revision, existing.replicaConfirmedRevision)),
-            )
+            val currentPayload = cipher.withDecryptedPayload(SealedPayload(existing.nonce, existing.ciphertext),
+                ReadingAad.reading(existing.id, existing.revision, existing.replicaConfirmedRevision),
+                ReadingPayloadCodec::decode)
             val currentVersions = versionsForReading(incoming.id).map { row ->
-                row.revision to ReadingPayloadCodec.decode(
-                    cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                        ReadingAad.version(row.readingId, row.revision)),
-                )
+                row.revision to cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+                    ReadingAad.version(row.readingId, row.revision), ReadingPayloadCodec::decode)
             }
             val incomingVersions = versionsByReading[incoming.id].orEmpty()
                 .sortedBy { it.revision }.map { row ->
-                    row.revision to ReadingPayloadCodec.decode(
-                        cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                            ReadingAad.version(row.readingId, row.revision)),
-                    )
+                    row.revision to cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+                        ReadingAad.version(row.readingId, row.revision), ReadingPayloadCodec::decode)
                 }
             val sharedRevision = minOf(existing.revision, expected.revision)
             val localSharedHistory =
@@ -455,11 +448,10 @@ interface ReadingDao {
     suspend fun acknowledgeReplica(id: String, revision: Long, cipher: ReadingCipher): Boolean {
         val current = reading(id) ?: return false
         if (current.revision != revision) return false
-        val clear = cipher.open(
+        val sealed = cipher.withDecryptedPayload(
             SealedPayload(current.nonce, current.ciphertext),
             ReadingAad.reading(id, revision, current.replicaConfirmedRevision),
-        )
-        val sealed = cipher.seal(clear, ReadingAad.reading(id, revision, revision))
+        ) { clear -> cipher.seal(clear, ReadingAad.reading(id, revision, revision)) }
         if (updateReading(current.copy(
                 nonce = sealed.nonce, ciphertext = sealed.ciphertext,
                 replicaConfirmedRevision = revision,
