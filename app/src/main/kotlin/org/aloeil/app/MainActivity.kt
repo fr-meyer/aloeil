@@ -803,9 +803,13 @@ internal fun AloeilApp(
                     Step.VALUE, Step.CORRECT_VALUE -> {
                         Heading(if (step == Step.VALUE) R.string.enter_reading else R.string.correct_value)
                         ValueField(value, valueError, {
-                            value = it
-                            rangeState = null
-                            valueError = null
+                            // Repeated text callbacks are not a correction of a rejected edit.
+                            // Read the current state here, including edits before recomposition.
+                            if (it != value) {
+                                value = it
+                                rangeState = null
+                                valueError = null
+                            }
                         }, onTooLong = { valueError = R.string.error_length })
                         Action(R.string.continue_action, busy || valueError == R.string.error_length) {
                             if (validateValue()) {

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -85,7 +86,18 @@ class NumericEntryLengthDeviceTest {
             compose.onNode(next()).assertIsNotEnabled()
             compose.runOnIdle {
                 check(capture.valueState.value == "12.3")
+                check(capture.valueErrorState.value == R.string.error_length)
                 queuedAdvance()
+                check(capture.stepState.value == inputStep)
+                check(capture.valueErrorState.value == R.string.error_length)
+            }
+            // Replaying the retained text must not silently accept the rejected edit.
+            compose.onNode(hasSetTextAction()).performTextReplacement("12.3")
+            compose.onNode(lengthError()).assertExists()
+            compose.onNode(next()).assertIsNotEnabled()
+            compose.runOnIdle {
+                check(capture.valueState.value == "12.3")
+                check(capture.valueErrorState.value == R.string.error_length)
                 check(capture.stepState.value == inputStep)
             }
 
@@ -106,6 +118,16 @@ class NumericEntryLengthDeviceTest {
                 compose.onAllNodes(lengthError()).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNode(next()).assertIsNotEnabled()
+            val changeText = compose.onNode(hasSetTextAction()).fetchSemanticsNode()
+                .config[SemanticsActions.SetText].action ?: error("Synthetic text action unavailable")
+            compose.runOnIdle {
+                // Both callbacks run before recomposition; the second must see the first edit.
+                check(changeText(AnnotatedString("13.4")))
+                check(changeText(AnnotatedString("12.3")))
+                check(capture.valueState.value == "12.3")
+                check(capture.valueErrorState.value == null)
+                check(capture.stepState.value == inputStep)
+            }
             compose.onNode(hasSetTextAction()).performTextReplacement("13.4")
             compose.onNode(next()).assertIsEnabled().performScrollTo().performClick()
             compose.runOnIdle {
