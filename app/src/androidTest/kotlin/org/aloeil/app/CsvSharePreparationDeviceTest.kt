@@ -4,6 +4,7 @@ import android.app.job.JobScheduler
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.activity.compose.setContent
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -134,7 +135,10 @@ class CsvSharePreparationDeviceTest {
         fun installScreen() {
             compose.activityRule.scenario.onActivity { activity ->
                 activity.setContent {
-                    CompositionLocalProvider(LocalContext provides context) {
+                    CompositionLocalProvider(
+                        LocalContext provides context,
+                        LocalActivityResultRegistryOwner provides activity,
+                    ) {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
                             CsvExportScreen(repository, onBack = {})
                         }

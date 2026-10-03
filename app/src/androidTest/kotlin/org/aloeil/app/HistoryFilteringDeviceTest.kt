@@ -178,7 +178,9 @@ class HistoryFilteringDeviceTest {
                     .fetchSemanticsNodes().isNotEmpty()
             }
             compose.runOnIdle { eye = Eye.RIGHT; from = "2025-12-31"; to = "2025-12-31" }
-            await(outdated.started)
+            // Drive recomposition after the state update before waiting for the
+            // worker; a native latch wait alone does not advance Compose frames.
+            compose.waitUntil(timeoutMillis = 15_000) { outdated.started.count == 0L }
             compose.onNode(hasText("synthetic-pending")).assertExists()
             compose.onNode(hasText("synthetic-count:", substring = true)).assertDoesNotExist()
             compose.onNode(hasText("synthetic-first:", substring = true)).assertDoesNotExist()

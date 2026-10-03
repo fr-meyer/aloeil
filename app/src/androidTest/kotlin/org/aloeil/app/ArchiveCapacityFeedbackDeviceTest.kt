@@ -3,10 +3,14 @@ package org.aloeil.app
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -97,12 +101,18 @@ class ArchiveCapacityFeedbackDeviceTest {
             .getString(R.string.archive_capacity_error)
         compose.setContent {
             DeviceConfigurationOverride(
-                DeviceConfigurationOverride.Locales(LocaleList(language)) then
-                    DeviceConfigurationOverride.FontScale(2f) then
-                    DeviceConfigurationOverride.ForcedSize(DpSize(320.dp, 600.dp)),
+                DeviceConfigurationOverride.ForcedSize(DpSize(320.dp, 600.dp)) then
+                    DeviceConfigurationOverride.Locales(LocaleList(language)) then
+                    DeviceConfigurationOverride.FontScale(2f),
             ) {
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
-                    ArchiveErrorFeedback(R.string.archive_capacity_error)
+                check(LocalDensity.current.fontScale == 2f) { "Expected actual 2x font scale" }
+                // Match AloeilApp's actual Material typography and full-size scrolling column.
+                MaterialTheme {
+                    Surface(Modifier.fillMaxSize()) {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
+                            ArchiveErrorFeedback(R.string.archive_capacity_error)
+                        }
+                    }
                 }
             }
         }
@@ -112,6 +122,10 @@ class ArchiveCapacityFeedbackDeviceTest {
         val layouts = mutableListOf<TextLayoutResult>()
         node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { check(it(layouts)) }
         val layout = layouts.single()
-        check(layout.lineCount > 1 && !layout.hasVisualOverflow)
+        check(layout.lineCount > 1 && !layout.hasVisualOverflow) {
+            "language=$language lines=${layout.lineCount} widthOverflow=${layout.didOverflowWidth} " +
+                "heightOverflow=${layout.didOverflowHeight} layout=${layout.size} " +
+                "paragraph=${layout.multiParagraph.width}x${layout.multiParagraph.height}"
+        }
     }
 }
