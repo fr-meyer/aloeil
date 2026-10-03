@@ -302,7 +302,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.EXPORT -> {
                 TransferHeading(R.string.archive_create)
                 Text(stringResource(R.string.archive_export_explain))
-                PassphraseField(passphrase) { input ->
+                PassphraseField(passphrase, enabled = !busy) { input ->
+                    if (busy) return@PassphraseField
                     if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
                         passphrase = input
                         error = null
@@ -327,7 +328,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.IMPORT -> {
                 TransferHeading(R.string.archive_restore)
                 Text(stringResource(R.string.archive_import_explain))
-                PassphraseField(passphrase) { input ->
+                PassphraseField(passphrase, enabled = !busy) { input ->
+                    if (busy) return@PassphraseField
                     if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
                         passphrase = input
                         error = null
@@ -399,10 +401,11 @@ private fun TransferHeading(id: Int) {
 }
 
 @Composable
-private fun PassphraseField(value: String, onChange: (String) -> Unit) {
+private fun PassphraseField(value: String, enabled: Boolean, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
+        enabled = enabled,
         label = { Text(stringResource(R.string.archive_passphrase)) },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,

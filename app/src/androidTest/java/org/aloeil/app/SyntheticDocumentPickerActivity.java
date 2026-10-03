@@ -14,8 +14,8 @@ public final class SyntheticDocumentPickerActivity extends Activity {
         super.onCreate(state);
         boolean csv = "text/csv".equals(getIntent().getType());
         boolean archive = "application/octet-stream".equals(getIntent().getType());
-        if (Intent.ACTION_CREATE_DOCUMENT.equals(getIntent().getAction())
-                && (csv || archive)) {
+        if ((Intent.ACTION_CREATE_DOCUMENT.equals(getIntent().getAction())
+                && (csv || archive)) || Intent.ACTION_OPEN_DOCUMENT.equals(getIntent().getAction())) {
             Button choose = new Button(this);
             choose.setText(csv ? "Select synthetic CSV" : "Select synthetic archive");
             choose.setOnClickListener(view -> {

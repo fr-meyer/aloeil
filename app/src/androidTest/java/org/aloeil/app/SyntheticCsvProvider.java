@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class SyntheticCsvProvider extends ContentProvider {
     private static volatile CountDownLatch writeGate;
     private static final AtomicBoolean waitingForRelease = new AtomicBoolean(false);
+    private static volatile CountDownLatch readGate;
+    private static final AtomicBoolean waitingForReadRelease = new AtomicBoolean(false);
 
     @Override
     public Bundle call(String method, String arg, Bundle extras) {
@@ -30,6 +32,15 @@ public final class SyntheticCsvProvider extends ContentProvider {
             if (gate != null) gate.countDown();
         } else if ("waiting".equals(method)) {
             result.putBoolean("waiting", waitingForRelease.get());
+        } else if ("holdRead".equals(method)) {
+            readGate = new CountDownLatch(1);
+            waitingForReadRelease.set(false);
+        } else if ("releaseRead".equals(method)) {
+            CountDownLatch gate = readGate;
+            readGate = null;
+            if (gate != null) gate.countDown();
+        } else if ("waitingRead".equals(method)) {
+            result.putBoolean("waiting", waitingForReadRelease.get());
         }
         return result;
     }
@@ -51,6 +62,20 @@ public final class SyntheticCsvProvider extends ContentProvider {
                 "export.archive".equals(uri.getLastPathSegment())
                         ? "synthetic-archive-save.bin" : "synthetic-csv-save.csv");
         if ("r".equals(mode)) {
+            CountDownLatch gate = readGate;
+            if (gate != null) {
+                waitingForReadRelease.set(true);
+                try {
+                    if (!gate.await(45, TimeUnit.SECONDS)) {
+                        throw new FileNotFoundException("Synthetic archive read was not released");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new FileNotFoundException("Synthetic archive read interrupted");
+                } finally {
+                    waitingForReadRelease.set(false);
+                }
+            }
             return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
         }
         CountDownLatch gate = writeGate;
