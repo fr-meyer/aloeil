@@ -37,8 +37,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.ArchiveCodec
 import org.aloeil.app.data.ArchivePreview
+import org.aloeil.app.data.BoundedArchiveBuffer
 import org.aloeil.app.data.ReadingRepository
-import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 private enum class TransferStep {
@@ -429,14 +429,17 @@ private fun TransferSecondary(id: Int, busy: Boolean, onClick: () -> Unit) {
     ) { Text(stringResource(id)) }
 }
 
-private fun readArchive(input: InputStream): ByteArray {
-    val output = ByteArrayOutputStream()
+internal fun readArchive(input: InputStream): ByteArray {
+    val output = BoundedArchiveBuffer(MAX_ARCHIVE_FILE_BYTES)
     val chunk = ByteArray(8192)
-    while (true) {
-        val count = input.read(chunk)
-        if (count < 0) break
-        require(output.size() + count <= MAX_ARCHIVE_FILE_BYTES) { "Archive is too large" }
-        output.write(chunk, 0, count)
+    try {
+        while (true) {
+            val count = input.read(chunk)
+            if (count < 0) break
+            output.write(chunk, 0, count)
+        }
+        return output.toByteArray()
+    } finally {
+        output.wipe()
     }
-    return output.toByteArray()
 }

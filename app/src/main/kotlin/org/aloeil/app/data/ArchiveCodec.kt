@@ -1,10 +1,10 @@
 package org.aloeil.app.data
 
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.math.BigDecimal
+import java.nio.ByteBuffer
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.SecretKeyFactory
@@ -43,30 +43,17 @@ object ArchiveCodec {
     private const val version = 4
     private const val maxBytes = 16 * 1024 * 1024
     private const val maxItems = 100_000
+    private const val headerBytes = 44
     private const val iterations = 210_000
     private val random = SecureRandom()
-
-    private class BoundedPlainBuffer : ByteArrayOutputStream() {
-        override fun write(b: Int) {
-            require(size() < maxBytes) { "Archive is too large" }
-            super.write(b)
-        }
-
-        override fun write(b: ByteArray, off: Int, len: Int) {
-            require(len <= maxBytes - size()) { "Archive is too large" }
-            super.write(b, off, len)
-        }
-
-        fun wipe() { buf.fill(0) }
-    }
 
     fun encode(bundle: ArchiveBundle, passphrase: CharArray): ByteArray {
         require(passphrase.size in MIN_PASSPHRASE_LENGTH..MAX_PASSPHRASE_LENGTH) {
             "Export passphrase length is invalid"
         }
         validate(bundle)
-        val bytes = BoundedPlainBuffer()
-        val plain = try {
+        val bytes = BoundedArchiveBuffer(maxBytes)
+        return try {
             DataOutputStream(bytes).use { out ->
                 out.writeInt(bundle.readings.size)
                 bundle.readings.forEach { out.writeReadingV3(it) }
@@ -95,30 +82,23 @@ object ArchiveCodec {
                     out.writeLong(0L) // Reserved v4 field; deletion time is never retained.
                 }
             }
-            bytes.toByteArray()
-        } finally {
-            bytes.wipe()
-        }
-        val salt = ByteArray(16).also(random::nextBytes)
-        val nonce = ByteArray(12).also(random::nextBytes)
-        val encrypted = try {
+            val salt = ByteArray(16).also(random::nextBytes)
+            val nonce = ByteArray(12).also(random::nextBytes)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
             cipher.updateAAD(magicV4)
-            cipher.doFinal(plain)
-        } finally {
-            plain.fill(0)
-        }
-        return ByteArrayOutputStream().also { bytes ->
-            DataOutputStream(bytes).use { out ->
-                out.write(magicV4)
-                out.writeInt(version)
-                out.write(salt)
-                out.write(nonce)
-                out.writeInt(encrypted.size)
-                out.write(encrypted)
+            // GCM's existing 128-bit tag adds exactly 16 bytes to this plaintext.
+            val encryptedLength = bytes.size() + 16
+            val archive = ByteArray(headerBytes + encryptedLength)
+            ByteBuffer.wrap(archive).put(magicV4).putInt(version).put(salt).put(nonce)
+                .putInt(encryptedLength)
+            check(bytes.encryptInto(cipher, archive, headerBytes) == encryptedLength) {
+                "Unexpected encrypted archive length"
             }
-        }.toByteArray()
+            archive
+        } finally {
+            bytes.wipe()
+        }
     }
 
     /** Version 1 archives are migrated additively; they had no sitting or correction history. */
@@ -138,15 +118,12 @@ object ArchiveCodec {
         val nonce = ByteArray(12).also(input::readFully)
         val length = input.readInt()
         require(length in 16..maxBytes + 16 && length == input.available()) { "Invalid archive length" }
-        val encrypted = ByteArray(length).also(input::readFully)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, deriveKey(passphrase, salt), GCMParameterSpec(128, nonce))
         cipher.updateAAD(magic)
-        val plain = try {
-            cipher.doFinal(encrypted)
-        } finally {
-            encrypted.fill(0)
-        }
+        // The validated slice belongs to the caller. Read it directly without
+        // copying or wiping it; parsing starts only after GCM authenticates it.
+        val plain = cipher.doFinal(archive, archive.size - length, length)
         return try {
             val result = when (archiveVersion) {
                 1 -> decodeLegacy(plain)

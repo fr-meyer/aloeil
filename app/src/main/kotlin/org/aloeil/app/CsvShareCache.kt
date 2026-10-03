@@ -66,19 +66,39 @@ internal object CsvShareCache {
     }
 
     @Synchronized
-    fun cleanupExpired(context: Context, shouldContinue: () -> Boolean = { true }) {
+    fun cleanupExpired(
+        context: Context,
+        executingJobId: Int? = null,
+        shouldContinue: () -> Boolean = { true },
+    ) {
         if (!shouldContinue()) return
         directory(context).listFiles()?.forEach { file ->
             if (!shouldContinue()) return
             if (file.isFile && isExpired(context, file)) {
                 check(file.delete() || !file.exists()) { "Temporary CSV could not be removed" }
+                cancelDeletedFileCleanup(context, file, executingJobId)
             }
         }
     }
 
     @Synchronized
     fun clearAll(context: Context) {
-        directory(context).listFiles()?.forEach { check(it.isFile && it.delete()) }
+        directory(context).listFiles()?.forEach { file ->
+            check(file.isFile && file.delete())
+            cancelDeletedFileCleanup(context, file)
+        }
+    }
+
+    private fun cancelDeletedFileCleanup(context: Context, file: File, executingJobId: Int? = null) {
+        val id = jobId(file)
+        // The executing service owns jobFinished/retry. Cancelling itself would stop
+        // its coroutine in the middle of scanning the remaining expired files.
+        if (id == executingJobId) return
+        val scheduler = context.getSystemService(JobScheduler::class.java)
+        val pending = scheduler.getPendingJob(id) ?: return
+        if (pending.service == ComponentName(context, CsvShareCleanupJobService::class.java)) {
+            scheduler.cancel(id)
+        }
     }
 
     /** Each file keeps its own persisted cleanup job, even if the chooser is cancelled. */
@@ -149,7 +169,7 @@ class CsvShareCleanupJobService : JobService() {
             val retry = try {
                 withContext(Dispatchers.IO) {
                     val workerContext = coroutineContext
-                    CsvShareCache.cleanupExpired(this@CsvShareCleanupJobService) {
+                    CsvShareCache.cleanupExpired(this@CsvShareCleanupJobService, executingJobId = params.jobId) {
                         workerContext.isActive
                     }
                 }

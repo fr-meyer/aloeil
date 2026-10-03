@@ -253,6 +253,7 @@ internal class CaptureUiState : ViewModel() {
     // and the busy guard must survive together; no plaintext is put into saved state.
     val mutationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val stepState = mutableStateOf(Step.LOADING)
+    val deleteReturnStepState = mutableStateOf(Step.SAVED)
     val sittingIdState = mutableStateOf("")
     val readingIdState = mutableStateOf("")
     val eyeState = mutableStateOf<Eye?>(null)
@@ -282,6 +283,7 @@ internal class CaptureUiState : ViewModel() {
     fun resetForRecovery() {
         initialized = false
         stepState.value = Step.LOADING
+        deleteReturnStepState.value = Step.SAVED
         sittingIdState.value = ""
         readingIdState.value = ""
         eyeState.value = null
@@ -324,6 +326,7 @@ internal fun AloeilApp(
         onDispose { if (captureState == null) state.disposeEphemeral() }
     }
     var step by state.stepState
+    var deleteReturnStep by state.deleteReturnStepState
     var archiveReturnPending by rememberSaveable { mutableStateOf(false) }
     var csvReturnPending by rememberSaveable { mutableStateOf(false) }
     var sittingId by state.sittingIdState
@@ -564,6 +567,7 @@ internal fun AloeilApp(
     fun undoCorrection() {
         val current = saved ?: return
         busy = true
+        message = null
         state.launchMutation {
             val undone = try {
                 withContext(Dispatchers.IO) {
@@ -615,6 +619,11 @@ internal fun AloeilApp(
             }
             busy = false
         }
+    }
+
+    fun confirmDeletion() {
+        deleteReturnStep = step
+        step = Step.DELETE_CONFIRM
     }
 
     fun deleteReading() {
@@ -678,6 +687,7 @@ internal fun AloeilApp(
 
     fun finishSitting() {
         busy = true
+        message = null
         state.launchMutation {
             val finished = captureMutationResult {
                 withContext(Dispatchers.IO) { repository.finishSitting(sittingId) }
@@ -865,7 +875,7 @@ internal fun AloeilApp(
                         if (!fromHistory) {
                             Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                         }
-                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
+                        Secondary(R.string.delete_reading, busy) { confirmDeletion() }
                     }
                     Step.CORRECT_CHOICE -> {
                         Heading(R.string.choose_correction)
@@ -929,7 +939,7 @@ internal fun AloeilApp(
                         if (!fromHistory) {
                             Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                         }
-                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
+                        Secondary(R.string.delete_reading, busy) { confirmDeletion() }
                     }
                     Step.UNDO_DONE -> {
                         Heading(R.string.undo_done)
@@ -952,7 +962,7 @@ internal fun AloeilApp(
                         if (!fromHistory) {
                             Secondary(R.string.finish_sitting, busy) { step = Step.FINISH }
                         }
-                        Secondary(R.string.delete_reading, busy) { step = Step.DELETE_CONFIRM }
+                        Secondary(R.string.delete_reading, busy) { confirmDeletion() }
                     }
                     Step.FINISH -> {
                         Heading(R.string.finish_title)
@@ -979,7 +989,7 @@ internal fun AloeilApp(
                         Text(stringResource(R.string.delete_confirm_body))
                         Action(R.string.confirm_delete, busy) { deleteReading() }
                         Secondary(R.string.keep_reading, busy) {
-                            step = if (fromHistory) Step.HISTORY_READING else Step.SAVED
+                            step = deleteReturnStep
                         }
                     }
                     Step.DELETED -> {
@@ -1017,7 +1027,7 @@ internal fun AloeilApp(
                                 busy = busy,
                                 onCorrect = { step = Step.CORRECT_CHOICE },
                                 onUndo = { undoCorrection() },
-                                onDelete = { step = Step.DELETE_CONFIRM },
+                                onDelete = { confirmDeletion() },
                                 onBack = { returnToHistory() },
                             )
                         }

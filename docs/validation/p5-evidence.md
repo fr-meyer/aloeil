@@ -249,4 +249,51 @@ Save start race: CSV, encrypted export and restore consult the process-owned Sta
 
 CSV cleanup cancellation: JobScheduler stop cancels the owned coroutine, cleanup checks cancellation between deletions, and completion is gated by the active job identity on Main. A stopped-cleanup regression leaves the remaining files for retry and verifies repeated cleanup is harmless.
 
+## Current review and local follow-up
+
+The [fresh named review](https://github.com/fr-meyer/aloeil/pull/9#pullrequestreview-5399588623)
+for head `7f02d94143e67ff99814729dd35adfd3ffa846f3` against base
+`46387a23621c1b8787d487cfa0ced23b1b2b3787` completed on 2026-10-03 with all
+86 files in seven complete chunks. All seven native sessions and the publication
+claim are terminal. Its seven raw findings are preserved in the published
+structured findings, including four marked blocking. The result is changes
+requested; the PR has returned to draft. This is coverage evidence, not approval.
+
+[CI 199](https://github.com/fr-meyer/aloeil/actions/runs/37100962953) succeeded at
+that same source head: Android test compilation, a synthetic API-30 suite starting
+and finishing 91 tests, unsigned release assembly/lint, and fresh compiler-schema
+guards. The merge checkout `984092a3a1a4d14754ce90c96502d5da4b28fa45` has the
+same tree `7710c6dda1c7321ffe89733b03776480506d2bdd`. Individual test XML was not
+retained, so the count is based on the console and successful suite. Its generated
+schema reproduces the tracked baseline byte-for-byte. These results apply only
+to that head and cannot validate this follow-up before its own CI run.
+
+Three import blockers claim that `assertExists` and `assertDoesNotExist` are
+missing Compose extensions. The successful exact-head Android compilation
+contradicts that claim; AndroidX declares those APIs as members of
+[`SemanticsNodeInteraction`](https://github.com/androidx/androidx/blob/androidx-main/compose/ui/ui-test/src/commonMain/kotlin/androidx/compose/ui/test/SemanticsNodeInteraction.kt).
+The linked current API source is supporting evidence, not a downloaded snapshot
+of the pinned dependency. No invalid extension imports or review-gate waiver
+are introduced. The established named reviewer must adjudicate the evidence.
+
+The archive finding identifies redundant buffers at the existing 16 MiB
+plaintext limit. The claimed 64–80 MiB Android peak and heap exhaustion were
+not reproduced. The compatible local correction removes plaintext/ciphertext
+clones from encryption/decryption and caps buffer growth without lowering
+accepted sizes or changing archive versions 1–4, headers, authentication or
+cryptographic parameters. Authenticated plaintext is still parsed only after
+GCM verification. Exact-limit and oversized synthetic Android regressions are
+prepared; logged heap snapshots will be observations, not a proof of peak
+memory or a guarantee for every supported device.
+
+The other local corrections clear stale Finish/Undo retry messages, preserve
+the originating screen when deletion is canceled, and retire cleanup jobs for
+deleted CSV cache files while allowing the executing cleanup job to finish
+normally. Synthetic regressions cover these paths. They have not yet run at a
+new head. No physical-device test, signing, distribution, installation or pilot
+is implied. A new exact-head CI run and complete named-review approval are
+required before this follow-up can close the review gate. Broker execution
+must use the coordinated owner-approved route; no old claim is reopened or
+waived.
+
 Abandoned correction regression: changing eye, going Back, then correcting a numeric value preserves the saved eye. Each newly chosen correction resets fields from the committed reading; numeric correction also uses the committed eye. Real Galaxy Tab and Shift+Tab passed at Samsung maximum 2.0x; Compose key tests explicitly establish keyboard input mode before direct key injection.

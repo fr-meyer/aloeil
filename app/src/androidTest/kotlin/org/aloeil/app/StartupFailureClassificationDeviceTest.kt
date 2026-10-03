@@ -32,6 +32,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
+// assertExists/assertDoesNotExist are SemanticsNodeInteraction member APIs.
+// With the pinned Compose BOM 2025.02.00, CI #199 compiled these calls at 7f02d94.
 /** Isolated synthetic stores only: unknown failures never authorize resetting saved facts. */
 @RunWith(AndroidJUnit4::class)
 class StartupFailureClassificationDeviceTest {
