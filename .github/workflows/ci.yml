@@ -69,8 +69,10 @@ jobs:
       - name: Regenerate and record compiler-generated Room v3 schema
         run: |
           set -euo pipefail
+          git ls-files --error-unmatch app/schemas/org.aloeil.app.data.ReadingDatabase/3.json > /dev/null
           rm -f app/schemas/org.aloeil.app.data.ReadingDatabase/3.json
           ./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin
+          git diff --exit-code HEAD -- app/schemas/org.aloeil.app.data.ReadingDatabase/3.json
           python3 - <<'PY'
           import hashlib, json, os, pathlib, subprocess
 

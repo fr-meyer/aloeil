@@ -2,7 +2,7 @@
 
 Status: in progress. All automated fixtures are synthetic. A passing emulator run is evidence for the tested build only; it is not a representative-device or intended-user acceptance.
 
-## Current operational status — 2026-09-30
+## Current operational status — 2026-10-03
 
 PR 7 baseline is `4d076cbae4a1d95d81f2ee5127739d685821b12a`.
 The CSV follow-up in [PR 8](https://github.com/fr-meyer/aloeil/pull/8) is
@@ -59,6 +59,48 @@ The existing CI command is:
 ```sh
 ./gradlew --no-daemon :app:testSyntheticDebugUnitTest :app:pixel2api30DebugAndroidTest -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
 ```
+
+### PR 9 review and corrective validation
+
+[CI 198](https://github.com/fr-meyer/aloeil/actions/runs/37097391397), attempt 1,
+passed on `23fc4e7cdafd8f36cb819837e6681c93945d7039`. Its actual merge checkout
+`38256c09e411af658a48092b05e3d322a5f161fa` has the same source tree,
+`84ae10c632f86247e142ad3a741982890f60a443`. The console records 72/72 API-30
+tests completed, zero skipped and zero failed. JVM checks, unsigned release
+assembly/lint, debug artifact retention and fresh KSP schema capture passed.
+The archive preview regression holds a synthetic provider read, attempts a queued
+password edit, and confirms that the original password still restores the fixture.
+These results validate that head only, without a phone installation or health data.
+
+The [named review of that head](https://github.com/fr-meyer/aloeil/pull/9#pullrequestreview-5399123154)
+is terminal **changes requested**. One broker invocation finished at
+2026-10-03 05:12:14 UTC. All six native sessions and its publication claim were
+positively terminal, and PR 9 was returned to draft. Eight raw findings were
+preserved; their published counts and blocking flags match the raw responses.
+The broker reports 83/83 files and six/six chunks. A separate recorded-input audit
+found three malformed JSON prompts and five hashes differing from the qualified
+plan. Visible paths and inventories match, but unchanged source-input integrity
+has not been certified. The shared review route must reconcile that discrepancy
+before a future approval is relied upon; no check color waives this gate.
+
+Two claimed missing assertion imports are false positives: `assertExists` and
+`assertDoesNotExist` are member methods of
+[AndroidX's `SemanticsNodeInteraction`](https://github.com/androidx/androidx/blob/androidx-main/compose/ui/ui-test/src/commonMain/kotlin/androidx/compose/ui/test/SemanticsNodeInteraction.kt),
+and the exact-head CI compiled these test files successfully. Adding imports for
+nonexistent extensions would introduce a build failure.
+
+Source inspection confirmed four issues being corrected: CI lacked a tracked
+schema-byte comparison; composition-owned mutations could lose their UI result
+after committing during recreation; unknown startup/verification errors could
+offer destructive reset; and draft recovery could delete a newer checkpoint.
+The corrective candidate retains mutation work/state in memory across recreation,
+offers non-destructive Retry for unclassified startup failures, conditionally
+clears only the examined draft, and checks fresh compiler bytes against the
+tracked schema. Its new deterministic synthetic regressions and complete candidate
+still require their own Android CI and exact-base/head named review.
+Schema/version, crypto formats, migrations, permissions, dependencies and signing
+are unchanged. History filtering cost at the supported maximum and singular count
+wording are preserved nonblocking follow-ups, not claimed completed acceptance.
 
 ## Remaining intended-user acceptance — no health values required
 
@@ -123,11 +165,12 @@ The existing device tests construct version-1 and version-2 databases and check
 their migrations to version 3. They provide migration evidence without claiming
 a compiler-generated historical schema inventory.
 
-The workflow's compiler-evidence capture
-removes only `app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`, then runs
+The workflow's compiler-evidence capture first requires a tracked version-3
+baseline, removes only `app/schemas/org.aloeil.app.data.ReadingDatabase/3.json`, then runs
 `./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin`.
 The deliberate regeneration avoids accepting an old file or cached task output
-as a new compiler export. It fails on missing/invalid JSON, a database version
+as a new compiler export. A byte comparison against `HEAD` fails if the compiler
+output drifts from that committed baseline. It also fails on missing/invalid JSON, a database version
 other than 3, missing identity/entities, or an event/checkout SHA mismatch. It
 retains the original JSON bytes, checksum and selected provenance in the separate
 14-day `aloeil-room-schema-v3` artifact; no reading data or database file is used.
@@ -160,7 +203,9 @@ and empty in-memory SQLite structure. No reading rows or device database were
 opened. These files preserve compiler output; no JSON was generated locally or
 reconstructed from an APK. Their provenance records the origin build, rather than
 claiming a future commit generated its own baseline. The baseline-retention
-candidate needs its own CI and complete exact-base/head named review.
+candidate passed CI 197 on `2017707` and CI 198 reproduced the same schema bytes
+at `23fc4e7`. The origin record remains unchanged; later builds do not become the
+baseline's origin. Complete exact-base/head named-review approval remains open.
 Current compilation cannot recreate versions 1 and 2: recover those from their
 matching historical source/toolchain only if a separate historical-schema check
 is undertaken. Never fabricate snapshots or change a database version to obtain

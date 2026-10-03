@@ -166,4 +166,7 @@
     <string name="recovery_reset_error">The reset was interrupted. Local readings may already be unreadable or deleted. No backup was imported. Try again or leave the app.</string>
     <string name="recovery_key_cleanup_error">Local readings were deleted, but the encryption key could not be cleared. No backup was imported. Try again or leave the app.</string>
     <string name="recovery_draft_discarded">An unreadable unsaved draft was removed. Any saved readings were kept.</string>
+    <string name="startup_retry_title">Aloeil could not open local data</string>
+    <string name="startup_retry_body">The cause is not yet known. Local data has not been reset. Retry opening the app; if the problem continues, keep your backup and ask for help.</string>
+    <string name="startup_retry">Retry opening</string>
 </resources>

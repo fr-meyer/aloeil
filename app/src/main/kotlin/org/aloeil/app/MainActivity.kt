@@ -2,6 +2,7 @@ package org.aloeil.app
 
 import android.os.Bundle
 import android.graphics.Color
+import android.database.sqlite.SQLiteDatabaseCorruptException
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
@@ -30,6 +31,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +49,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.AndroidKeystoreReadingCipher
@@ -86,7 +91,7 @@ class MainActivity : ComponentActivity() {
                 }
                 captureState.resetForRecovery()
                 recreate()
-            }, captureState = captureState)
+            }, captureState = captureState, retryStartup = { recreate() })
         }
     }
 }
@@ -99,18 +104,40 @@ internal fun ComponentActivity.prepareAloeilWindow() {
 }
 
 
-/** Database construction can fail before repository verification starts. Keep reset available. */
+/** An unknown initialization failure never establishes that local data needs deletion. */
 @Composable
 internal fun AloeilStartup(
     repositoryResult: Result<ReadingRepository>,
     resetUnreadableStore: suspend () -> Unit,
     captureState: CaptureUiState? = null,
+    retryStartup: () -> Unit = {},
 ) {
     val repository = repositoryResult.getOrNull()
     if (repository != null) {
         AloeilApp(repository, resetUnreadableStore, captureState)
-    } else {
+    } else if (repositoryResult.exceptionOrNull() is UnreadableLocalStoreException ||
+        repositoryResult.exceptionOrNull() is SQLiteDatabaseCorruptException) {
         StartupRecoveryScreen(resetUnreadableStore)
+    } else {
+        StartupRetryScreen(retryStartup)
+    }
+}
+
+@Composable
+private fun StartupRetryScreen(onRetry: () -> Unit) {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Heading(R.string.startup_retry_title)
+                Text(stringResource(R.string.startup_retry_body),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+                Action(R.string.startup_retry, false, onRetry)
+            }
+        }
     }
 }
 
@@ -203,16 +230,28 @@ internal fun BlockSystemBackWhenUnsafe(enabled: Boolean) {
     BackHandler(enabled = enabled) { }
 }
 
+/** Normal coroutine cancellation is never presented as a failed database mutation. */
+internal suspend fun <T> captureMutationResult(operation: suspend () -> T): Result<T> = try {
+    Result.success(operation())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (failure: Exception) {
+    Result.failure(failure)
+}
+
 internal enum class Step {
     LOADING, START, EYE, VALUE, NOTE, REVIEW, SAVED,
     CORRECT_CHOICE, CORRECT_EYE, CORRECT_VALUE, CORRECT_NOTE,
     CORRECT_REVIEW_EYE, CORRECT_REVIEW_VALUE, CORRECT_REVIEW_NOTE, CORRECT_SAVED, UNDO_DONE,
     FINISH, FINISHED, DELETE_CONFIRM, DELETED, HISTORY, HISTORY_READING, CSV_EXPORT, ARCHIVE,
-    RECOVERY, RECOVERY_CONFIRM,
+    RECOVERY, RECOVERY_CONFIRM, STARTUP_RETRY,
 }
 
 /** Retains current capture input through Activity recreation without saving plaintext in Bundle. */
 internal class CaptureUiState : ViewModel() {
+    // Configuration changes dispose the composition, not this owner. Mutation results
+    // and the busy guard must survive together; no plaintext is put into saved state.
+    val mutationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val stepState = mutableStateOf(Step.LOADING)
     val sittingIdState = mutableStateOf("")
     val readingIdState = mutableStateOf("")
@@ -226,7 +265,19 @@ internal class CaptureUiState : ViewModel() {
     val historyReturnToFinishedState = mutableStateOf(false)
     val captureSittingIdState = mutableStateOf("")
     val hasOpenSittingState = mutableStateOf(false)
+    val busyState = mutableStateOf(false)
+    val messageState = mutableStateOf<Int?>(null)
+    val valueErrorState = mutableStateOf<Int?>(null)
+    val startupAttemptState = mutableStateOf(0)
     var initialized = false
+
+    fun launchMutation(operation: suspend () -> Unit) = mutationScope.launch {
+        try {
+            operation()
+        } finally {
+            busyState.value = false
+        }
+    }
 
     fun resetForRecovery() {
         initialized = false
@@ -243,10 +294,20 @@ internal class CaptureUiState : ViewModel() {
         historyReturnToFinishedState.value = false
         captureSittingIdState.value = ""
         hasOpenSittingState.value = false
+        busyState.value = false
+        messageState.value = null
+        valueErrorState.value = null
+        startupAttemptState.value = 0
+    }
+
+    /** Only manually created composition-owned states use this disposal path. */
+    fun disposeEphemeral() {
+        mutationScope.cancel()
+        resetForRecovery()
     }
 
     override fun onCleared() {
-        resetForRecovery()
+        disposeEphemeral()
         super.onCleared()
     }
 }
@@ -257,8 +318,11 @@ internal fun AloeilApp(
     resetUnreadableStore: (suspend () -> Unit)? = null,
     captureState: CaptureUiState? = null,
 ) {
-    val scope = rememberCoroutineScope()
+    val uiScope = rememberCoroutineScope()
     val state = captureState ?: remember { CaptureUiState() }
+    DisposableEffect(state, captureState) {
+        onDispose { if (captureState == null) state.disposeEphemeral() }
+    }
     var step by state.stepState
     var archiveReturnPending by rememberSaveable { mutableStateOf(false) }
     var csvReturnPending by rememberSaveable { mutableStateOf(false) }
@@ -275,9 +339,10 @@ internal fun AloeilApp(
     var csvReturnStep by rememberSaveable { mutableStateOf(Step.START) }
     var captureSittingId by state.captureSittingIdState
     var hasOpenSitting by state.hasOpenSittingState
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<Int?>(null) }
-    var valueError by remember { mutableStateOf<Int?>(null) }
+    var busy by state.busyState
+    var message by state.messageState
+    var valueError by state.valueErrorState
+    var startupAttempt by state.startupAttemptState
 
     val editingDraft = step in setOf(
         Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW,
@@ -293,7 +358,7 @@ internal fun AloeilApp(
         else if (step != Step.LOADING) csvReturnPending = false
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(startupAttempt) {
         if (state.initialized) return@LaunchedEffect
         try {
             val discardedDraft = withContext(Dispatchers.IO) { repository.verifyReadable() }
@@ -337,14 +402,9 @@ internal fun AloeilApp(
             message = null
             step = Step.RECOVERY
         } catch (_: Exception) {
-            message = R.string.error_draft_restore
-            val open = runCatching {
-                withContext(Dispatchers.IO) { repository.openSitting() }
-            }.getOrNull()
-            sittingId = open?.id.orEmpty()
-            hasOpenSitting = open != null
-            fromHistory = false
-            step = Step.START
+            message = null
+            step = Step.STARTUP_RETRY
+            return@LaunchedEffect
         }
         state.initialized = true
     }
@@ -385,7 +445,7 @@ internal fun AloeilApp(
     fun beginSitting() {
         busy = true
         message = null
-        scope.launch {
+        state.launchMutation {
             try {
                 if (!hasOpenSitting) {
                     sittingId = withContext(Dispatchers.IO) { repository.startSitting() }
@@ -398,6 +458,8 @@ internal fun AloeilApp(
                 note = ""
                 saved = null
                 step = Step.EYE
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 message = R.string.error_storage
             } finally {
@@ -423,7 +485,7 @@ internal fun AloeilApp(
         val selected = eye ?: return
         busy = true
         message = null
-        scope.launch {
+        state.launchMutation {
             val committed = try {
                 withContext(Dispatchers.IO) {
                     if (rangeState == null) {
@@ -432,6 +494,8 @@ internal fun AloeilApp(
                         repository.recordRange(readingId, sittingId, selected, rangeState!!, note)
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 null
             }
@@ -441,7 +505,7 @@ internal fun AloeilApp(
             } else {
                 saved = committed
                 step = Step.SAVED
-                runCatching { withContext(Dispatchers.IO) { repository.clearDraft() } }
+                captureMutationResult { withContext(Dispatchers.IO) { repository.clearDraft() } }
             }
             busy = false
         }
@@ -463,7 +527,7 @@ internal fun AloeilApp(
         val selected = eye ?: return
         busy = true
         message = null
-        scope.launch {
+        state.launchMutation {
             val corrected = try {
                 withContext(Dispatchers.IO) {
                     val operationId = current.id + ":correct:" + (current.revision + 1)
@@ -481,6 +545,8 @@ internal fun AloeilApp(
                         else -> null
                     }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 null
             }
@@ -489,7 +555,7 @@ internal fun AloeilApp(
             } else {
                 saved = corrected
                 step = Step.CORRECT_SAVED
-                runCatching { withContext(Dispatchers.IO) { repository.clearDraft() } }
+                captureMutationResult { withContext(Dispatchers.IO) { repository.clearDraft() } }
             }
             busy = false
         }
@@ -498,7 +564,7 @@ internal fun AloeilApp(
     fun undoCorrection() {
         val current = saved ?: return
         busy = true
-        scope.launch {
+        state.launchMutation {
             val undone = try {
                 withContext(Dispatchers.IO) {
                     repository.undoCorrection(
@@ -506,6 +572,8 @@ internal fun AloeilApp(
                         current.id, current.revision,
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (_: Exception) {
                 null
             }
@@ -523,8 +591,8 @@ internal fun AloeilApp(
         val current = saved ?: return
         busy = true
         message = null
-        scope.launch {
-            val recorded = runCatching {
+        state.launchMutation {
+            val recorded = captureMutationResult {
                 withContext(Dispatchers.IO) {
                     repository.saveDraft(
                         DraftCheckpoint(
@@ -553,14 +621,14 @@ internal fun AloeilApp(
         val current = saved ?: return
         busy = true
         message = null
-        scope.launch {
-            val deleted = runCatching {
+        state.launchMutation {
+            val deleted = captureMutationResult {
                 withContext(Dispatchers.IO) {
                     repository.deleteReading(current.id, current.revision)
                 }
             }.getOrDefault(false)
             if (deleted) {
-                runCatching { withContext(Dispatchers.IO) { repository.clearDraft() } }
+                captureMutationResult { withContext(Dispatchers.IO) { repository.clearDraft() } }
                 saved = null
                 readingId = ""
                 eye = null
@@ -590,8 +658,8 @@ internal fun AloeilApp(
 
     fun returnToHistory() {
         busy = true
-        scope.launch {
-            val cleared = runCatching {
+        state.launchMutation {
+            val cleared = captureMutationResult {
                 withContext(Dispatchers.IO) { repository.clearDraft() }
             }.isSuccess
             if (cleared) {
@@ -610,12 +678,12 @@ internal fun AloeilApp(
 
     fun finishSitting() {
         busy = true
-        scope.launch {
-            val finished = runCatching {
+        state.launchMutation {
+            val finished = captureMutationResult {
                 withContext(Dispatchers.IO) { repository.finishSitting(sittingId) }
             }.getOrDefault(false)
             if (finished) {
-                runCatching { withContext(Dispatchers.IO) { repository.clearDraft() } }
+                captureMutationResult { withContext(Dispatchers.IO) { repository.clearDraft() } }
                 hasOpenSitting = false
                 step = Step.FINISHED
             } else {
@@ -637,6 +705,15 @@ internal fun AloeilApp(
             ) {
                 when (step) {
                     Step.LOADING -> Heading(R.string.loading)
+                    Step.STARTUP_RETRY -> {
+                        Heading(R.string.startup_retry_title)
+                        Text(stringResource(R.string.startup_retry_body),
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
+                        Action(R.string.startup_retry, busy) {
+                            step = Step.LOADING
+                            startupAttempt += 1
+                        }
+                    }
                     Step.RECOVERY -> {
                         Heading(R.string.recovery_unreadable_title)
                         Text(stringResource(R.string.recovery_unreadable_body))
@@ -650,7 +727,7 @@ internal fun AloeilApp(
                         Text(stringResource(R.string.recovery_confirm_body))
                         Action(R.string.recovery_confirm_reset, busy || resetUnreadableStore == null) {
                             busy = true
-                            scope.launch {
+                            uiScope.launch {
                                 try {
                                     resetUnreadableStore?.invoke()
                                         ?: error("Recovery reset is unavailable")
@@ -661,6 +738,8 @@ internal fun AloeilApp(
                                         R.string.recovery_reset_error
                                     }
                                     step = Step.RECOVERY
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
                                 } catch (_: Exception) {
                                     message = R.string.recovery_reset_error
                                     step = Step.RECOVERY
@@ -692,8 +771,8 @@ internal fun AloeilApp(
                                 step = Step.CORRECT_CHOICE
                             } else {
                                 busy = true
-                                scope.launch {
-                                    val cleared = runCatching {
+                                state.launchMutation {
+                                    val cleared = captureMutationResult {
                                         withContext(Dispatchers.IO) { repository.clearDraft() }
                                     }.isSuccess
                                     if (cleared) {
@@ -947,7 +1026,7 @@ internal fun AloeilApp(
                     Step.ARCHIVE -> ArchiveTransferScreen(repository) {
                         busy = true
                         step = Step.LOADING
-                        scope.launch {
+                        state.launchMutation {
                             try {
                                 val open = withContext(Dispatchers.IO) {
                                     repository.openSitting()
@@ -955,6 +1034,8 @@ internal fun AloeilApp(
                                 sittingId = open?.id.orEmpty()
                                 hasOpenSitting = open != null
                                 step = Step.START
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
                             } catch (_: Exception) {
                                 message = R.string.error_storage
                                 step = Step.ARCHIVE
