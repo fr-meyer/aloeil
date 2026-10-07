@@ -177,6 +177,34 @@ object SyntheticFixtureJvmTest {
             focusedControl = "save",
         )
         check(DraftCodec.decode(DraftCodec.encode(draft)) == draft)
+        val rejectedDraft = draft.copy(step = "VALUE", inputRejected = true)
+        val rejectedBytes = DraftCodec.encode(rejectedDraft)
+        check(DraftCodec.decode(rejectedBytes) == rejectedDraft)
+        check(DraftCodec.decode(DraftCodec.encode(rejectedDraft.copy(inputRejected = false))) ==
+            rejectedDraft.copy(inputRejected = false))
+        // Older encrypted checkpoints lack the flag and remain readable without a schema migration.
+        for (version in 1..4) {
+            val legacy = ByteArrayOutputStream().also { bytes ->
+                DataOutputStream(bytes).use { out ->
+                    out.writeInt(version)
+                    out.writeUTF(draft.sittingId)
+                    out.writeUTF(draft.readingId)
+                    out.writeUTF(draft.step)
+                    out.writeUTF(draft.eye!!.name)
+                    out.writeUTF(draft.input)
+                    out.writeUTF(draft.focusedControl)
+                    if (version >= 2) out.writeLong(0)
+                    if (version >= 3) {
+                        out.writeUTF("")
+                        out.writeUTF("")
+                    }
+                    if (version >= 4) out.writeBoolean(true)
+                }
+            }.toByteArray()
+            check(DraftCodec.decode(legacy) == draft.copy(fromHistory = version >= 4))
+        }
+        check(runCatching { DraftCodec.decode(rejectedBytes.copyOf(rejectedBytes.size - 1)) }.isFailure)
+        check(runCatching { DraftCodec.decode(rejectedBytes + byteArrayOf(0)) }.isFailure)
         check(runCatching {
             DraftCodec.encode(draft.copy(note = "n".repeat(1001)))
         }.isFailure)
@@ -202,6 +230,19 @@ object SyntheticFixtureJvmTest {
             }
         }.toByteArray()
         check(DraftCodec.decode(priorDraft) == draft.copy(step = "CORRECT_CHOICE", baseRevision = 1))
+        val unorderedCsv = listOf(
+            synthetic.copy(id = "synthetic-d", recordedAtMillis = 3000L, note = ""),
+            synthetic.copy(id = "synthetic-c", recordedAtMillis = 2000L, note = ""),
+            synthetic.copy(id = "synthetic-b", recordedAtMillis = 1000L, note = ""),
+            synthetic.copy(id = "synthetic-a", recordedAtMillis = 1000L, note = ""),
+        )
+        val previewIds = unorderedCsv.sortedWith(CsvExport.readingOrder).take(3).map { it.id }
+        check(previewIds == listOf("synthetic-a", "synthetic-b", "synthetic-c"))
+        val chronologicalCsv = StringWriter().also { CsvExport.write(unorderedCsv, listOf(sitting), it) }
+        val exportedIds = chronologicalCsv.toString().split("\r\n").drop(1)
+            .filter { it.isNotEmpty() }.map { it.split(',')[1] }
+        check(exportedIds == listOf("synthetic-a", "synthetic-b", "synthetic-c", "synthetic-d"))
+        check(exportedIds.take(3) == previewIds && unorderedCsv.first().id == "synthetic-d")
         val oversizedDraft = ByteArrayOutputStream().also { bytes ->
             DataOutputStream(bytes).use { out ->
                 out.writeInt(2)

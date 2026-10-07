@@ -61,7 +61,9 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     LaunchedEffect(Unit) {
         runCatching {
             withContext(Dispatchers.IO) {
-                repository.currentFactsSnapshot()
+                val (readings, sittings) = repository.currentFactsSnapshot()
+                // Preview and output share the chronological/ID order; sort off Main once.
+                readings.sortedWith(CsvExport.readingOrder) to sittings
             }
         }.onSuccess {
             snapshot = it

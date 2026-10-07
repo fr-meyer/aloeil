@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter
 object CsvExport {
     const val fileName = "aloeil-readings.csv"
     const val mimeType = "text/csv"
+    internal val readingOrder = compareBy<Reading> { it.recordedAtMillis }.thenBy { it.id }
 
     val columns = listOf(
         "aloeil_csv_version", "reading_id", "sitting_id",
@@ -21,9 +22,7 @@ object CsvExport {
         require(groups.size == sittings.size) { "Duplicate sitting ID" }
         output.write(columns.joinToString(","))
         output.write("\r\n")
-        readings.sortedWith(
-            compareBy<Reading> { it.recordedAtMillis }.thenBy { it.id },
-        ).forEach { reading ->
+        readings.sortedWith(readingOrder).forEach { reading ->
             val sitting = groups[reading.sittingId]
                 ?: throw IllegalArgumentException("Reading has no sitting")
             val row = listOf(

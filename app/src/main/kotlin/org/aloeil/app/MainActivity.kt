@@ -372,6 +372,7 @@ internal fun AloeilApp(
                 readingId = draft.readingId
                 eye = draft.eye
                 value = draft.input
+                valueError = if (draft.inputRejected) R.string.error_length else null
                 rangeState = draft.rangeState
                 note = draft.note
                 fromHistory = draft.fromHistory
@@ -412,31 +413,27 @@ internal fun AloeilApp(
         state.initialized = true
     }
 
-    LaunchedEffect(step, sittingId, readingId, eye, value, rangeState, note, fromHistory, busy) {
-        if (!busy && sittingId.isNotEmpty() && readingId.isNotEmpty() && step in setOf(
-                Step.EYE, Step.VALUE, Step.NOTE, Step.REVIEW, Step.CORRECT_CHOICE,
-                Step.CORRECT_EYE, Step.CORRECT_VALUE, Step.CORRECT_NOTE,
-                Step.CORRECT_REVIEW_EYE, Step.CORRECT_REVIEW_VALUE, Step.CORRECT_REVIEW_NOTE,
-            )
-        ) {
+    // Capture all fields in the same composition snapshot, before IO can suspend or be canceled.
+    val draftCheckpoint = if (!busy && sittingId.isNotEmpty() && readingId.isNotEmpty() && editingDraft) {
+        DraftCheckpoint(
+            sittingId, readingId, step.name, eye, value,
+            when (step) {
+                Step.VALUE, Step.CORRECT_VALUE -> "reading"
+                Step.NOTE, Step.CORRECT_NOTE -> "note"
+                Step.EYE, Step.CORRECT_EYE -> "eye"
+                else -> "heading"
+            },
+            baseRevision = if (step.name.startsWith("CORRECT_")) saved?.revision else null,
+            rangeState = rangeState,
+            note = note,
+            fromHistory = fromHistory,
+            inputRejected = valueError == R.string.error_length,
+        )
+    } else null
+    LaunchedEffect(draftCheckpoint) {
+        if (draftCheckpoint != null) {
             try {
-                withContext(Dispatchers.IO) {
-                    repository.saveDraft(
-                        DraftCheckpoint(
-                            sittingId, readingId, step.name, eye, value,
-                            when (step) {
-                                Step.VALUE, Step.CORRECT_VALUE -> "reading"
-                                Step.NOTE, Step.CORRECT_NOTE -> "note"
-                                Step.EYE, Step.CORRECT_EYE -> "eye"
-                                else -> "heading"
-                            },
-                            baseRevision = if (step.name.startsWith("CORRECT_")) saved?.revision else null,
-                            rangeState = rangeState,
-                            note = note,
-                            fromHistory = fromHistory,
-                        ),
-                    )
-                }
+                withContext(Dispatchers.IO) { repository.saveDraft(draftCheckpoint) }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -457,6 +454,7 @@ internal fun AloeilApp(
                 readingId = newReadingId()
                 eye = null
                 value = ""
+                valueError = null
                 rangeState = null
                 note = ""
                 saved = null
