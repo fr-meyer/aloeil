@@ -187,7 +187,12 @@ class CsvSharePreparationDeviceTest {
                 compose.onAllNodes(clear).fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNode(clear).performScrollTo().performClick()
-            compose.waitUntil(timeoutMillis = 10_000) { !file.exists() }
+            // Deletion is observable before the IO worker retires the matching lease.
+            // Await both existing postconditions within the same bounded timeout.
+            compose.waitUntil(timeoutMillis = 10_000) {
+                !file.exists() && context.getSystemService(JobScheduler::class.java)
+                    .getPendingJob(CsvShareCache.jobId(file)) == null
+            }
             check(context.getSystemService(JobScheduler::class.java)
                 .getPendingJob(CsvShareCache.jobId(file)) == null)
         } finally {
