@@ -1,6 +1,6 @@
 # GitHub Actions CI builder
 
-Status: approved for the P2 Android bootstrap.
+Status: merged Android builder, with P2 synthetic JVM and managed-device tests on pull requests.
 
 GitHub Actions CI is Aloeil's builder. The OpenClaw VM is not a builder, a GCP extra disk is not a builder, and there is no 24/7 builder VM. A clean GitHub-hosted runner obtains the declared JDK and Android SDK, then uses the repository's Gradle wrapper.
 

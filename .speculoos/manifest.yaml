@@ -1,24 +1,25 @@
 schema_version: 0.1
 project: Aloeil
 workflow: speculoos-v1
-canonical_task: p2-local-first-data-recovery
+canonical_task: p4-consented-export-sharing
 repository:
   upstream: null
   fork: fr-meyer/aloeil
   base_branch: dev
-  working_branch: aloeil/p2-github-actions-ci
+  working_branch: aloeil/p4-consented-export-sharing
   default_branch: main
 status:
   phase: implementation-in-progress
   pret_a_coder: ready
   blocker_summary:
-    - GitHub Actions builder approved; full Room/backup still remaining
+    - Intended-phone CSV save, chooser cancellation, recipient access, and cache cleanup remain
+    - P5 representative-device accessibility and privacy validation remain
 builder:
   provider: github-actions
   workflow: .github/workflows/ci.yml
   jdk: eclipse-temurin-17-lts
   gradle_wrapper: 8.11.1
-  emulator: forbidden-in-unit-test-workflow
+  emulator: api-30-managed-device-in-ci
 publication_policy:
   repository_visibility: public
   license: Apache-2.0
@@ -67,11 +68,11 @@ surfaces:
     file: .speculoos/surfaces/github.yaml
   github_pull_request:
     enabled: true
-    status: none-active
+    status: open
     base_branch: dev
-    head_branch: null
+    head_branch: aloeil/p4-consented-export-sharing
     default_branch: main
-    pull_request: null
+    pull_request: https://github.com/fr-meyer/aloeil/pull/6
     head_sha: null
   vibe_kanban:
     enabled: planned
@@ -98,7 +99,7 @@ gates:
     - explicit-user-consent
     - backup-and-restore-acceptance-pass
     - accessibility-validation-pass
-current_task: p2-local-first-data-recovery
+current_task: p4-consented-export-sharing
 next_tasks:
-  - p2-local-first-data-recovery
+  - p5-validation
 surfaces_local_only: false
