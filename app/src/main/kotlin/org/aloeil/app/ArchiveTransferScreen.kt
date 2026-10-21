@@ -358,7 +358,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     busy || passphrase.isEmpty(),
                 ) {
                     val selected = pendingImportUri
-                    if (selected == null) openDocument.launch(arrayOf("*/*"))
+                    if (selected == null) openDocument.launch(arrayOf("application/octet-stream"))
                     else {
                         pendingImportUri = null
                         previewArchive(Uri.parse(selected))

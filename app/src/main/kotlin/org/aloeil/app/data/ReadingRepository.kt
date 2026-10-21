@@ -249,9 +249,9 @@ class ReadingRepository(
         dao.saveDraft(DraftRow(nonce = sealed.nonce, ciphertext = sealed.ciphertext))
     }
 
-    suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
+    suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? = draftMutex.withLock {
         repeat(3) {
-            val row = dao.draft() ?: return null
+            val row = dao.draft() ?: return@withLock null
             val draft = cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft(),
                 DraftCodec::decode)
             if (!draft.fromHistory) {
@@ -259,17 +259,23 @@ class ReadingRepository(
                 if (sitting == null || sitting.finishedAtMillis != null) {
                     // A different repository may have saved a newer checkpoint while
                     // the sitting was being checked. Remove only the row examined.
-                    if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return null
+                    if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return@withLock null
                     return@repeat
                 }
             }
             if (dao.deletedReading(draft.readingId) != null) {
-                if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return null
+                if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return@withLock null
                 return@repeat
             }
             val saved = dao.reading(draft.readingId)?.let(::decode)
             require(saved == null || saved.sittingId == draft.sittingId) { "Draft ID conflict" }
-            return draft to saved
+            // Linearize successful recovery against this repository's writers and
+            // retry if another repository replaced the checkpoint during validation.
+            val current = dao.draft()
+            if (current != null && current.nonce.contentEquals(row.nonce) &&
+                current.ciphertext.contentEquals(row.ciphertext)) {
+                return@withLock draft to saved
+            }
         }
         // Keep every remaining checkpoint if contention prevents stable recovery.
         throw IllegalStateException("Draft changed repeatedly during recovery")

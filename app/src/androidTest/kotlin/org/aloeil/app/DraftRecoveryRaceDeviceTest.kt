@@ -16,6 +16,7 @@ import org.aloeil.app.data.Eye
 import org.aloeil.app.data.ReadingDao
 import org.aloeil.app.data.ReadingDatabase
 import org.aloeil.app.data.ReadingRepository
+import org.aloeil.app.data.ReadingRow
 import org.aloeil.app.data.SittingRow
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,6 +29,59 @@ class DraftRecoveryRaceDeviceTest {
 
     @Test
     fun deletedReadingCleanupKeepsConcurrentlySavedCheckpoint() = exerciseRace(true)
+
+    @Test
+    fun validCheckpointReplacementRetriesBeforePublishing() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val database = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        try {
+            runBlocking {
+                val dao = database.readings()
+                val cipher = SyntheticCipher()
+                val writer = ReadingRepository(dao, cipher, { "UTC" }) { 1_700_000_000_000L }
+                writer.startSitting("synthetic-sitting")
+                writer.saveDraft(DraftCheckpoint(
+                    sittingId = "synthetic-sitting", readingId = "synthetic-old-reading",
+                    step = "VALUE", eye = Eye.LEFT, input = "12.3", focusedControl = "reading",
+                ))
+                val heldOnce = AtomicBoolean(false)
+                val gate = object : ReadingDao by dao {
+                    override suspend fun reading(id: String): ReadingRow? {
+                        val row = dao.reading(id)
+                        if (id == "synthetic-old-reading" && heldOnce.compareAndSet(false, true)) {
+                            entered.complete(Unit)
+                            withTimeout(10_000) { release.await() }
+                        }
+                        return row
+                    }
+                }
+                val recovering = ReadingRepository(gate, cipher, { "UTC" }) { 1_700_000_000_000L }
+                val recovery = async(Dispatchers.Default) { recovering.recoverDraft() }
+                try {
+                    withTimeout(10_000) { entered.await() }
+                    val newer = DraftCheckpoint(
+                        sittingId = "synthetic-sitting", readingId = "synthetic-new-reading",
+                        step = "VALUE", eye = Eye.RIGHT, input = "14.2", focusedControl = "reading",
+                    )
+                    writer.saveDraft(newer)
+                    val checkpoint = checkNotNull(dao.draft())
+                    release.complete(Unit)
+                    val recovered = checkNotNull(withTimeout(10_000) { recovery.await() })
+                    check(recovered.first == newer && recovered.second == null)
+                    val retained = checkNotNull(dao.draft())
+                    check(retained.nonce.contentEquals(checkpoint.nonce))
+                    check(retained.ciphertext.contentEquals(checkpoint.ciphertext))
+                } finally {
+                    release.complete(Unit)
+                }
+            }
+        } finally {
+            release.complete(Unit)
+            database.close()
+        }
+    }
 
     private fun exerciseRace(deletedReading: Boolean) {
         val context = ApplicationProvider.getApplicationContext<Context>()
