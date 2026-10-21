@@ -1,4 +1,4 @@
-# Deliberate CSV export and sharing (P4 in progress)
+# Deliberate CSV export and sharing
 
 The CSV file is **unencrypted plain text**. It is a human-readable snapshot
 of current readings, not a recovery backup. The preview names its contents,
@@ -33,11 +33,28 @@ correction history.
 
 For chooser sharing, Aloeil writes the CSV into a dedicated app-private
 cache directory, passes only a content URI through FileProvider, and grants
-temporary read access. The user can clear these prepared files after the
-receiving app has read them. Files older than 24 hours are removed the
-next time the export screen opens. Copies held by recipients or document
-providers remain outside Aloeil's control. Android app backup and device-to-device extraction of app files are disabled.
+temporary read access. Before the first Share action, the preview explains
+this plaintext cache, cancellation, cleanup and recipient copies. Canceling
+the chooser does not immediately erase the prepared file. The user can clear
+it on the export screen after canceling, or after the receiving app has read it.
 
-This feature uses synthetic fixtures in development and CI. P5 must still
-inspect the merged manifest, cache behavior, chooser cancellation,
-accessibility, and real-device interaction before a consented pilot.
+Each file has a one-hour lease measured using elapsed time within the current
+boot. Its persisted JobScheduler cleanup is scheduled for the lease expiry,
+with a five-minute requested deadline slack; Android scheduling may delay
+execution, so this is not a guaranteed deletion time. Opening the export screen
+also removes expired files and ensures remaining files have cleanup jobs.
+The provider refuses expired files, including leases invalidated by a reboot,
+and attempts to delete them on access; denial does not depend on deletion
+succeeding. Explicit clearing removes the local prepared files. Copies held by recipients or document
+providers remain outside Aloeil's control. Android app backup and device-to-device
+extraction of app files are disabled.
+
+Completed-save feedback retains only its message resource ID across Activity
+recreation. Starting a new save clears that old feedback before the picker opens;
+canceling the new picker must not restore the previous success message. Reading
+snapshots and CSV contents are not placed in Activity saved state.
+
+This feature uses synthetic fixtures in development and CI. Existing baseline
+technical evidence is recorded in `docs/validation/p5-evidence.md` and PR 7.
+The local follow-up needs its own exact-head tests. Intended-user accessibility,
+privacy acceptance and separate pilot consent remain open.

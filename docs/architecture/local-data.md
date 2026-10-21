@@ -98,8 +98,11 @@ would require its own privacy, destination, and deployment decision.
 
 CI uses synthetic JVM fixtures and an API 30 emulator for Room transaction,
 restart, migration, archive, correction, and deletion tests. A
-representative user-device accessibility and recovery drill, residual
-metadata privacy acceptance are still needed before P2 can close. An
+representative synthetic recovery drill is already recorded for the P5 baseline,
+and the owner confirmed original-archive restoration on 2026-09-30. Those
+completed recovery checks are not routine work to repeat on the owner's phone.
+Intended-user accessibility and residual metadata privacy acceptance remain open;
+see `docs/validation/p5-evidence.md`. An
 automatic replica is outside the current MVP. If added later, its
 destination/client and exact-revision, unavailable/empty-replica behavior
 need separate implementation and tests.

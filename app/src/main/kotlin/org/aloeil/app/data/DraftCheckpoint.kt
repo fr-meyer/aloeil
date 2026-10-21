@@ -17,6 +17,8 @@ data class DraftCheckpoint(
     val rangeState: RangeState? = null,
     val note: String = "",
     val fromHistory: Boolean = false,
+    // The retained valid input must not become accepted after a rejected replacement and restart.
+    val inputRejected: Boolean = false,
 )
 
 internal object DraftCodec {
@@ -24,7 +26,7 @@ internal object DraftCodec {
         require(draft.note.length <= 1000) { "Draft note is too long" }
         require(draft.input.length <= ReadingValue.MAX_LENGTH) { "Draft input is too long" }
         DataOutputStream(bytes).use { out ->
-            out.writeInt(4)
+            out.writeInt(5)
             out.writeUTF(draft.sittingId)
             out.writeUTF(draft.readingId)
             out.writeUTF(draft.step)
@@ -35,13 +37,14 @@ internal object DraftCodec {
             out.writeUTF(draft.rangeState?.name.orEmpty())
             out.writeUTF(draft.note)
             out.writeBoolean(draft.fromHistory)
+            out.writeBoolean(draft.inputRejected)
         }
     }.toByteArray()
 
     fun decode(bytes: ByteArray): DraftCheckpoint {
         val input = DataInputStream(ByteArrayInputStream(bytes))
         val version = input.readInt()
-        require(version in 1..4) { "Unsupported draft version" }
+        require(version in 1..5) { "Unsupported draft version" }
         val draft = DraftCheckpoint(
             sittingId = input.readUTF(),
             readingId = input.readUTF(),
@@ -53,6 +56,7 @@ internal object DraftCodec {
             rangeState = if (version >= 3) input.readUTF().takeIf { it.isNotEmpty() }?.let(RangeState::valueOf) else null,
             note = if (version >= 3) input.readUTF() else "",
             fromHistory = if (version >= 4) input.readBoolean() else false,
+            inputRejected = if (version >= 5) input.readBoolean() else false,
         )
         require(draft.note.length <= 1000) { "Invalid draft note" }
         require(draft.input.length <= ReadingValue.MAX_LENGTH) { "Invalid draft input length" }

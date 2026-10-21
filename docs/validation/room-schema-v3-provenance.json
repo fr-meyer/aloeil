@@ -1,0 +1,28 @@
+{
+  "run_url": "https://github.com/fr-meyer/aloeil/actions/runs/36704919379",
+  "run_attempt": "1",
+  "checkout_sha": "915ed82e793cd39f06dd8645454372c88b5d49f0",
+  "checkout_tree": "974f97b3d5e0b22df4b95530155fa25207c4c1b2",
+  "head_sha": "51192faec1b4799acf320d9ff1d420a62178eee4",
+  "base_sha": "46387a23621c1b8787d487cfa0ced23b1b2b3787",
+  "schema_path": "app/schemas/org.aloeil.app.data.ReadingDatabase/3.json",
+  "schema_sha256": "97905c7f7f5b0c496ae45b8fba2a01d5fd60ebf95abf8fce2afaebe26662be9a",
+  "database_version": 3,
+  "identity_hash": "195835d8eb5b2ca7f8900f94d406a576",
+  "table_names": [
+    "correction_operations",
+    "deleted_readings",
+    "draft_checkpoint",
+    "outbox",
+    "reading_versions",
+    "readings",
+    "sittings"
+  ],
+  "generation_command": "./gradlew --no-daemon --no-build-cache --rerun-tasks -Pksp.incremental=false :app:kspReleaseKotlin",
+  "source_sha256": {
+    "app/src/main/kotlin/org/aloeil/app/data/ReadingDatabase.kt": "b90b9a5dcc20db3e880e42a2197c57a8d06decc1bacbd480a975d4551135d8b3",
+    "app/build.gradle.kts": "08da12aff1ee324c72cb61da786a8cfefd66aa2b01d8d528cd8e5d5934aecf4b",
+    "gradle/libs.versions.toml": "c01e4b72be6117c003a4695194c53e455a39640b62c4284a3d78a82092e61b62",
+    "gradle/wrapper/gradle-wrapper.properties": "fe90ff0d9944879f591a8c37b6dbaf5046d1051ccbb6b26b22081692c321f432"
+  }
+}

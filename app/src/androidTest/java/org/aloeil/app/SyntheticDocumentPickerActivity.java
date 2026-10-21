@@ -9,13 +9,25 @@ import android.widget.TextView;
 
 /** Test APK only: a cancelable picker for the minimal Android emulator. */
 public final class SyntheticDocumentPickerActivity extends Activity {
+    private static boolean requestsMime(Intent intent, String mime) {
+        if (mime.equals(intent.getType())) return true;
+        String[] requested = intent.getStringArrayExtra(Intent.EXTRA_MIME_TYPES);
+        if (requested == null) return false;
+        for (String candidate : requested) {
+            if (mime.equals(candidate)) return true;
+        }
+        return false;
+    }
+
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        boolean csv = "text/csv".equals(getIntent().getType());
-        boolean archive = "application/octet-stream".equals(getIntent().getType());
-        if (Intent.ACTION_CREATE_DOCUMENT.equals(getIntent().getAction())
-                && (csv || archive)) {
+        boolean csv = requestsMime(getIntent(), "text/csv");
+        boolean archive = requestsMime(getIntent(), "application/octet-stream");
+        boolean create = Intent.ACTION_CREATE_DOCUMENT.equals(getIntent().getAction())
+                && (csv || archive);
+        boolean openArchive = Intent.ACTION_OPEN_DOCUMENT.equals(getIntent().getAction()) && archive;
+        if (create || openArchive) {
             Button choose = new Button(this);
             choose.setText(csv ? "Select synthetic CSV" : "Select synthetic archive");
             choose.setOnClickListener(view -> {

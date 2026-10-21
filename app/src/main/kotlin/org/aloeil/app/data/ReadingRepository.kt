@@ -1,10 +1,11 @@
 package org.aloeil.app.data
 
+import android.database.sqlite.SQLiteDatabaseCorruptException
 import java.io.IOException
+import java.time.DateTimeException
 import java.time.ZoneId
 import java.util.UUID
 import javax.crypto.AEADBadTagException
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -16,6 +17,24 @@ data class ArchivePreview(
 
 class UnreadableLocalStoreException(cause: Throwable) :
     IllegalStateException("Local encrypted data cannot be read", cause)
+
+/** open must return independently owned storage, as the Android and synthetic ciphers do.
+ * Consume that result, then clear it even if decoding/resealing fails.
+ * The sealed payload and AAD belong to the caller and are never modified here.
+ * Decoded model strings remain in memory; this is not a guarantee of JVM heap erasure.
+ */
+internal inline fun <T> ReadingCipher.withDecryptedPayload(
+    payload: SealedPayload,
+    aad: ByteArray,
+    consume: (ByteArray) -> T,
+): T {
+    val clear = open(payload, aad)
+    return try {
+        consume(clear)
+    } finally {
+        clear.fill(0)
+    }
+}
 
 /** A save completes once Room commits the reading and its retryable outbox row. */
 class ReadingRepository(
@@ -33,58 +52,112 @@ class ReadingRepository(
     /** Verify encrypted rows before writes or imports. Returns true if a corrupt
      * unsaved draft was discarded after checking the saved rows, if any.
      */
-    suspend fun verifyReadable(): Boolean {
-        try {
-            var discardedDuringMigration = false
-            if (cipher is AndroidKeystoreReadingCipher) {
-                discardedDuringMigration = dao.migrateLegacyEncryption(cipher)
-                cipher.deleteLegacyKeyAfterMigration()
+    suspend fun verifyReadable(): Boolean = try {
+        verifyEncryptedRows()
+    } catch (corrupt: SQLiteDatabaseCorruptException) {
+        throw UnreadableLocalStoreException(corrupt)
+    }
+
+    private suspend fun verifyEncryptedRows(): Boolean {
+        var discardedDuringMigration = false
+        if (cipher is AndroidKeystoreReadingCipher) {
+            // Structural envelope corruption is distinct from a failed Room open/migration.
+            val beforeMigration = dao.archiveSnapshot()
+            beforeMigration.readings.forEach { validateSavedEnvelope(it.nonce, it.ciphertext) }
+            beforeMigration.sittings.forEach { validateSavedEnvelope(it.nonce, it.ciphertext) }
+            beforeMigration.versions.forEach { validateSavedEnvelope(it.nonce, it.ciphertext) }
+            discardedDuringMigration = try {
+                dao.migrateLegacyEncryption(cipher)
+            } catch (missing: MissingReadingKeyException) {
+                throw UnreadableLocalStoreException(missing)
+            } catch (unauthenticated: AEADBadTagException) {
+                throw UnreadableLocalStoreException(unauthenticated)
             }
-            val snapshot = dao.archiveSnapshot()
-            snapshot.readings.forEach { row ->
-                ReadingPayloadCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                    ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision)))
+            // Cleanup, provider and DAO failures must remain retryable, not authorize deletion.
+            cipher.deleteLegacyKeyAfterMigration()
+        }
+        val snapshot = dao.archiveSnapshot()
+        snapshot.readings.forEach { row ->
+            readSavedPayload(row.nonce, row.ciphertext,
+                ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision),
+                ReadingPayloadCodec::decode)
+        }
+        snapshot.sittings.forEach { row ->
+            readSavedPayload(row.nonce, row.ciphertext, ReadingAad.sitting(row.id)) {
+                SittingPayloadCodec.decode(row.id, it)
             }
-            snapshot.sittings.forEach { row ->
-                SittingPayloadCodec.decode(
-                    row.id, cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)),
-                )
-            }
-            snapshot.versions.forEach { row ->
-                ReadingPayloadCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                    ReadingAad.version(row.readingId, row.revision)))
-            }
-            // A malformed draft is disposable only after all saved rows passed.
-            // Clear the exact damaged row so recoverDraft and later launches can proceed.
-            val discardedAfterMigration = verifyDraftOrDiscard()
-            return discardedDuringMigration || discardedAfterMigration
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            throw UnreadableLocalStoreException(error)
+        }
+        snapshot.versions.forEach { row ->
+            readSavedPayload(row.nonce, row.ciphertext,
+                ReadingAad.version(row.readingId, row.revision), ReadingPayloadCodec::decode)
+        }
+        // A malformed draft is disposable only after all saved rows passed.
+        val discardedAfterMigration = verifyDraftOrDiscard()
+        return discardedDuringMigration || discardedAfterMigration
+    }
+
+    private fun validateSavedEnvelope(nonce: ByteArray, ciphertext: ByteArray) {
+        if (nonce.size != 12 || ciphertext.size < 16) {
+            throw UnreadableLocalStoreException(IllegalArgumentException("Invalid saved encrypted payload"))
+        }
+    }
+
+    /** Only a failed authentication/key lookup or malformed decoded payload proves unreadability. */
+    private fun <T> readSavedPayload(
+        nonce: ByteArray,
+        ciphertext: ByteArray,
+        aad: ByteArray,
+        decode: (ByteArray) -> T,
+    ): T {
+        validateSavedEnvelope(nonce, ciphertext)
+        val clear = try {
+            cipher.open(SealedPayload(nonce, ciphertext), aad)
+        } catch (missing: MissingReadingKeyException) {
+            throw UnreadableLocalStoreException(missing)
+        } catch (unauthenticated: AEADBadTagException) {
+            throw UnreadableLocalStoreException(unauthenticated)
+        }
+        return try {
+            decode(clear)
+        } catch (malformed: IOException) {
+            throw UnreadableLocalStoreException(malformed)
+        } catch (malformed: IllegalArgumentException) {
+            throw UnreadableLocalStoreException(malformed)
+        } catch (malformed: DateTimeException) {
+            throw UnreadableLocalStoreException(malformed)
+        } finally {
+            clear.fill(0)
         }
     }
 
     private suspend fun verifyDraftOrDiscard(): Boolean {
         repeat(3) {
             val row = dao.draft() ?: return false
-            try {
-                DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft()))
-                return false
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (missing: MissingReadingKeyException) {
-                throw missing
-            } catch (_: AEADBadTagException) {
-                // Authentication failed; a bad draft must not block saved facts.
-            } catch (_: IOException) {
-                // The authenticated draft payload is malformed.
-            } catch (_: IllegalArgumentException) {
-                // The authenticated draft fields are invalid.
-            }
+            if (!draftIsCorrupt(row)) return false
             if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return true
         }
         throw IllegalStateException("Draft changed repeatedly during verification")
+    }
+
+    private fun draftIsCorrupt(row: DraftRow): Boolean {
+        if (row.nonce.size != 12 || row.ciphertext.size < 16) return true
+        val clear = try {
+            cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft())
+        } catch (missing: MissingReadingKeyException) {
+            throw UnreadableLocalStoreException(missing)
+        } catch (_: AEADBadTagException) {
+            return true
+        }
+        return try {
+            DraftCodec.decode(clear)
+            false
+        } catch (_: IOException) {
+            true
+        } catch (_: IllegalArgumentException) {
+            true
+        } finally {
+            clear.fill(0)
+        }
     }
 
     suspend fun record(
@@ -176,23 +249,36 @@ class ReadingRepository(
         dao.saveDraft(DraftRow(nonce = sealed.nonce, ciphertext = sealed.ciphertext))
     }
 
-    suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? {
-        val row = dao.draft() ?: return null
-        val draft = DraftCodec.decode(cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft()))
-        if (!draft.fromHistory) {
-            val sitting = dao.sitting(draft.sittingId)?.let(::decodeSitting)
-            if (sitting == null || sitting.finishedAtMillis != null) {
-                clearDraft()
-                return null
+    suspend fun recoverDraft(): Pair<DraftCheckpoint, Reading?>? = draftMutex.withLock {
+        repeat(3) {
+            val row = dao.draft() ?: return@withLock null
+            val draft = cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft(),
+                DraftCodec::decode)
+            if (!draft.fromHistory) {
+                val sitting = dao.sitting(draft.sittingId)?.let(::decodeSitting)
+                if (sitting == null || sitting.finishedAtMillis != null) {
+                    // A different repository may have saved a newer checkpoint while
+                    // the sitting was being checked. Remove only the row examined.
+                    if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return@withLock null
+                    return@repeat
+                }
+            }
+            if (dao.deletedReading(draft.readingId) != null) {
+                if (dao.clearDraftIfUnchanged(row.nonce, row.ciphertext) == 1) return@withLock null
+                return@repeat
+            }
+            val saved = dao.reading(draft.readingId)?.let(::decode)
+            require(saved == null || saved.sittingId == draft.sittingId) { "Draft ID conflict" }
+            // Linearize successful recovery against this repository's writers and
+            // retry if another repository replaced the checkpoint during validation.
+            val current = dao.draft()
+            if (current != null && current.nonce.contentEquals(row.nonce) &&
+                current.ciphertext.contentEquals(row.ciphertext)) {
+                return@withLock draft to saved
             }
         }
-        if (dao.deletedReading(draft.readingId) != null) {
-            clearDraft()
-            return null
-        }
-        val saved = dao.reading(draft.readingId)?.let(::decode)
-        require(saved == null || saved.sittingId == draft.sittingId) { "Draft ID conflict" }
-        return draft to saved
+        // Keep every remaining checkpoint if contention prevents stable recovery.
+        throw IllegalStateException("Draft changed repeatedly during recovery")
     }
 
     suspend fun clearDraft() = draftMutex.withLock { dao.clearDraft() }
@@ -216,10 +302,8 @@ class ReadingRepository(
                 ArchivedVersion(
                     row.readingId,
                     row.revision,
-                    ReadingPayloadCodec.decode(
-                        cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                            ReadingAad.version(row.readingId, row.revision)),
-                    ),
+                    cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+                        ReadingAad.version(row.readingId, row.revision), ReadingPayloadCodec::decode),
                 )
             },
             operations = snapshot.operations.map {
@@ -317,10 +401,8 @@ class ReadingRepository(
     ): Reading? {
         require(expectedRevision > 1)
         val prior = dao.version(readingId, expectedRevision - 1) ?: return null
-        val priorPayload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(prior.nonce, prior.ciphertext),
-                ReadingAad.version(prior.readingId, prior.revision)),
-        )
+        val priorPayload = cipher.withDecryptedPayload(SealedPayload(prior.nonce, prior.ciphertext),
+            ReadingAad.version(prior.readingId, prior.revision), ReadingPayloadCodec::decode)
         return revise(operationId, readingId, expectedRevision) { priorPayload }
     }
 
@@ -341,10 +423,8 @@ class ReadingRepository(
         }
         val old = dao.reading(readingId) ?: return null
         if (old.revision != expectedRevision) return null
-        val oldPayload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(old.nonce, old.ciphertext),
-                ReadingAad.reading(old.id, old.revision, old.replicaConfirmedRevision)),
-        )
+        val oldPayload = cipher.withDecryptedPayload(SealedPayload(old.nonce, old.ciphertext),
+            ReadingAad.reading(old.id, old.revision, old.replicaConfirmedRevision), ReadingPayloadCodec::decode)
         val changed = transform(oldPayload)
         require(changed.sittingId == oldPayload.sittingId &&
             changed.recordedAtMillis == oldPayload.recordedAtMillis &&
@@ -390,16 +470,13 @@ class ReadingRepository(
         dao.acknowledgeReplica(id, revision, cipher)
 
     private fun decode(row: ReadingRow): Reading {
-        val payload = ReadingPayloadCodec.decode(
-            cipher.open(SealedPayload(row.nonce, row.ciphertext),
-                ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision)),
-        )
+        val payload = cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext),
+            ReadingAad.reading(row.id, row.revision, row.replicaConfirmedRevision), ReadingPayloadCodec::decode)
         return payload.asReading(row.id, row.revision, row.replicaConfirmedRevision)
     }
 
     private fun decodeSitting(row: SittingRow): Sitting =
-        SittingPayloadCodec.decode(
-            row.id,
-            cipher.open(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)),
-        )
+        cipher.withDecryptedPayload(SealedPayload(row.nonce, row.ciphertext), ReadingAad.sitting(row.id)) {
+            SittingPayloadCodec.decode(row.id, it)
+        }
 }

@@ -86,6 +86,7 @@
     <string name="archive_importing">암호화된 백업을 복원하는 중…</string>
     <string name="archive_export_error">암호화된 백업을 준비하지 못했습니다. 측정값은 이 휴대전화에 남아 있습니다.</string>
     <string name="archive_read_error">파일 또는 암호를 확인할 수 없습니다. 복원된 측정값은 없습니다.</string>
+    <string name="archive_capacity_error">이 백업은 Aloeil의 현재 처리 한도를 초과합니다. 원본 파일을 보관하세요. 저장된 측정값은 변경되지 않았습니다.</string>
     <string name="archive_restore_error">백업을 복원하지 못했습니다. 이 휴대전화의 기존 측정값은 유지되었습니다.</string>
     <string name="range_state_explain">기기에 측정 범위 메시지가 표시되었다면 해당 방향을 선택하세요. 숫자를 추정하지 마세요.</string>
     <string name="below_range">기기 측정 범위 미만</string>
@@ -151,7 +152,7 @@
     <string name="csv_write_error">CSV를 쓰지 못했습니다. 일부 파일이 생성되었다면 다시 시도하기 전에 삭제하세요.</string>
     <string name="csv_write_interrupted">CSV 저장이 중단되었습니다. 선택한 파일이 불완전할 수 있습니다. 해당 파일을 삭제하고 새 사본을 저장하세요.</string>
     <string name="csv_share_error">공유 화면을 열지 못했습니다. 아무것도 전송되지 않았습니다.</string>
-    <string name="csv_cache_disclosure">공유 화면은 Aloeil의 비공개 캐시에 있는 임시 일반 텍스트 CSV를 사용합니다. Aloeil은 한 시간 후 삭제를 예약합니다. 수신 앱이 읽은 뒤에는 더 일찍 삭제할 수 있습니다. 수신 앱이 만든 사본은 Aloeil에서 삭제할 수 없습니다.</string>
+    <string name="csv_cache_disclosure">공유하면 Aloeil의 비공개 캐시에 암호화되지 않은 임시 CSV가 생성됩니다. 공유 화면을 취소해도 즉시 삭제되지는 않습니다. Aloeil은 한 시간 후 삭제를 예약하지만 Android가 정리를 지연할 수 있습니다. 취소한 뒤 또는 수신 앱이 읽은 뒤 여기서 삭제할 수 있습니다. 수신 앱이 만든 사본은 Aloeil에서 삭제할 수 없습니다.</string>
     <string name="csv_clear_cache">이 휴대전화의 임시 CSV 삭제</string>
     <string name="csv_cache_cleared">이 휴대전화의 임시 CSV 파일이 삭제되었습니다.</string>
     <string name="csv_cache_error">임시 CSV 파일을 삭제하지 못했습니다. 다시 시도하세요.</string>
@@ -165,4 +166,7 @@
     <string name="recovery_reset_error">초기화가 중단되었습니다. 로컬 측정값을 이미 읽을 수 없거나 삭제되었을 수 있습니다. 가져온 백업은 없습니다. 다시 시도하거나 앱을 종료하세요.</string>
     <string name="recovery_key_cleanup_error">로컬 측정값은 삭제되었지만 암호화 키를 지울 수 없었습니다. 가져온 백업은 없습니다. 다시 시도하거나 앱을 종료하세요.</string>
     <string name="recovery_draft_discarded">읽을 수 없는 미저장 임시 기록을 삭제했습니다. 이미 저장된 측정값은 유지되었습니다.</string>
+    <string name="startup_retry_title">Aloeil에서 로컬 데이터를 열지 못했습니다</string>
+    <string name="startup_retry_body">원인은 아직 확인되지 않았습니다. 로컬 데이터는 초기화되지 않았습니다. 다시 열어 보세요. 문제가 계속되면 백업을 보관하고 도움을 요청하세요.</string>
+    <string name="startup_retry">다시 열기</string>
 </resources>

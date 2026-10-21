@@ -86,6 +86,7 @@
     <string name="archive_importing">Restauration de la sauvegarde chiffrée…</string>
     <string name="archive_export_error">Impossible de préparer la sauvegarde chiffrée. Vos mesures restent sur ce téléphone.</string>
     <string name="archive_read_error">Impossible de vérifier le fichier ou le mot de passe. Aucune mesure restaurée.</string>
+    <string name="archive_capacity_error">Cette sauvegarde dépasse la limite de traitement actuelle d’Aloeil. Conservez le fichier d’origine. Vos mesures enregistrées restent inchangées.</string>
     <string name="archive_restore_error">Impossible de restaurer la sauvegarde. Les mesures déjà sur ce téléphone ont été conservées.</string>
     <string name="range_state_explain">Si l’appareil affiche une indication hors plage, choisissez le sens correspondant. N’estimez pas de nombre.</string>
     <string name="below_range">Sous la plage de l’appareil</string>
@@ -151,7 +152,7 @@
     <string name="csv_write_error">Impossible d’écrire le CSV. Si un fichier partiel a été créé, supprimez-le avant de réessayer.</string>
     <string name="csv_write_interrupted">L’enregistrement du CSV a été interrompu. Le fichier choisi est peut-être incomplet ; supprimez-le et enregistrez une nouvelle copie.</string>
     <string name="csv_share_error">Impossible d’ouvrir le choix de partage. Rien n’a été envoyé.</string>
-    <string name="csv_cache_disclosure">Le choix de partage utilise un CSV temporaire en texte clair dans le cache privé d’Aloeil. Aloeil programme sa suppression après une heure ; vous pouvez le supprimer plus tôt une fois lu par le destinataire. Les copies faites par l’application destinataire restent hors d’Aloeil.</string>
+    <string name="csv_cache_disclosure">Le partage crée un CSV temporaire en texte clair dans le cache privé d’Aloeil. Annuler le choix de partage ne le supprime pas immédiatement. Aloeil programme sa suppression après une heure ; Android peut retarder ce nettoyage. Vous pouvez le supprimer ici après avoir annulé ou une fois lu par le destinataire. Aloeil ne peut pas supprimer les copies faites par l’application destinataire.</string>
     <string name="csv_clear_cache">Supprimer le CSV temporaire de ce téléphone</string>
     <string name="csv_cache_cleared">Fichiers CSV temporaires supprimés de ce téléphone.</string>
     <string name="csv_cache_error">Impossible de supprimer les fichiers CSV temporaires. Réessayez.</string>
@@ -165,4 +166,7 @@
     <string name="recovery_reset_error">La réinitialisation a été interrompue. Les mesures locales sont peut-être déjà illisibles ou supprimées. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
     <string name="recovery_key_cleanup_error">Les mesures locales ont été supprimées, mais la clé de chiffrement n’a pas pu être effacée. Aucune sauvegarde n’a été importée. Réessayez ou quittez l’application.</string>
     <string name="recovery_draft_discarded">Un brouillon non enregistré et illisible a été supprimé. Les mesures déjà enregistrées ont été conservées.</string>
+    <string name="startup_retry_title">Aloeil n’a pas pu ouvrir les données locales</string>
+    <string name="startup_retry_body">La cause n’est pas encore connue. Les données locales n’ont pas été réinitialisées. Réessayez ; si le problème persiste, conservez votre sauvegarde et demandez de l’aide.</string>
+    <string name="startup_retry">Réessayer l’ouverture</string>
 </resources>

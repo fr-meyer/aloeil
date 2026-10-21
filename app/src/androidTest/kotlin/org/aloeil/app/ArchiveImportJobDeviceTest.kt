@@ -1,7 +1,11 @@
 package org.aloeil.app
 
+import androidx.activity.compose.setContent
+import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +22,20 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ArchiveImportJobDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun disposedUnownedBufferIsErased() {
+        val bytes = ByteArray(64) { 7 }
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.setContent { ArchiveBufferCleanup(bytes) }
+        }
+        compose.waitForIdle()
+        compose.activityRule.scenario.onActivity { activity ->
+            activity.setContent { Text("Synthetic cleanup complete") }
+        }
+        compose.waitForIdle()
+        check(bytes.all { it == 0.toByte() })
+    }
 
     @Test
     fun restoreCompletesAfterActivityRecreation() {
@@ -37,21 +55,26 @@ class ArchiveImportJobDeviceTest {
             }
             runBlocking { withTimeout(10_000) { started.await() } }
             var originalActivity = 0
+            val disposed = AtomicBoolean(false)
             compose.activityRule.scenario.onActivity { activity ->
                 originalActivity = System.identityHashCode(activity)
-                activity.recreate()
+                activity.setContent {
+                    ArchiveBufferCleanup(bytes, importOwner = job)
+                    DisposableEffect(Unit) { onDispose { disposed.set(true) } }
+                }
             }
+            compose.waitForIdle()
+            compose.activityRule.scenario.recreate()
             compose.waitUntil(timeoutMillis = 15_000) {
                 runCatching {
                     var recreated = false
                     compose.activityRule.scenario.onActivity { activity ->
                         recreated = System.identityHashCode(activity) != originalActivity
                     }
-                    recreated
+                    recreated && disposed.get()
                 }.getOrDefault(false)
             }
-            // Model the disposed screen's stale reference while restore owns it.
-            if (!job.owns(bytes)) archiveExportJob.scrubUnlessOwned(bytes)
+            // The same production effect used by ArchiveTransferScreen has disposed.
             check(bytes.all { it == 7.toByte() })
             release.complete(Unit)
             val finished = runBlocking {

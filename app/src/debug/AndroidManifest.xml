@@ -3,6 +3,7 @@
     <application>
         <activity
             android:name="org.aloeil.app.SyntheticCaptureActivity"
+            android:windowSoftInputMode="adjustResize"
             android:exported="false" />
     </application>
 </manifest>

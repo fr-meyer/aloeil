@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -31,14 +32,16 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.aloeil.app.data.ArchiveCodec
+import org.aloeil.app.data.ArchiveMaterializationLimitException
 import org.aloeil.app.data.ArchivePreview
+import org.aloeil.app.data.BoundedArchiveBuffer
 import org.aloeil.app.data.ReadingRepository
-import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 private enum class TransferStep {
@@ -46,6 +49,26 @@ private enum class TransferStep {
 }
 
 private const val MAX_ARCHIVE_FILE_BYTES = 16 * 1024 * 1024 + 64
+
+internal fun archiveErrorMessage(error: Throwable, fallback: Int): Int =
+    if (error is ArchiveMaterializationLimitException) R.string.archive_capacity_error else fallback
+
+/** Production disposal effect; transfer owners retain their buffers until completion. */
+@Composable
+internal fun ArchiveBufferCleanup(
+    bytes: ByteArray?,
+    importOwner: ArchiveImportJob = archiveImportJob,
+    exportOwner: ArchiveExportJob = archiveExportJob,
+) {
+    val currentBytes = rememberUpdatedState(bytes)
+    DisposableEffect(importOwner, exportOwner) {
+        onDispose {
+            currentBytes.value?.let { buffer ->
+                if (!importOwner.owns(buffer)) exportOwner.scrubUnlessOwned(buffer)
+            }
+        }
+    }
+}
 
 /** The Android document picker lets the user choose a destination; Aloeil has no upload permission. */
 @Composable
@@ -70,14 +93,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     // Never save the passphrase or archive bytes in Activity saved state.
     // A recreated picker result keeps only the chosen URI and asks for the secret again.
-    val currentArchiveBytes = rememberUpdatedState(archiveBytes)
-    DisposableEffect(Unit) {
-        onDispose {
-            currentArchiveBytes.value?.let { bytes ->
-                if (!archiveImportJob.owns(bytes)) archiveExportJob.scrubUnlessOwned(bytes)
-            }
-        }
-    }
+    ArchiveBufferCleanup(archiveBytes)
     LaunchedEffect(step, archiveBytes, activeImportId) {
         if (step == TransferStep.IMPORT_PREVIEW && archiveBytes == null && activeImportId == null) {
             preview = null
@@ -91,7 +107,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
     // screen, while the saved job ID lets a recreated screen show the final result.
     LaunchedEffect(activeExportId, archiveWriteState) {
         val id = activeExportId ?: return@LaunchedEffect
-        when (val state = archiveWriteState) {
+        // The collected snapshot can lag behind start(); the owner is authoritative.
+        when (val state = archiveExportJob.state.value) {
             is ArchiveWriteState.Writing -> if (state.id == id) busy = true
             is ArchiveWriteState.Finished -> if (state.id == id) {
                 activeExportId = null
@@ -113,7 +130,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
 
     LaunchedEffect(activeImportId, archiveImportState) {
         val id = activeImportId ?: return@LaunchedEffect
-        when (val state = archiveImportState) {
+        // Idle is an interruption only when the process-owned job is actually Idle.
+        when (val state = archiveImportJob.state.value) {
             is ArchiveImportState.Importing -> if (state.id == id) busy = true
             is ArchiveImportState.Finished -> if (state.id == id) {
                 busy = false
@@ -121,7 +139,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     restoredCount = state.added ?: 0
                     step = TransferStep.IMPORT_DONE
                 } else {
-                    error = R.string.archive_restore_error
+                    error = if (state.capacityExceeded) R.string.archive_capacity_error
+                        else R.string.archive_restore_error
                     step = TransferStep.IMPORT
                 }
                 activeImportId = null
@@ -178,7 +197,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 step = TransferStep.IMPORT_PREVIEW
             }.onFailure {
                 passphrase = ""
-                error = R.string.archive_read_error
+                error = archiveErrorMessage(it, R.string.archive_read_error)
                 step = TransferStep.IMPORT
             }
         }
@@ -258,7 +277,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     pendingExportUri = null
                     writeArchive(Uri.parse(selected), bytes)
                 }
-            }.onFailure { error = R.string.archive_export_error }
+            }.onFailure { error = archiveErrorMessage(it, R.string.archive_export_error) }
         }
     }
 
@@ -300,7 +319,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.EXPORT -> {
                 TransferHeading(R.string.archive_create)
                 Text(stringResource(R.string.archive_export_explain))
-                PassphraseField(passphrase) { input ->
+                PassphraseField(passphrase, enabled = !busy) { input ->
+                    if (busy) return@PassphraseField
                     if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
                         passphrase = input
                         error = null
@@ -325,7 +345,8 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             TransferStep.IMPORT -> {
                 TransferHeading(R.string.archive_restore)
                 Text(stringResource(R.string.archive_import_explain))
-                PassphraseField(passphrase) { input ->
+                PassphraseField(passphrase, enabled = !busy) { input ->
+                    if (busy) return@PassphraseField
                     if (input.length <= ArchiveCodec.MAX_PASSPHRASE_LENGTH) {
                         passphrase = input
                         error = null
@@ -337,7 +358,7 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                     busy || passphrase.isEmpty(),
                 ) {
                     val selected = pendingImportUri
-                    if (selected == null) openDocument.launch(arrayOf("*/*"))
+                    if (selected == null) openDocument.launch(arrayOf("application/octet-stream"))
                     else {
                         pendingImportUri = null
                         previewArchive(Uri.parse(selected))
@@ -377,14 +398,17 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 TransferButton(R.string.archive_done, busy, onBack)
             }
         }
-        error?.let { id ->
-            Text(
-                stringResource(id),
-                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+        error?.let { ArchiveErrorFeedback(it) }
     }
+}
+
+@Composable
+internal fun ArchiveErrorFeedback(message: Int) {
+    Text(
+        stringResource(message),
+        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive },
+        color = MaterialTheme.colorScheme.error,
+    )
 }
 
 @Composable
@@ -397,14 +421,16 @@ private fun TransferHeading(id: Int) {
 }
 
 @Composable
-private fun PassphraseField(value: String, onChange: (String) -> Unit) {
+private fun PassphraseField(value: String, enabled: Boolean, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onChange,
+        enabled = enabled,
         label = { Text(stringResource(R.string.archive_passphrase)) },
         visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().moveFocusOnTab(),
     )
 }
 
@@ -424,14 +450,17 @@ private fun TransferSecondary(id: Int, busy: Boolean, onClick: () -> Unit) {
     ) { Text(stringResource(id)) }
 }
 
-private fun readArchive(input: InputStream): ByteArray {
-    val output = ByteArrayOutputStream()
+internal fun readArchive(input: InputStream): ByteArray {
+    val output = BoundedArchiveBuffer(MAX_ARCHIVE_FILE_BYTES)
     val chunk = ByteArray(8192)
-    while (true) {
-        val count = input.read(chunk)
-        if (count < 0) break
-        require(output.size() + count <= MAX_ARCHIVE_FILE_BYTES) { "Archive is too large" }
-        output.write(chunk, 0, count)
+    try {
+        while (true) {
+            val count = input.read(chunk)
+            if (count < 0) break
+            output.write(chunk, 0, count)
+        }
+        return output.toByteArray()
+    } finally {
+        output.wipe()
     }
-    return output.toByteArray()
 }

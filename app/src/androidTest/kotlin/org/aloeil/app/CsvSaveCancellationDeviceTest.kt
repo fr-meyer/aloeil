@@ -4,6 +4,9 @@ import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityNodeInfo
 import android.content.Context
 import android.net.Uri
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -16,7 +19,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** A held save survives Back and Activity recreation; a later cancellation clears success. */
+/** Both an in-flight write and its success survive recreation; a new cancellation clears success. */
 @RunWith(AndroidJUnit4::class)
 class CsvSaveCancellationDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
@@ -69,6 +72,11 @@ class CsvSaveCancellationDeviceTest {
                 context.contentResolver.call(csvUri, "waiting", null, null)
                     ?.getBoolean("waiting") == true
             }
+            // The start frame must not turn a held write into an interruption.
+            compose.onNode(hasText(context.getString(R.string.csv_save)) and hasClickAction())
+                .assertIsNotEnabled()
+            compose.onNode(hasText(context.getString(R.string.csv_write_interrupted)))
+                .assertDoesNotExist()
             check(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
             compose.waitUntil(timeoutMillis = 10_000) {
                 compose.onAllNodes(hasText(context.getString(R.string.csv_disclosure)))
@@ -95,6 +103,10 @@ class CsvSaveCancellationDeviceTest {
                     compose.onAllNodes(hasText(context.getString(R.string.csv_disclosure)))
                         .fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onNode(hasText(context.getString(R.string.csv_save)) and hasClickAction())
+                .assertIsNotEnabled()
+            compose.onNode(hasText(context.getString(R.string.csv_write_interrupted)))
+                .assertDoesNotExist()
         } finally {
             context.contentResolver.call(csvUri, "release", null, null)
         }
@@ -104,12 +116,26 @@ class CsvSaveCancellationDeviceTest {
         val savedContent = context.contentResolver.openInputStream(csvUri)
             ?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
         check(savedContent?.contains("sitting") == true)
+        // Regression: a completed write used to lose its feedback on the next recreation.
+        compose.activityRule.scenario.recreate()
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodes(saved).fetchSemanticsNodes().isNotEmpty()
+        }
+        check(compose.onNode(saved).fetchSemanticsNode().config[SemanticsProperties.LiveRegion] ==
+            LiveRegionMode.Polite)
         tap(R.string.csv_save)
         compose.waitUntil(timeoutMillis = 15_000) {
             automation.rootInActiveWindow?.packageName?.toString() ==
                 instrumentation.context.packageName
         }
         check(automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK))
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodes(saved).fetchSemanticsNodes().isEmpty() &&
+                compose.onAllNodes(hasText(context.getString(R.string.csv_save)) and hasClickAction())
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        // A persisted notice must not resurrect after a new picker was canceled.
+        compose.activityRule.scenario.recreate()
         compose.waitUntil(timeoutMillis = 15_000) {
             compose.onAllNodes(saved).fetchSemanticsNodes().isEmpty() &&
                 compose.onAllNodes(hasText(context.getString(R.string.csv_save)) and hasClickAction())

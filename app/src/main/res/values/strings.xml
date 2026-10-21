@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Aloeil</string>
+    <string name="app_name" translatable="false">Aloeil</string>
     <string name="start_sitting">Start a sitting</string>
     <string name="resume_sitting">Resume the sitting</string>
     <string name="sitting_in_progress">Sitting in progress</string>
@@ -87,6 +87,7 @@
     <string name="archive_importing">Restoring encrypted backup…</string>
     <string name="archive_export_error">The encrypted backup could not be prepared. Your readings are still on this phone.</string>
     <string name="archive_read_error">The file or passphrase could not be verified. Nothing was restored.</string>
+    <string name="archive_capacity_error">This backup exceeds Aloeil’s current processing limit. Keep the original file. Your saved readings have not been changed.</string>
     <string name="archive_restore_error">The backup could not be restored. Readings already on this phone were kept.</string>
     <string name="range_state_explain">If the device showed a range message, choose the matching direction. Do not estimate a number.</string>
     <string name="below_range">Below device range</string>
@@ -152,7 +153,7 @@
     <string name="csv_write_error">Could not write the CSV. If a partial file was created, delete it before retrying.</string>
     <string name="csv_write_interrupted">The CSV save was interrupted. The selected file may be incomplete; delete it and save a new copy.</string>
     <string name="csv_share_error">Could not open the share chooser. Nothing was sent.</string>
-    <string name="csv_cache_disclosure">The share chooser uses a temporary plain-text CSV in Aloeil’s private cache. Aloeil schedules its deletion after one hour; you can clear it sooner once the recipient has read it. Copies made by the receiving app remain outside Aloeil.</string>
+    <string name="csv_cache_disclosure">Sharing creates a temporary plain-text CSV in Aloeil’s private cache. Canceling the chooser does not delete it immediately. Aloeil schedules deletion after one hour; Android may delay cleanup. You can clear it here after canceling or once the recipient has read it. Aloeil cannot delete copies made by the receiving app.</string>
     <string name="csv_clear_cache">Clear temporary CSV on this phone</string>
     <string name="csv_cache_cleared">Temporary CSV files cleared from this phone.</string>
     <string name="csv_cache_error">Could not clear the temporary CSV files. Try again.</string>
@@ -166,4 +167,7 @@
     <string name="recovery_reset_error">The reset was interrupted. Local readings may already be unreadable or deleted. No backup was imported. Try again or leave the app.</string>
     <string name="recovery_key_cleanup_error">Local readings were deleted, but the encryption key could not be cleared. No backup was imported. Try again or leave the app.</string>
     <string name="recovery_draft_discarded">An unreadable unsaved draft was removed. Any saved readings were kept.</string>
+    <string name="startup_retry_title">Aloeil could not open local data</string>
+    <string name="startup_retry_body">The cause is not yet known. Local data has not been reset. Retry opening the app; if the problem continues, keep your backup and ask for help.</string>
+    <string name="startup_retry">Retry opening</string>
 </resources>
