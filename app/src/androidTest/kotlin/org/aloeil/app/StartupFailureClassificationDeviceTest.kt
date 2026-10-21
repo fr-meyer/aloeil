@@ -3,6 +3,8 @@ package org.aloeil.app
 import android.content.Context
 import android.database.sqlite.SQLiteDiskIOException
 import android.database.sqlite.SQLiteDatabaseCorruptException
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,7 +17,9 @@ import java.io.IOException
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.aloeil.app.data.ArchiveSnapshotRows
 import org.aloeil.app.data.DraftCheckpoint
 import org.aloeil.app.data.Eye
@@ -38,6 +42,48 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class StartupFailureClassificationDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun replacedStartupRethrowsCancellationWithoutOverwritingSuccessfulAttempt() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ReadingDatabase::class.java).build()
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val state = CaptureUiState()
+        try {
+            val calls = AtomicInteger()
+            val dao = object : ReadingDao by db.readings() {
+                override suspend fun archiveSnapshot(): ArchiveSnapshotRows {
+                    if (calls.incrementAndGet() == 1) {
+                        entered.complete(Unit)
+                        withTimeout(10_000) { release.await() }
+                    }
+                    return db.readings().archiveSnapshot()
+                }
+            }
+            val repository = ReadingRepository(dao, SyntheticCipher())
+            val generation = mutableIntStateOf(0)
+            compose.setContent {
+                key(generation.intValue) {
+                    AloeilApp(repository, captureState = state)
+                }
+            }
+            runBlocking { withTimeout(10_000) { entered.await() } }
+            compose.runOnUiThread { generation.intValue += 1 }
+            compose.waitUntil(timeoutMillis = 10_000) {
+                compose.onAllNodes(hasText(context.getString(R.string.start_sitting)) and hasClickAction())
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+            release.complete(Unit)
+            compose.waitForIdle()
+            check(calls.get() >= 2)
+            check(state.initialized && state.stepState.value == Step.START)
+        } finally {
+            release.complete(Unit)
+            state.disposeEphemeral()
+            db.close()
+        }
+    }
 
     @Test
     fun lazyRoomFailureRetriesWithoutResetOrWritableStart() {
