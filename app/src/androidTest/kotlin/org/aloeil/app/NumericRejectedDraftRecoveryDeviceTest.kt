@@ -93,7 +93,15 @@ class NumericRejectedDraftRecoveryDeviceTest {
         fun waitForDraft(rejected: Boolean, input: String) {
             compose.waitUntil(timeoutMillis = 10_000) {
                 runBlocking {
-                    repository.recoverDraft()?.first?.let {
+                    // Inspect the committed encrypted row directly. recoverDraft() deliberately
+                    // waits behind this repository's writer mutex, while the held-write case
+                    // pauses only after Room has committed the row under test.
+                    database.readings().draft()?.let { row ->
+                        cipher.withDecryptedPayload(
+                            SealedPayload(row.nonce, row.ciphertext), ReadingAad.draft(),
+                            DraftCodec::decode,
+                        )
+                    }?.let {
                         it.inputRejected == rejected && it.input == input && it.step == inputStep.name
                     } == true
                 }
