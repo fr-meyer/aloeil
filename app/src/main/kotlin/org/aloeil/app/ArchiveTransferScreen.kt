@@ -26,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -374,9 +375,23 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
                 TransferHeading(R.string.archive_review)
                 val counts = preview
                 if (counts != null) {
-                    Text(stringResource(R.string.archive_contents, counts.readingCount, counts.sittingCount))
+                    val readings = pluralStringResource(
+                        R.plurals.archive_reading_count,
+                        counts.readingCount,
+                        counts.readingCount,
+                    )
+                    val sittings = pluralStringResource(
+                        R.plurals.archive_sitting_count,
+                        counts.sittingCount,
+                        counts.sittingCount,
+                    )
+                    Text(stringResource(R.string.archive_contents, readings, sittings))
                     if (counts.deletedCount > 0) {
-                        Text(stringResource(R.string.archive_deleted_markers, counts.deletedCount))
+                        Text(pluralStringResource(
+                            R.plurals.archive_deleted_markers,
+                            counts.deletedCount,
+                            counts.deletedCount,
+                        ))
                     }
                 }
                 Text(stringResource(
@@ -394,7 +409,11 @@ internal fun ArchiveTransferScreen(repository: ReadingRepository, onBack: () -> 
             }
             TransferStep.IMPORT_DONE -> {
                 TransferHeading(R.string.archive_restore_done)
-                Text(stringResource(R.string.archive_added, restoredCount))
+                Text(pluralStringResource(
+                    R.plurals.archive_added,
+                    restoredCount,
+                    restoredCount,
+                ))
                 TransferButton(R.string.archive_done, busy, onBack)
             }
         }
