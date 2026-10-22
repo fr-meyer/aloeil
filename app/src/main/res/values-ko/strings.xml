@@ -70,11 +70,20 @@
     <string name="archive_import_explain">Aloeil 백업 파일을 선택하고 암호를 입력하세요. 확인하기 전에는 아무것도 변경되지 않습니다.</string>
     <string name="archive_choose_file">백업 파일 선택</string>
     <string name="archive_review">백업 확인</string>
-    <string name="archive_contents">%1$d개 측정값, %2$d개 기록 세션</string>
+    <string name="archive_contents">%1$s, %2$s</string>
+    <!-- Korean counter phrases use the CLDR "other" category for every quantity. -->
+    <plurals name="archive_reading_count">
+        <item quantity="other">측정값 %1$d개</item>
+    </plurals>
+    <plurals name="archive_sitting_count">
+        <item quantity="other">기록 세션 %1$d개</item>
+    </plurals>
     <string name="archive_restore_explain">복원은 누락된 측정값을 추가합니다. 이 휴대전화의 기존 측정값은 유지됩니다.</string>
     <string name="archive_confirm_restore">측정값 복원</string>
     <string name="archive_restore_done">복원 완료</string>
-    <string name="archive_added">새 측정값 %1$d개를 추가했습니다. 기존 측정값은 유지되었습니다.</string>
+    <plurals name="archive_added">
+        <item quantity="other">새 측정값 %1$d개를 추가했습니다. 기존 측정값은 유지되었습니다.</item>
+    </plurals>
     <string name="archive_passphrase_long">백업 암호는 1,024자 이하여야 합니다.</string>
     <string name="archive_passphrase_short">백업 암호는 12자 이상이어야 합니다.</string>
     <string name="archive_reenter_passphrase">선택한 파일로 계속하려면 암호를 다시 입력하세요. 전송된 측정값은 없습니다.</string>
@@ -107,7 +116,9 @@
     <string name="deleted_on_phone">이 휴대전화에서 측정값 삭제됨</string>
     <string name="deleted_backup_warning">이전 백업 파일에는 이 측정값이 남아 있을 수 있습니다. 새 백업에는 이전 파일이 여기로 다시 복원하지 못하게 하는 표시가 포함됩니다.</string>
     <string name="error_delete">측정값을 삭제하지 못했습니다. 다시 시도하세요.</string>
-    <string name="archive_deleted_markers">이 백업에는 삭제된 측정값 표시 %1$d개도 포함됩니다. 이전 파일에서 해당 측정값을 다시 복원하지 못하게 합니다. 이 복원으로 이 휴대전화의 기존 측정값은 삭제되지 않습니다.</string>
+    <plurals name="archive_deleted_markers">
+        <item quantity="other">이 백업에는 삭제된 측정값 표시 %1$d개도 포함됩니다. 이전 파일에서 해당 측정값을 다시 복원하지 못하게 합니다. 이 복원으로 이 휴대전화의 기존 측정값은 삭제되지 않습니다.</item>
+    </plurals>
     <string name="history_title">측정 기록</string>
     <string name="history_load_error">기록을 불러오지 못했습니다. 다시 시도하세요.</string>
     <string name="history_empty">저장된 측정값이 없습니다.</string>
@@ -117,11 +128,15 @@
     <string name="history_to_date">종료 날짜</string>
     <string name="history_date_hint">YYYY-MM-DD 형식. 날짜는 각 측정값의 기록 당시 시간대를 사용합니다.</string>
     <string name="history_invalid_date">YYYY-MM-DD 형식으로 올바른 날짜 범위를 입력하세요. 날짜 필터는 적용되지 않았습니다.</string>
-    <string name="history_count">측정값 %1$d개</string>
+    <plurals name="history_count">
+        <item quantity="other">측정값 %1$d개</item>
+    </plurals>
     <string name="history_no_match">필터에 맞는 측정값이 없습니다.</string>
     <string name="history_list_title">측정값 목록</string>
     <string name="history_graph_title">기록된 숫자 측정값</string>
-    <string name="history_range_list_only">기기 측정 범위 상태 %1$d개는 목록에만 표시됩니다.</string>
+    <plurals name="history_range_list_only">
+        <item quantity="other">기기 측정 범위 상태 %1$d개는 목록에만 표시됩니다.</item>
+    </plurals>
     <string name="history_graph_empty">그래프로 표시할 숫자 측정값이 없습니다.</string>
     <string name="history_graph_legend">왼쪽 눈: 원형 점 %1$d개. 오른쪽 눈: 사각형 점 %2$d개.</string>
     <string name="history_graph_value_span">표시된 값: %1$s~%2$s mmHg</string>
@@ -139,7 +154,9 @@
     <string name="history_show_more">측정값 50개 더 보기</string>
     <string name="csv_title">CSV로 측정값 내보내기</string>
     <string name="csv_disclosure">CSV는 암호화되지 않은 텍스트입니다. 현재의 모든 측정값, ID, 날짜, 시간대, 값과 메모가 포함됩니다. 저장 위치나 수신자는 Aloeil이 철회할 수 없는 사본을 보관할 수 있습니다. 내보내기 전에 기록을 확인하세요.</string>
-    <string name="csv_count">현재 측정값 %1$d개를 내보냅니다.</string>
+    <plurals name="csv_count">
+        <item quantity="other">현재 측정값 %1$d개를 내보냅니다.</item>
+    </plurals>
     <string name="csv_fields">현재 측정값마다 한 행이 있으며 기록 세션 날짜, 눈, 정확한 값 또는 기기 측정 범위 상태, 메모와 수정 버전이 포함됩니다. 삭제된 값과 이전 수정 버전은 제외됩니다.</string>
     <string name="csv_sample_title">파일의 처음 세 측정값:</string>
     <string name="csv_backup_reminder">수정 기록까지 완전히 복원하려면 암호화된 백업을 사용하세요.</string>
