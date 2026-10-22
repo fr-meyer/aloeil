@@ -26,7 +26,8 @@ class SyntheticProviderAccessDeviceTest {
         ) ?: error("Synthetic fixture provider unavailable")
         check(provider.exported)
         check(provider.grantUriPermissions)
-        check(provider.permission == fixturePermission)
+        check(provider.readPermission == fixturePermission)
+        check(provider.writePermission == fixturePermission)
         val permission = packages.getPermissionInfo(fixturePermission, 0)
         check(permission.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE ==
             PermissionInfo.PROTECTION_SIGNATURE)
