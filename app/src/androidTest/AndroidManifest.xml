@@ -19,6 +19,7 @@
             android:name="org.aloeil.app.SyntheticCsvProvider"
             android:authorities="org.aloeil.app.test.syntheticcsv"
             android:exported="true"
-            android:grantUriPermissions="true" />
+            android:grantUriPermissions="true"
+            android:permission="org.aloeil.app.test.permission.ACCESS_SYNTHETIC_CSV_PROVIDER" />
     </application>
 </manifest>

@@ -149,7 +149,9 @@ class CsvSharePreparationDeviceTest {
         val clear = hasText(context.getString(R.string.csv_clear_cache)) and hasClickAction()
         installScreen()
         compose.waitUntil(timeoutMillis = 10_000) {
-            compose.onAllNodes(hasText(context.getString(R.string.csv_count, 0)))
+            compose.onAllNodes(hasText(context.resources.getQuantityString(
+                R.plurals.csv_count, 0, 0,
+            )))
                 .fetchSemanticsNodes().isNotEmpty()
         }
         val worker = owner.launch {
@@ -174,7 +176,9 @@ class CsvSharePreparationDeviceTest {
             }
             installScreen()
             compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.csv_count, 0)))
+                compose.onAllNodes(hasText(context.resources.getQuantityString(
+                    R.plurals.csv_count, 0, 0,
+                )))
                     .fetchSemanticsNodes().isNotEmpty()
             }
             compose.onNode(clear).assertDoesNotExist()

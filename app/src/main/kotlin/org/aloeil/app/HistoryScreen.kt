@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -201,7 +202,11 @@ internal fun HistoryScreen(
         Text(stringResource(R.string.history_invalid_date), color = MaterialTheme.colorScheme.error,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Assertive })
     }
-    Text(stringResource(R.string.history_count, filtered.readings.size))
+    Text(pluralStringResource(
+        R.plurals.history_count,
+        filtered.readings.size,
+        filtered.readings.size,
+    ))
     if (filtered.readings.isEmpty()) {
         Text(stringResource(R.string.history_no_match))
     } else {
@@ -243,7 +248,11 @@ private fun ReadingGraph(numeric: List<Reading>, rangeCount: Int) {
     Text(stringResource(R.string.history_graph_title),
         modifier = Modifier.semantics { heading() },
         style = MaterialTheme.typography.titleLarge)
-    if (rangeCount > 0) Text(stringResource(R.string.history_range_list_only, rangeCount))
+    if (rangeCount > 0) Text(pluralStringResource(
+        R.plurals.history_range_list_only,
+        rangeCount,
+        rangeCount,
+    ))
     if (numeric.isEmpty()) {
         Text(stringResource(R.string.history_graph_empty))
         return

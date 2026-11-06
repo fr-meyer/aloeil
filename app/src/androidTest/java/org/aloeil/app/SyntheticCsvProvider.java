@@ -18,7 +18,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/** Test APK only: writable synthetic destination for CSV cancellation coverage. */
+/**
+ * Test APK only: writable synthetic destination for CSV cancellation coverage.
+ *
+ * <p>The manifest enforces a debug-only signature permission. This exact-package check remains as
+ * defense in depth for callers that share the test signing certificate.</p>
+ */
 public final class SyntheticCsvProvider extends ContentProvider {
     private static volatile CountDownLatch writeGate;
     private static final AtomicBoolean waitingForRelease = new AtomicBoolean(false);

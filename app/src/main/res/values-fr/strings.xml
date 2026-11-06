@@ -70,11 +70,22 @@
     <string name="archive_import_explain">Choisissez un fichier de sauvegarde Aloeil et saisissez son mot de passe. Rien ne change avant votre confirmation.</string>
     <string name="archive_choose_file">Choisir le fichier de sauvegarde</string>
     <string name="archive_review">Vérifier la sauvegarde</string>
-    <string name="archive_contents">%1$d mesures dans %2$d séances</string>
+    <string name="archive_contents">%1$s dans %2$s</string>
+    <plurals name="archive_reading_count">
+        <item quantity="one">%1$d mesure</item>
+        <item quantity="other">%1$d mesures</item>
+    </plurals>
+    <plurals name="archive_sitting_count">
+        <item quantity="one">%1$d séance</item>
+        <item quantity="other">%1$d séances</item>
+    </plurals>
     <string name="archive_restore_explain">La restauration ajoute les mesures manquantes. Les mesures déjà sur ce téléphone sont conservées.</string>
     <string name="archive_confirm_restore">Restaurer les mesures</string>
     <string name="archive_restore_done">Restauration terminée</string>
-    <string name="archive_added">%1$d nouvelles mesures ajoutées. Les mesures existantes ont été conservées.</string>
+    <plurals name="archive_added">
+        <item quantity="one">%1$d nouvelle mesure ajoutée. Les mesures existantes ont été conservées.</item>
+        <item quantity="other">%1$d nouvelles mesures ajoutées. Les mesures existantes ont été conservées.</item>
+    </plurals>
     <string name="archive_passphrase_long">Utilisez au maximum 1 024 caractères pour le mot de passe de sauvegarde.</string>
     <string name="archive_passphrase_short">Utilisez au moins 12 caractères pour le mot de passe de sauvegarde.</string>
     <string name="archive_reenter_passphrase">Saisissez de nouveau votre mot de passe pour continuer avec le fichier sélectionné. Aucune mesure n’a été transférée.</string>
@@ -107,7 +118,10 @@
     <string name="deleted_on_phone">Mesure supprimée de ce téléphone</string>
     <string name="deleted_backup_warning">D’anciens fichiers de sauvegarde peuvent encore contenir cette mesure. Une nouvelle sauvegarde inclut un repère qui empêche les anciens fichiers de la restaurer ici.</string>
     <string name="error_delete">Impossible de supprimer la mesure. Réessayez.</string>
-    <string name="archive_deleted_markers">Cette sauvegarde contient aussi %1$d repères de mesures supprimées. Ils empêchent les anciens fichiers de restaurer ces mesures ; cette restauration ne supprimera pas de mesure déjà présente sur ce téléphone.</string>
+    <plurals name="archive_deleted_markers">
+        <item quantity="one">Cette sauvegarde contient aussi %1$d repère de mesure supprimée. Il empêche un ancien fichier de restaurer cette mesure ; cette restauration ne supprimera pas de mesure déjà présente sur ce téléphone.</item>
+        <item quantity="other">Cette sauvegarde contient aussi %1$d repères de mesures supprimées. Ils empêchent les anciens fichiers de restaurer ces mesures ; cette restauration ne supprimera pas de mesure déjà présente sur ce téléphone.</item>
+    </plurals>
     <string name="history_title">Historique des mesures</string>
     <string name="history_load_error">Impossible de charger l’historique. Réessayez.</string>
     <string name="history_empty">Aucune mesure enregistrée.</string>
@@ -117,11 +131,17 @@
     <string name="history_to_date">Date de fin</string>
     <string name="history_date_hint">AAAA-MM-JJ ; les dates utilisent le fuseau enregistré de chaque mesure.</string>
     <string name="history_invalid_date">Saisissez des dates valides au format AAAA-MM-JJ dans l’ordre. Aucun filtre de date n’a été appliqué.</string>
-    <string name="history_count">%1$d mesures</string>
+    <plurals name="history_count">
+        <item quantity="one">%1$d mesure</item>
+        <item quantity="other">%1$d mesures</item>
+    </plurals>
     <string name="history_no_match">Aucune mesure ne correspond à ces filtres.</string>
     <string name="history_list_title">Liste des mesures</string>
     <string name="history_graph_title">Mesures numériques enregistrées</string>
-    <string name="history_range_list_only">%1$d états hors plage de l’appareil figurent uniquement dans la liste.</string>
+    <plurals name="history_range_list_only">
+        <item quantity="one">%1$d état hors plage de l’appareil figure uniquement dans la liste.</item>
+        <item quantity="other">%1$d états hors plage de l’appareil figurent uniquement dans la liste.</item>
+    </plurals>
     <string name="history_graph_empty">Aucune mesure numérique à représenter.</string>
     <string name="history_graph_legend">Œil gauche : %1$d points ronds. Œil droit : %2$d points carrés.</string>
     <string name="history_graph_value_span">Valeurs affichées : de %1$s à %2$s mmHg</string>
@@ -139,7 +159,10 @@
     <string name="history_show_more">Afficher 50 mesures de plus</string>
     <string name="csv_title">Exporter les mesures en CSV</string>
     <string name="csv_disclosure">Le CSV est en texte clair. Il contient toutes les mesures actuelles, y compris les identifiants, dates, fuseaux horaires, valeurs et notes. Le destinataire peut conserver une copie qu’Aloeil ne peut pas révoquer. Vérifiez l’historique avant d’exporter.</string>
-    <string name="csv_count">%1$d mesures actuelles seront exportées.</string>
+    <plurals name="csv_count">
+        <item quantity="one">%1$d mesure actuelle sera exportée.</item>
+        <item quantity="other">%1$d mesures actuelles seront exportées.</item>
+    </plurals>
     <string name="csv_fields">Le fichier contient une ligne par mesure actuelle, avec les dates de séance, l’œil, la valeur exacte ou l’état hors plage, la note et la révision. Les mesures supprimées et les anciennes corrections sont omises.</string>
     <string name="csv_sample_title">Trois premières mesures du fichier :</string>
     <string name="csv_backup_reminder">Utilisez la sauvegarde chiffrée pour une copie complète et restaurable avec l’historique des corrections.</string>

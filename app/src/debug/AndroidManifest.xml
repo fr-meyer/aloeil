@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Test-only capability. Release builds neither declare nor request it. -->
+    <permission
+        android:name="org.aloeil.app.test.permission.ACCESS_SYNTHETIC_CSV_PROVIDER"
+        android:protectionLevel="signature" />
+    <uses-permission
+        android:name="org.aloeil.app.test.permission.ACCESS_SYNTHETIC_CSV_PROVIDER" />
+
     <application>
         <activity
             android:name="org.aloeil.app.SyntheticCaptureActivity"

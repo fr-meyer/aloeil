@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -186,7 +187,11 @@ internal fun CsvExportScreen(repository: ReadingRepository, onBack: () -> Unit) 
     if (data == null) {
         if (error == null) Text(stringResource(R.string.loading))
     } else {
-        Text(stringResource(R.string.csv_count, data.first.size))
+        Text(pluralStringResource(
+            R.plurals.csv_count,
+            data.first.size,
+            data.first.size,
+        ))
         Text(stringResource(R.string.csv_fields))
         if (data.first.isNotEmpty()) {
             Text(stringResource(R.string.csv_sample_title))

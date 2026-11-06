@@ -67,7 +67,9 @@ class HistoryDateKeyboardDeviceTest {
             fromField.performScrollTo().performClick().performTextInput("2026-01-01")
             toField.performScrollTo().performClick().performTextInput("2026-01-01")
             compose.waitUntil(timeoutMillis = 10_000) {
-                compose.onAllNodes(hasText(context.getString(R.string.history_count, 1)))
+                compose.onAllNodes(hasText(context.resources.getQuantityString(
+                    R.plurals.history_count, 1, 1,
+                )))
                     .fetchSemanticsNodes().isNotEmpty()
             }
             fromField.performScrollTo().performClick()

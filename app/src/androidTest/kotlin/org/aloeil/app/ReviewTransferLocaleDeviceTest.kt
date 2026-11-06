@@ -136,10 +136,10 @@ class ReviewTransferLocaleDeviceTest {
 
             tap(R.string.history_title)
             heading(R.string.history_title)
-            waitFor(hasText(localized.getString(R.string.history_count, 2)))
+            waitFor(hasText(localized.resources.getQuantityString(R.plurals.history_count, 2, 2)))
             tap(R.string.left_eye)
             action(R.string.left_eye).assertIsSelected()
-            waitFor(hasText(localized.getString(R.string.history_count, 1)))
+            waitFor(hasText(localized.resources.getQuantityString(R.plurals.history_count, 1, 1)))
             val reading = hasText(localized.getString(R.string.left_eye) + ": " +
                 localized.getString(R.string.numeric_reading, "12.3")) and hasClickAction()
             waitFor(reading)
